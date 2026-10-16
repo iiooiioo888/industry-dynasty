@@ -94,16 +94,28 @@ function extractionRecipeFor(kind: string): RecipeId | null {
 
 /**
  * 選定要經營的礦脈種類。
- * `extract-iron` 需要 `iron-vein` 地塊，配錯礦脈會被 `recipeBlockReason` 擋下，
- * 所以先決定礦脈、再找地 —— 這也是玩家在 UI 上必須做的選擇。
+ *
+ * `extract-*` 都綁定礦脈，配錯會被 `recipeBlockReason` 擋下，所以先決定礦脈再找地。
+ *
+ * **順序刻意以「產出可販售」優先**：五種礦脈中只有鐵脈（原礦）與樹脂沼（樹脂）
+ * 的產出可賣，其餘三種必須再加工。先到先得會挑到無法變現的礦脈，
+ * 於是工廠一直生產卻沒有收入 —— 這正是先前機器人虧損的根因。
  */
 const PREFERRED_RESOURCE_ORDER = [
-  'iron-vein',
-  'copper-shale',
+  'iron-vein', // 原礦，可直接賣，單價最高
+  'resin-bog', // 樹脂，可直接賣
+  'copper-shale', // 以下需加工才能變現
   'quartz-sand',
-  'resin-bog',
   'coal-seam',
 ] as const;
+
+/** 只保留「開採產出可販售」的礦脈，供需要穩定收入的策略使用。 */
+function sellableVeinKinds(): string[] {
+  return PREFERRED_RESOURCE_ORDER.filter((kind) => {
+    const recipeId = extractionRecipeFor(kind);
+    return recipeId !== null && ITEMS[RECIPES[recipeId].outputItemId].sellable;
+  });
+}
 
 function pickResourceKinds(
   state: WorldState,
@@ -116,17 +128,29 @@ function pickResourceKinds(
       return [kind];
     }
   }
+  const available = (kind: string): boolean =>
+    state.map.parcels.some(
+      (p) => p.role === 'land' && p.ownerId === null && p.resource.kind === kind,
+    );
+
   if (depth > 0) {
     // 深度經營需要「一條供應鏈」：基礎零件要 2 原礦 + 1 樹脂，
     // 所以至少要有鐵脈與樹脂沼各一座，其餘工廠才能加工。
-    return ['iron-vein', 'resin-bog'];
+    // 若地圖上缺其中一種，就退回該深度能用的可販售礦脈。
+    const wanted = (['iron-vein', 'resin-bog'] as const).filter(available);
+    if (wanted.length > 0) {
+      return [...wanted];
+    }
   }
-  const single = PREFERRED_RESOURCE_ORDER.find((kind) =>
-    state.map.parcels.some(
-      (p) => p.role === 'land' && p.ownerId === null && p.resource.kind === kind,
-    ),
-  );
-  return single ? [single] : [];
+
+  // 只經營可販售的礦脈；先鐵脈（單價最高）再樹脂沼
+  const sellable = sellableVeinKinds().filter(available);
+  if (sellable.length > 0) {
+    return [sellable[0]!];
+  }
+  // 地圖上沒有可販售礦脈時才退而求其次（此時任何開採都無法變現）
+  const fallback = PREFERRED_RESOURCE_ORDER.find(available);
+  return fallback ? [fallback] : [];
 }
 
 /** 目前持有地塊中各礦脈的數量。 */

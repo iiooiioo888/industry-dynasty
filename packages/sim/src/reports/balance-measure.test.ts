@@ -13,14 +13,16 @@ import { BALANCE } from '../balance/targets.js';
  * 完全不經過配方、庫存與運費，因此量到的策略排名與實際玩法無關。
  */
 describe('模擬器與通關條件的對齊', () => {
-  it('模擬器預設參數與實際出貨情境仍不一致（已知落差，但不影響通關判定）', () => {
-    expect(DEFAULT_SIMULATION.mapWidth).not.toBe(DEFAULT_WORLD_CONFIG.mapWidth);
-    expect(DEFAULT_SIMULATION.mapHeight).not.toBe(DEFAULT_WORLD_CONFIG.mapHeight);
-    expect(DEFAULT_SIMULATION.horizon).not.toBe(DEFAULT_SCENARIO.maxDays);
-    expect(DEFAULT_SIMULATION.startingCash).not.toBe(DEFAULT_WORLD_CONFIG.startingCash);
+  it('模擬器預設參數已對齊實際出貨情境', () => {
+    // 先前預設是 6×5 / horizon 18 / $50,000，與玩家真正玩到的情境不同，
+    // 所以 DataReport 描述的是另一個局面。現在直接讀出貨常數，兩者不會再漂移。
+    expect(DEFAULT_SIMULATION.mapWidth).toBe(DEFAULT_WORLD_CONFIG.mapWidth);
+    expect(DEFAULT_SIMULATION.mapHeight).toBe(DEFAULT_WORLD_CONFIG.mapHeight);
+    expect(DEFAULT_SIMULATION.horizon).toBe(DEFAULT_SCENARIO.maxDays);
+    expect(DEFAULT_SIMULATION.startingCash).toBe(DEFAULT_WORLD_CONFIG.startingCash);
     console.log(
-      `模擬器 ${DEFAULT_SIMULATION.mapWidth}×${DEFAULT_SIMULATION.mapHeight} / horizon ${DEFAULT_SIMULATION.horizon} / $${DEFAULT_SIMULATION.startingCash}` +
-        `  vs  出貨 ${DEFAULT_WORLD_CONFIG.mapWidth}×${DEFAULT_WORLD_CONFIG.mapHeight} / ${DEFAULT_SCENARIO.maxDays} 天 / $${DEFAULT_WORLD_CONFIG.startingCash}`,
+      `模擬器 ${DEFAULT_SIMULATION.mapWidth}×${DEFAULT_SIMULATION.mapHeight} / horizon ${DEFAULT_SIMULATION.horizon}` +
+        ` / $${DEFAULT_SIMULATION.startingCash}  ==  出貨情境`,
     );
   });
 

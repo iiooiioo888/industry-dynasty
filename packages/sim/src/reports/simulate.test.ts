@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import { runDataReport, runSimulatedGames } from './simulate.js';
+import { DEFAULT_SCENARIO } from '../sales/scenario.js';
 import type { SimRosterEntry } from './types.js';
 
 const cluster = (id: string): SimRosterEntry => ({
@@ -90,7 +91,8 @@ describe('模擬對局', () => {
     expect(report.bankruptcyRate).toBeLessThanOrEqual(1);
     expect(report.monopoly.tendency).toBeGreaterThan(0);
     expect(report.monopoly.tendency).toBeLessThanOrEqual(1);
-    expect(report.parameters.horizon).toBe(18);
+    // 預設參數現在對齊出貨情境，而非先前的 6×5 / horizon 18
+    expect(report.parameters.horizon).toBe(DEFAULT_SCENARIO.maxDays);
     expect(report.parameters.rosterSize).toBe(4);
   });
 });

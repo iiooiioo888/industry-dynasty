@@ -1,4 +1,4 @@
-﻿import { applyWorldAction } from '../world/reducer.js';
+import { applyWorldAction } from '../world/reducer.js';
 import { DEFAULT_WORLD_CONFIG } from '../world/config.js';
 import { createInitialWorld } from '../world/create-world.js';
 import { getPlayerHoldings, type Player, type WorldState } from '../world/state.js';
@@ -27,13 +27,20 @@ export const DEFAULT_ROSTER: readonly SimRosterEntry[] = [
   { id: 'bot-random', name: STRATEGY_LABEL.random, strategy: 'random' },
 ];
 
+/**
+ * 模擬器的預設參數，**對齊實際出貨情境**。
+ *
+ * 先前預設是 6×5 / horizon 18 / $50,000，與玩家真正玩到的
+ * 16×12 / 25 天 / $100,000 不同，因此 `DataReport` 描述的是另一個局面，
+ * 不能用來回答「玩家能不能過關」。改為直接讀出貨常數，兩者不會再漂移。
+ */
 export const DEFAULT_SIMULATION: ResolvedSimulation = {
   gameCount: 24,
   seed: 20_261_016,
-  horizon: 18,
-  mapWidth: 6,
-  mapHeight: 5,
-  startingCash: 50_000,
+  horizon: DEFAULT_SCENARIO.maxDays,
+  mapWidth: DEFAULT_WORLD_CONFIG.mapWidth,
+  mapHeight: DEFAULT_WORLD_CONFIG.mapHeight,
+  startingCash: DEFAULT_WORLD_CONFIG.startingCash,
   roster: DEFAULT_ROSTER,
 };
 
