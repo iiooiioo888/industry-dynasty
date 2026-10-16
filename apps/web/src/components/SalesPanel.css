@@ -64,3 +64,14 @@
 .sys-btn.full {
   width: 100%;
 }
+
+.sales-block-reason {
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #ffb4b4;
+  background: #2a1515;
+  border: 1px solid #6a3030;
+  border-radius: 3px;
+}

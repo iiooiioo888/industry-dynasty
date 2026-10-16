@@ -6,9 +6,10 @@ import {
   findOfferById,
   generateNpcBuyOffers,
 } from '../sales/index.js';
+import { resolveShipParcel } from '../sales/ship-route.js';
 import type { ParcelId } from '../types/map.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
-import { findParcel, type Player, type WorldState } from './state.js';
+import { findParcel, getPlayerHoldings, type Player, type WorldState } from './state.js';
 import { applyTaxTickWithPnl } from './day-reducer.js';
 
 const MAINTENANCE_PER_FACTORY = 250;
@@ -20,9 +21,15 @@ export function applySellToNpc(
   shipFromParcelId: ParcelId,
 ): WorldState {
   const player = state.players[state.localPlayerId];
-  const parcel = findParcel(state, shipFromParcelId);
   const offer = findOfferById(state.npcBuyOffers, offerId);
-  if (!player || !parcel || !offer) {
+  if (!player || !offer) {
+    return state;
+  }
+
+  const holdings = getPlayerHoldings(state, player.id);
+  const preferred = findParcel(state, shipFromParcelId);
+  const parcel = resolveShipParcel(holdings, preferred);
+  if (!parcel) {
     return state;
   }
 

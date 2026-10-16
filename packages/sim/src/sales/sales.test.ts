@@ -29,6 +29,33 @@ describe('銷售與運輸', () => {
     expect(far.netPerUnit).toBeLessThan(near.netPerUnit);
   });
 
+  it('最遠角土地仍可售出樹脂（港價 + 貨值加權運輸）', () => {
+    const offer = generateNpcBuyOffers(0).find((o) => o.itemId === 'resin')!;
+    const far = quoteSale(offer, parcelAt(0, 0));
+    expect(far.netPerUnit).toBeGreaterThan(0);
+  });
+
+  it('遠距土地可透過 reducer 完成 NPC 銷售', () => {
+    let state = createInitialWorld();
+    const parcelId = parcelIdFromCoords(0, 0);
+    const lot = state.auctionLots.find((l) => l.parcelId.value === parcelId.value)!;
+    state = applyWorldAction(state, { type: 'BID', parcelId, amount: lot.minPrice });
+    state = applyWorldAction(state, { type: 'SETTLE_AUCTION', parcelId });
+
+    const offer = state.npcBuyOffers.find((o) => o.itemId === 'raw-ore')!;
+    const cashBefore = state.players['player-1'].cash;
+
+    state = applyWorldAction(state, {
+      type: 'SELL_TO_NPC',
+      offerId: offer.id,
+      quantity: 2,
+      shipFromParcelId: parcelId,
+    });
+
+    expect(getItemQty(state.inventories['player-1'], 'raw-ore')).toBe(22);
+    expect(state.players['player-1'].cash).toBeGreaterThan(cashBefore);
+  });
+
   it('賣給 NPC 會扣庫存並記帳收入與運輸', () => {
     let state = createInitialWorld();
     const offer = state.npcBuyOffers.find((o) => o.itemId === 'basic-part')!;
@@ -80,7 +107,7 @@ describe('損益與通關', () => {
 });
 
 describe('運輸常數', () => {
-  it('TRANSPORT_RATE_PER_TILE 為正', () => {
-    expect(TRANSPORT_RATE_PER_TILE).toBeGreaterThan(0);
+  it('TRANSPORT_RATE_PER_TILE 已自 8 調降', () => {
+    expect(TRANSPORT_RATE_PER_TILE).toBe(3);
   });
 });

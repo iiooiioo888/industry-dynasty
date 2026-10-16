@@ -1,21 +1,22 @@
 import { getItemQty, removeItem, type PlayerStock } from '../production/items.js';
 import type { Parcel } from '../types/map.js';
 import type { NpcBuyOffer } from './market.js';
-import { regionalUnitPrice, transportCostPerUnit } from './market.js';
+import { MARKET_HUB } from './market.js';
 
-export const TRANSPORT_RATE_PER_TILE = 8;
+const MARKET_HUB_LABEL = `${MARKET_HUB.x},${MARKET_HUB.y}`;
+import {
+  quoteShipRoute,
+  TRANSPORT_RATE_PER_TILE,
+  transportCostPerUnit,
+  type ShipRouteQuote,
+} from './ship-route.js';
 
-export interface SellQuote {
-  readonly unitPrice: number;
-  readonly transportPerUnit: number;
-  readonly netPerUnit: number;
-}
+export { TRANSPORT_RATE_PER_TILE, transportCostPerUnit };
+
+export type SellQuote = ShipRouteQuote;
 
 export function quoteSale(offer: NpcBuyOffer, parcel: Parcel): SellQuote {
-  const unitPrice = regionalUnitPrice(offer.unitPrice, offer.floorPrice, parcel);
-  const transportPerUnit = transportCostPerUnit(parcel, TRANSPORT_RATE_PER_TILE);
-  const netPerUnit = unitPrice - transportPerUnit;
-  return { unitPrice, transportPerUnit, netPerUnit };
+  return quoteShipRoute(offer, parcel);
 }
 
 export interface SellResult {
@@ -49,7 +50,10 @@ export function executeSellToNpc(
 
   const quote = quoteSale(offer, parcel);
   if (quote.netPerUnit <= 0) {
-    return { ok: false, reason: '運輸成本過高，此路線無利可圖' };
+    return {
+      ok: false,
+      reason: `運輸 $${quote.transportPerUnit}/單 高於港價 $${quote.hubUnitPrice}，請選更靠近市場 (${MARKET_HUB_LABEL}) 的土地`,
+    };
   }
 
   const removed = removeItem(stock, offer.itemId, quantity);
@@ -57,7 +61,7 @@ export function executeSellToNpc(
     return { ok: false, reason: '庫存不足' };
   }
 
-  const grossRevenue = quote.unitPrice * quantity;
+  const grossRevenue = quote.hubUnitPrice * quantity;
   const transportCost = quote.transportPerUnit * quantity;
   const netCash = grossRevenue - transportCost;
 

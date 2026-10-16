@@ -3,9 +3,16 @@ export {
   manhattanToMarket,
   MARKET_HUB,
   regionalUnitPrice,
-  transportCostPerUnit,
   type NpcBuyOffer,
 } from './market.js';
+export {
+  findBestShipParcel,
+  quoteShipRoute,
+  resolveShipParcel,
+  TRANSPORT_RATE_PER_TILE,
+  transportCostPerUnit,
+  type ShipRouteQuote,
+} from './ship-route.js';
 export { addPnL, emptyPnL, netProfit, type PnLSummary } from './pnl.js';
 export {
   createScenarioState,
@@ -19,6 +26,5 @@ export {
   executeSellToNpc,
   findOfferById,
   quoteSale,
-  TRANSPORT_RATE_PER_TILE,
   type SellQuote,
 } from './sell-logic.js';
