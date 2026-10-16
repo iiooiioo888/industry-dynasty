@@ -1,0 +1,29 @@
+{
+  "name": "industry-dynasty",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "產業霸權 / Industry Dynasty — greenfield economic simulation game",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "dev": "pnpm --filter @industry-dynasty/web dev",
+    "dev:server": "pnpm --filter @industry-dynasty/server dev",
+    "test": "pnpm -r run test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.22.0",
+    "eslint": "^9.22.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^16.0.0",
+    "prettier": "^3.5.3",
+    "typescript-eslint": "^8.26.1"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.4"
+}

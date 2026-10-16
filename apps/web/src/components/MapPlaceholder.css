@@ -1,0 +1,48 @@
+.map-shell {
+  border: 1px solid #2f3640;
+  border-radius: 8px;
+  background: #12151a;
+  overflow: hidden;
+}
+
+.map-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  color: #9aa3b2;
+  border-bottom: 1px solid #2f3640;
+  background: #161b22;
+}
+
+.map-dim {
+  font-variant-numeric: tabular-nums;
+}
+
+.map-grid {
+  display: grid;
+  gap: 1px;
+  padding: 1px;
+  background: #2f3640;
+  aspect-ratio: 16 / 12;
+  max-height: min(70vh, 520px);
+}
+
+.map-cell {
+  background: #1e242c;
+  min-height: 0;
+  transition: background 0.15s ease;
+}
+
+.map-cell:hover {
+  background: #252d38;
+}
+
+.map-hint {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+  text-align: center;
+}

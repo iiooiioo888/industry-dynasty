@@ -1,0 +1,43 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem 1rem 2rem;
+  gap: 1.5rem;
+}
+
+.app-header {
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 1rem;
+  color: #9aa3b2;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.tagline {
+  margin: 0.75rem 0 0;
+  font-size: 0.95rem;
+  color: #c4cad4;
+}
+
+.meta {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.app-main {
+  width: 100%;
+  max-width: 960px;
+}
