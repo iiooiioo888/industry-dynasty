@@ -1,4 +1,6 @@
-import { getSiteLogisticsView } from '../buildings/adjacency.js';
+﻿import { getSiteLogisticsView } from '../buildings/adjacency.js';
+import { ITEMS } from '../production/items.js';
+import { RECIPES } from '../production/recipes.js';
 import { FACTORY_TYPES, type FactoryTypeId } from '../buildings/catalog.js';
 import type { WorldState } from '../world/state.js';
 import type {
@@ -329,18 +331,34 @@ function summarizeStrategies(players: readonly GamePlayerOutcome[]): StrategySum
   });
 }
 
+/**
+ * 這名玩家的**實際**產能：每座完工工廠依其生產線的配方、
+ * 週期與產出係數，換算成「每日可產出的價值」。
+ *
+ * 先前用的是 `FACTORY_BASE_YIELD × 物流係數`，那是舊簡化收益模型的
+ * 名目產能，與真實生產鏈脫節（例如工廠沒排配方、或礦脈產出不可販售時，
+ * 名目產能仍會照算）。現在改讀 productionLines，數字才對得上實際產出。
+ */
 export function playerCapacity(state: WorldState, playerId: string): number {
   let capacity = 0;
   for (const [parcelKey, site] of Object.entries(state.sites)) {
     if (site.phase !== 'complete' || site.ownerId !== playerId) {
       continue;
     }
-    const parcel = state.map.parcels.find((item) => item.id.value === parcelKey);
-    if (!parcel) {
+    const line = state.productionLines[parcelKey];
+    if (!line) {
       continue;
     }
-    const spatial = getSiteLogisticsView(state.map, parcel, site, state.sites).factor;
-    capacity += FACTORY_BASE_YIELD[site.factoryTypeId] * spatial;
+    const recipe = RECIPES[line.recipeId];
+    if (!recipe) {
+      continue;
+    }
+    const outputValue =
+      ITEMS[recipe.outputItemId].unitValue *
+      recipe.outputQuantity *
+      (recipe.outputMultiplier ?? 1) *
+      line.throughputFactor;
+    capacity += outputValue / Math.max(1, line.cycleTicks);
   }
   return capacity;
 }

@@ -77,4 +77,51 @@ describe('礦脈與可販售性', () => {
       }
     }
   });
+
+  it('產能反映實際生產，而不是舊的名目產能', () => {
+    const games = runSimulatedGames(
+      resolveSimulationOptions({
+        gameCount: 2,
+        seed: 7,
+        horizon: DEFAULT_SCENARIO.maxDays,
+        mapWidth: DEFAULT_WORLD_CONFIG.mapWidth,
+        mapHeight: DEFAULT_WORLD_CONFIG.mapHeight,
+      }),
+    );
+    console.log('\n=== 產能 vs 實際營收 ===');
+    const sums = new Map<string, { cap: number; rev: number; fac: number; n: number }>();
+    for (const g of games) {
+      for (const p of g.players) {
+        const s = sums.get(p.strategy) ?? { cap: 0, rev: 0, fac: 0, n: 0 };
+        s.cap += p.capacity;
+        s.rev += p.revenue;
+        s.fac += p.completeFactories;
+        s.n += 1;
+        sums.set(p.strategy, s);
+      }
+    }
+    for (const [strategy, s] of sums) {
+      console.log(
+        `  ${strategy.padEnd(16)} capacity=${Math.round(s.cap / s.n)
+          .toString()
+          .padStart(6)}` +
+          `  revenue=${Math.round(s.rev / s.n)
+            .toString()
+            .padStart(7)}  factories=${(s.fac / s.n).toFixed(1)}`,
+      );
+    }
+
+    // 護欄：產能必須來自真的在運轉的生產線。
+    // 沒有任何生產線時產能應為 0；有工廠且有營收時產能必須 > 0。
+    for (const [strategy, s] of sums) {
+      const cap = s.cap / s.n;
+      const rev = s.rev / s.n;
+      const factories = s.fac / s.n;
+      if (factories === 0) {
+        expect(cap, `${strategy} 沒有工廠，產能應為 0`).toBe(0);
+      } else if (rev > 0) {
+        expect(cap, `${strategy} 有營收，產能必須大於 0`).toBeGreaterThan(0);
+      }
+    }
+  });
 });
