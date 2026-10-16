@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 完整遊戲迴圈模擬器 · full-loop simulator
  *
  * 與 `reports/simulate.ts` 的差別：那個檔案用的是**簡化的營運收入模型**
@@ -35,6 +35,17 @@ export interface FullLoopOptions {
   /** 最多持有幾塊地（含建廠用地）。 */
   readonly maxParcels?: number;
   readonly config?: Partial<WorldConfig>;
+  /**
+   * 加工深度：要往下游走幾階，用來比較「廣度（多蓋礦場）」與「深度（加工）」。
+   *
+   * - `0`（預設）：全部工廠只開採，賣原料。
+   * - `1`：保留一座開採廠供應原料，其餘工廠跑一階加工。
+   * - `2`：一階加工廠的產物再交給二階加工廠（軋製合金板）。
+   *
+   * 加工廠直接自共用庫存取用原料，因此這條路徑會真正檢驗
+   * 「加工能不能把價值加上去」，而不是只看配方表。
+   */
+  readonly depth?: 0 | 1 | 2;
 }
 
 export interface FullLoopDay {
@@ -174,14 +185,37 @@ function sellInventory(state: WorldState): WorldState {
   return next;
 }
 
-/** 為每座已完工但尚未排生產的工廠排入配方。 */
-function startProductionEverywhere(state: WorldState, fallbackRecipe: RecipeId | null): WorldState {
+/** 目前每座完工工廠排定的配方，供測試與除錯檢視。 */
+export function productionAssignments(state: WorldState): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, line] of Object.entries(state.productionLines)) {
+    out[key] = line.recipeId;
+  }
+  return out;
+}
+
+/**
+ * 為每座已完工但尚未排生產的工廠排入配方。
+ *
+ * `depth` 決定「除了第一座開採廠之外，其餘工廠要跑什麼」：
+ * 依深度在可用的加工配方中，挑選**庫存原料足以支撐**且每週期毛利最高者。
+ * 選不出來就退回開採，確保工廠不會閒置。
+ */
+export function startProductionEverywhere(
+  state: WorldState,
+  fallbackRecipe: RecipeId | null,
+  depth: 0 | 1 | 2,
+): WorldState {
   let next = state;
   const playerId = next.localPlayerId;
-  for (const [key, site] of Object.entries(next.sites)) {
-    if (site.phase !== 'complete' || site.ownerId !== playerId) {
-      continue;
-    }
+  const sites = Object.entries(next.sites).filter(
+    ([, site]) => site.phase === 'complete' && site.ownerId === playerId,
+  );
+
+  // 第一座（依 key 排序，決定性）固定當開採廠，供應原料
+  const producerKey = sites.map(([k]) => k).sort()[0];
+
+  for (const [key, site] of sites) {
     if (next.productionLines[key]) {
       continue;
     }
@@ -189,15 +223,38 @@ function startProductionEverywhere(state: WorldState, fallbackRecipe: RecipeId |
     if (!parcel) {
       continue;
     }
-    const recipeId = extractionRecipeFor(parcel.resource.kind) ?? fallbackRecipe;
+
+    let recipeId: RecipeId | null = null;
+
+    if (depth > 0 && key !== producerKey) {
+      const stock = next.inventories[playerId] ?? {};
+      const candidates = Object.values(RECIPES)
+        .filter((r) => r.inputs.length > 0)
+        .filter((r) => (r.stage === 'process' ? depth >= 1 : depth >= 2))
+        .filter((r) => (r.buildings as readonly string[]).includes(site.factoryTypeId))
+        .filter((r) => r.inputs.every((i) => getItemQty(stock, i.itemId) >= i.quantity))
+        .map((r) => {
+          const outVal = ITEMS[r.outputItemId].unitValue * r.outputQuantity * (r.outputMultiplier ?? 1);
+          const inVal = r.inputs.reduce((s, i) => s + ITEMS[i.itemId].unitValue * i.quantity, 0);
+          return { r, margin: outVal - inVal };
+        })
+        .sort((a, b) => b.margin - a.margin);
+      recipeId = candidates[0]?.r.id ?? null;
+    }
+
+    recipeId ??= extractionRecipeFor(parcel.resource.kind) ?? fallbackRecipe;
     if (!recipeId) {
       continue;
     }
     const recipe = RECIPES[recipeId];
     if (!(recipe.buildings as readonly string[]).includes(site.factoryTypeId)) {
-      continue;
+      // 開採配方在組裝廠也能跑；加工配方若廠型不符則退回開採
+      const fallback = extractionRecipeFor(parcel.resource.kind) ?? fallbackRecipe;
+      if (!fallback || !(RECIPES[fallback].buildings as readonly string[]).includes(site.factoryTypeId)) {
+        continue;
+      }
+      recipeId = fallback;
     }
-    // 技術門檻未達就跳過；開採類 minTechStage 為 0，不受影響
     next = applyWorldAction(next, { type: 'START_PRODUCTION', parcelId: parcel.id, recipeId });
   }
   return next;
@@ -278,7 +335,7 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
     }
 
     // 4) 排生產
-    state = startProductionEverywhere(state, options.recipeId ?? null);
+    state = startProductionEverywhere(state, options.recipeId ?? null, options.depth ?? 0);
 
     // 5) 推進生產
     state = applyWorldAction(state, { type: 'ADVANCE_PRODUCTION_TICK' });

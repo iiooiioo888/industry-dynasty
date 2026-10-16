@@ -80,7 +80,7 @@ describe('配方毛利：哪條路線真的有錢賺', () => {
     let best = { id: '', perDay: 0, total: 0 };
     for (const r of Object.values(RECIPES)) {
       if (!(r.buildings as readonly string[]).includes('workshop')) continue;
-      const outVal = ITEMS[r.outputItemId].unitValue * r.outputQuantity;
+      const outVal = ITEMS[r.outputItemId].unitValue * r.outputQuantity * (r.outputMultiplier ?? 1);
       const inVal = r.inputs.reduce((s, i) => s + ITEMS[i.itemId].unitValue * i.quantity, 0);
       const perDay = (outVal - inVal) / r.baseCycleTicks;
       const total = perDay * BALANCE.maxDays;
@@ -106,21 +106,35 @@ describe('配方毛利：哪條路線真的有錢賺', () => {
     expect(net).toBeGreaterThan(0);
   });
 
-  it('每個加工配方的每週期毛利都達到目標水準', () => {
-    console.log('\n=== 各配方每週期毛利 vs 目標 ===');
-    const target = VALUE_CHAIN.targetMarginPerCycle;
+  it('開採與加工的每日毛利都在預期水準', () => {
+    console.log('\n=== 各配方每週期毛利與每日毛利 ===');
+    console.log(
+      'recipe'.padEnd(20) +
+        'cycle'.padStart(6) +
+        'margin/cycle'.padStart(13) +
+        'margin/day'.padStart(11) +
+        'target/day'.padStart(11),
+    );
     for (const r of Object.values(RECIPES)) {
-      const outVal = ITEMS[r.outputItemId].unitValue * r.outputQuantity;
+      const outVal = ITEMS[r.outputItemId].unitValue * r.outputQuantity * (r.outputMultiplier ?? 1);
       const inVal = r.inputs.reduce((s, i) => s + ITEMS[i.itemId].unitValue * i.quantity, 0);
       const gross = outVal - inVal;
-      const ok = gross >= target - 1;
+      const perDay = gross / r.baseCycleTicks;
+      const target =
+        r.inputs.length === 0
+          ? VALUE_CHAIN.extractMarginPerCycle / r.baseCycleTicks
+          : VALUE_CHAIN.processingMarginPerDay;
       console.log(
-        `  ${r.id.padEnd(20)} 毛利 ${String(gross).padStart(6)}  目標 ${target}  ${ok ? 'OK' : '不足'}`,
+        r.id.padEnd(20) +
+          String(r.baseCycleTicks).padStart(6) +
+          String(gross).padStart(13) +
+          perDay.toFixed(0).padStart(11) +
+          target.toFixed(0).padStart(11),
       );
     }
     // 護欄：不得有配方在價值鏈推導下反而虧錢
     for (const r of Object.values(RECIPES)) {
-      const outVal = ITEMS[r.outputItemId].unitValue * r.outputQuantity;
+      const outVal = ITEMS[r.outputItemId].unitValue * r.outputQuantity * (r.outputMultiplier ?? 1);
       const inVal = r.inputs.reduce((s, i) => s + ITEMS[i.itemId].unitValue * i.quantity, 0);
       expect(outVal - inVal, `${r.id} 加工後反而虧錢`).toBeGreaterThan(0);
     }

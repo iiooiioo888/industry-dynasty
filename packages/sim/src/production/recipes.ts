@@ -1,4 +1,4 @@
-﻿import type { FactoryTypeId } from '../buildings/catalog.js';
+import type { FactoryTypeId } from '../buildings/catalog.js';
 import type { ParcelResourceKind } from '../world/parcel-resources.js';
 import type { ItemId } from './items.js';
 
@@ -243,7 +243,7 @@ export const RECIPES = {
     ],
     outputItemId: 'alloy-plate',
     outputQuantity: 2,
-    outputMultiplier: EXTRACT_OUTPUT_MULTIPLIER,
+    outputMultiplier: 1,
     baseCycleTicks: 6,
     travelTickPerDistance: 1,
     stage: 'finish',

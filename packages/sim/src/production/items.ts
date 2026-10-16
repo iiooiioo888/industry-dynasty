@@ -32,24 +32,34 @@ export interface ItemDef {
  * 價值鏈：由**每週期目標毛利**反推各品項單價。
  *
  * 推導式：`產出單價 = (投入單價總和 + 目標毛利) / 產出數量`
- * 由基礎原料往上逐階計算，因此每一階加工的每日毛利都相近，
- * 「加工越深越虧」的結構性問題不會出現。
+ * 由基礎原料往上逐階計算。
  *
- * 原版數值表的問題：加工反而虧錢（開採鐵礦 50/日，冶煉鐵錠剩 6.25/日），
- * 而且越高階越虧（合金板 −276/週期），讓加工鏈失去意義。
+ * **目標毛利隨週期長度放大。** 開採週期 2 刻、加工週期 3～6 刻；
+ * 若每個配方都只賺相同的每週期毛利，加工因為週期長、每日跑的輪數少，
+ * 每日毛利會被稀釋到開採的十分之一（實測 200 vs 1500），
+ * 於是「往下游走」永遠是壞選擇。改用 `processingMarginPerCycle(cycleTicks)`
+ * 讓每日毛利大致持平，加工才有存在的理由。
  */
 export const VALUE_CHAIN = {
-  /** 每個配方每週期應產生的毛利（未扣持有成本） */
-  targetMarginPerCycle: 600,
+  /** 開採配方（週期 2 刻）的每週期毛利基準。 */
+  extractMarginPerCycle: 600,
+  /** 加工配方的每日毛利目標；每週期毛利 = 此值 × 週期刻數 ÷ 2。 */
+  processingMarginPerDay: 1_400,
 } as const;
+
+/** 依配方週期長度決定加工配方的每週期目標毛利。 */
+export function processingMarginPerCycle(baseCycleTicks: number): number {
+  return Math.round((VALUE_CHAIN.processingMarginPerDay * baseCycleTicks) / 2);
+}
 
 /** 由投入推導產出單價。 */
 export function deriveOutputValue(
   inputs: readonly { readonly unitValue: number; readonly quantity: number }[],
   outputQuantity: number,
+  marginPerCycle: number = VALUE_CHAIN.extractMarginPerCycle,
 ): number {
   const inputValue = inputs.reduce((sum, i) => sum + i.unitValue * i.quantity, 0);
-  return Math.round((inputValue + VALUE_CHAIN.targetMarginPerCycle) / outputQuantity);
+  return Math.round((inputValue + marginPerCycle) / outputQuantity);
 }
 
 // 基礎原料（開採產出，無投入）
@@ -59,13 +69,15 @@ const V_COAL = 120;
 const V_COPPER_ORE = 230;
 const V_QUARTZ_GRIT = 180;
 
-// 加工品：逐階由投入推導
+// 加工品：逐階由投入推導，毛利依各自的週期長度放大
+// （冶煉 4 刻、燒製 3 刻、壓製 3 刻、熔鑄 5 刻；見 recipes.ts）
 const V_IRON_INGOT = deriveOutputValue(
   [
     { unitValue: V_RAW_ORE, quantity: 2 },
     { unitValue: V_COAL, quantity: 1 },
   ],
   1,
+  processingMarginPerCycle(4),
 );
 const V_COPPER_INGOT = deriveOutputValue(
   [
@@ -73,6 +85,7 @@ const V_COPPER_INGOT = deriveOutputValue(
     { unitValue: V_COAL, quantity: 1 },
   ],
   1,
+  processingMarginPerCycle(4),
 );
 const V_SILICA = deriveOutputValue(
   [
@@ -80,6 +93,7 @@ const V_SILICA = deriveOutputValue(
     { unitValue: V_COAL, quantity: 1 },
   ],
   1,
+  processingMarginPerCycle(3),
 );
 const V_BASIC_PART = deriveOutputValue(
   [
@@ -87,6 +101,7 @@ const V_BASIC_PART = deriveOutputValue(
     { unitValue: V_RESIN, quantity: 1 },
   ],
   1,
+  processingMarginPerCycle(3),
 );
 const V_ALLOY_PLATE = deriveOutputValue(
   [
@@ -94,6 +109,7 @@ const V_ALLOY_PLATE = deriveOutputValue(
     { unitValue: V_BASIC_PART, quantity: 1 },
   ],
   1,
+  processingMarginPerCycle(5),
 );
 
 export const ITEMS = {
