@@ -28,6 +28,7 @@ import {
   clearProductionAtParcel,
 } from './production-reducer.js';
 import { advanceSimClock, setSimClock, stepOneSimTick } from './clock-advance.js';
+import { quoteLandSale } from './land-sale.js';
 import { applyTaxTickWithPnl } from './day-reducer.js';
 import { bumpPlayerPnl } from './pnl-helpers.js';
 import { applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
@@ -90,6 +91,8 @@ export function applyWorldAction(
       return applyCancel(state, action.parcelId);
     case 'DEMOLISH':
       return applyDemolishAction(state, action.parcelId);
+    case 'SELL_LAND':
+      return applySellLand(state, action.parcelId, config);
     case 'START_PRODUCTION':
       return applyStartProduction(state, action.parcelId, action.recipeId);
     case 'STOP_PRODUCTION':
@@ -195,6 +198,44 @@ function applyStart(
       [parcelId.value]: { ...result.site, progressAnchorMs: state.clock.simMs },
     },
     pnl: bumpPlayerPnl(state, player.id, { buildSpend: factoryType.buildCost }),
+  };
+}
+
+/**
+ * 土地轉手：把自有土地換回現金，地塊回到可拍賣的空地。
+ *
+ * 轉手價見 `world/land-sale.ts`（估價 × 時間成長 × 轉手折價）。
+ * 收入記在 `landSaleProceeds`，與販售貨物的 `revenue` 分開，
+ * 才看得出地產操作對淨利的實際貢獻。
+ * 建造進度仍只走 `build-reducer`／模擬時鐘，這裡不另開一條建設計數。
+ */
+function applySellLand(state: WorldState, parcelId: ParcelId, config: WorldConfig): WorldState {
+  const parcel = findParcel(state, parcelId);
+  const player = state.players[state.localPlayerId];
+  if (!parcel || !player) {
+    return state;
+  }
+  const hasBuilding = getSiteForParcel(state.sites, parcelId) !== undefined;
+  const quote = quoteLandSale(parcel, player.id, config, state.gameDay, hasBuilding);
+  if (!quote.ok) {
+    return state;
+  }
+
+  const nextParcel: Parcel = { ...parcel, state: 'empty', ownerId: null };
+  const sites = { ...state.sites };
+  delete sites[parcelId.value];
+  const productionLines = { ...state.productionLines };
+  delete productionLines[parcelId.value];
+  const unpaidLandTax = { ...state.unpaidLandTax, [parcelId.value]: 0 };
+
+  return {
+    ...state,
+    map: updateParcelInMap(state.map, nextParcel),
+    sites,
+    productionLines,
+    unpaidLandTax,
+    players: { ...state.players, [player.id]: { ...player, cash: player.cash + quote.proceeds } },
+    pnl: bumpPlayerPnl(state, player.id, { landSaleProceeds: quote.proceeds }),
   };
 }
 

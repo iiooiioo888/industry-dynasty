@@ -41,14 +41,15 @@ describe('圈地投機策略 · null control 界定', () => {
     expect(bid === null || bid.type === 'BID').toBe(true);
   });
 
-  it('引擎層級：不存在任何賣地或土地增值 action', async () => {
+  it('引擎層級：土地現在有轉手出口（SELL_LAND）', async () => {
     const fs = await import('node:fs');
     const source = fs.readFileSync(new URL('../world/actions.ts', import.meta.url), 'utf8');
     const actionTypes = [...source.matchAll(/type: '([A-Z_]+)'/g)].map((m) => m[1]);
     expect(actionTypes).toContain('BID');
     expect(actionTypes).toContain('DEMOLISH');
-    expect(actionTypes).not.toContain('SELL_LAND');
-    expect(actionTypes).not.toContain('SELL_PARCEL');
+    // 這個動作是為了補上「圈地投機」缺少的出口 ——
+    // 沒有它，買來的地只能一直繳稅，永遠無法換回現金。
+    expect(actionTypes).toContain('SELL_LAND');
     expect(actionTypes).not.toContain('REZONE');
   });
 

@@ -21,6 +21,15 @@ export type WorldAction =
   | { type: 'ADVANCE_BUILD_TICK' }
   | { type: 'CANCEL_BUILD'; parcelId: ParcelId }
   | { type: 'DEMOLISH'; parcelId: ParcelId }
+  /**
+   * 把自有土地轉手變現。
+   *
+   * 沒有這個動作時，買來的地只能一直繳稅、永遠無法換回現金 ——
+   * 圈地投機因此是個沒有出口的資金黑洞。轉手價為估價乘上
+   * `LAND_MARKET.resaleRate`，而估價隨天數複利成長，
+   * 所以「持有夠久才可能獲利」，不是零風險套利。
+   */
+  | { type: 'SELL_LAND'; parcelId: ParcelId }
   | { type: 'START_PRODUCTION'; parcelId: ParcelId; recipeId: RecipeId }
   | { type: 'STOP_PRODUCTION'; parcelId: ParcelId }
   | { type: 'ADVANCE_PRODUCTION_TICK' }

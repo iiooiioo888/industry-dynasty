@@ -87,3 +87,46 @@ export const FACTORY_MARGIN_MULTIPLIER: Record<FactoryTypeId, number> = {
   workshop: 1,
   'assembly-plant': 1.8,
 };
+
+/**
+ * 土地轉手的設計參數。
+ *
+ * 原本 `WorldAction` 沒有任何賣地或增值機制，所以「圈地投機」買到的地
+ * **永遠無法變現** —— 它只會一直繳土地稅直到破產，是個沒有出口的資金黑洞。
+ * 這裡補上出口，並讓它成為一個**有風險的**策略而非無腦套利：
+ *
+ * - `appreciationPerDay`：地價每日複利成長。這是唯一的動態項；
+ *   `quoteAuctionMinPrice` 的區位溢價是靜態的，若照價買賣會變成零風險套利
+ *   （買進賣出同價），所以地價必須隨時間變動。
+ * - `resaleRate`：轉手只能拿回估價的一部分，模擬交易成本與折價。
+ *
+ * 兩者相乘決定持有門檻：`appreciationPerDay > 1 / resaleRate` 的持有天數才可能獲利。
+ * 以預設值計算，約需持有 `ln(1/0.85)/ln(1.008) ≈ 21` 天才能打平 ——
+ * 因此「圈地」只有在接近通關期限時才划算，而不是隨時都能無風險出場。
+ */
+export const LAND_MARKET = {
+  /** 地價每日複利成長率 */
+  appreciationPerDay: 0.008,
+  /** 轉手可取回的估價比例 */
+  resaleRate: 0.85,
+} as const;
+
+/** 持有 `days` 天後的地價成長倍率。 */
+export function landAppreciationFactor(days: number): number {
+  return (1 + LAND_MARKET.appreciationPerDay) ** Math.max(0, days);
+}
+
+/** 轉手實際可拿回的金額。 */
+export function landResaleProceeds(appraisedValue: number): number {
+  return Math.floor(appraisedValue * LAND_MARKET.resaleRate);
+}
+
+/** 持有幾天後轉手才不虧（以同一個估價基準計算）。 */
+export function landBreakEvenDays(): number {
+  if (LAND_MARKET.resaleRate >= 1) {
+    return 0;
+  }
+  return Math.ceil(
+    Math.log(1 / LAND_MARKET.resaleRate) / Math.log(1 + LAND_MARKET.appreciationPerDay),
+  );
+}
