@@ -57,7 +57,7 @@ pnpm install
 - 靠近城市會再抬價、抬量；靠近道路決定這些需求運不運得出去，並小幅提高工廠物流效率。
 - 因此密集區土地的拍賣底價也更高。利潤來自買對位置，而不是買最多地。
 
-點選任一格可在「在地市場」看到人口密度、每週可售與收購單價。美術 PNG（`map-road`、`map-city-hub`、`map-pop-dense`、`map-city-building`、`ui-market-hub`）放到 `apps/web/public/art/` 後會疊在對應格子上；缺檔時仍以色塊與道路條顯示。
+點選任一格可在「在地市場」看到人口密度、每週可售與收購單價。美術 PNG（`map-road`、`map-city-hub`、`map-pop-dense`、`map-city-building`、`ui-market-hub`）在 `apps/web/public/assets/`，由 `apps/web/src/map/map-feature-art.ts` 疊到對應格子；缺檔時仍以色塊與道路條顯示。
 
 ## 本機試玩拍賣流程 · Try the auction flow
 

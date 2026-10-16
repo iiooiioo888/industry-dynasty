@@ -1,3 +1,33 @@
+.market-hub-cue {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid #c9a961;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(20, 16, 10, 0.2), rgba(20, 16, 10, 0.55)), #12151a;
+  color: #c9a961;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.market-hub-cue img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 3px;
+  background: #0c0e12;
+}
+
+.market-hub-cue small {
+  display: block;
+  margin-top: 0.1rem;
+  color: #e8d7a8;
+  font-weight: 600;
+  font-size: 0.68rem;
+}
+
 .sales-panel .npc-row {
   display: flex;
   align-items: center;

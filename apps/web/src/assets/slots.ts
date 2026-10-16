@@ -5,6 +5,8 @@ import type { FactoryTypeId, ItemId, ParcelResourceKind } from '@industry-dynast
  *
  * `npcMerchant` 是 Sprint 4 銷售面板既有槽位，仍指向 `npc-merchant.png`
  * （該圖未在這 14 張資源內；面板載入失敗時改顯示文字）。
+ *
+ * `map` 與 `ui.marketHub` 是道路、城市、人口密集與港區市場的固定鍵。
  */
 export const ASSET_SLOTS = {
   npcMerchant: '/assets/npc-merchant.png',
@@ -31,19 +33,46 @@ export const ASSET_SLOTS = {
     workshop: '/assets/bld-workshop.png',
     'assembly-plant': '/assets/bld-assembly-plant.png',
   },
+  /**
+   * 世界地圖圖層。鍵名與檔名固定，供可玩性地理（道路／城市／人口）接上。
+   * 解析見 `src/map/map-feature-art.ts`。
+   */
+  map: {
+    road: '/assets/map-road.png',
+    cityHub: '/assets/map-city-hub.png',
+    popDense: '/assets/map-pop-dense.png',
+    cityBuilding: '/assets/map-city-building.png',
+  },
   ui: {
     auctionBanner: '/assets/ui-auction-banner.png',
     panelHeader: '/assets/ui-panel-header.png',
     appLogo: '/assets/ui-app-logo.png',
+    marketHub: '/assets/ui-market-hub.png',
   },
 } as const satisfies {
   npcMerchant: string;
   resources: Record<ParcelResourceKind, string>;
   items: Record<ItemId, string>;
   buildings: Record<FactoryTypeId, string>;
+  map: {
+    road: string;
+    cityHub: string;
+    popDense: string;
+    cityBuilding: string;
+  };
   ui: {
     auctionBanner: string;
     panelHeader: string;
     appLogo: string;
+    marketHub: string;
   };
 };
+
+/** `data-art-slot` 用的穩定鍵，與 public/assets 檔名（不含副檔名）一致。 */
+export const MAP_ART_SLOT = {
+  road: 'map-road',
+  cityHub: 'map-city-hub',
+  popDense: 'map-pop-dense',
+  cityBuilding: 'map-city-building',
+  marketHub: 'ui-market-hub',
+} as const;

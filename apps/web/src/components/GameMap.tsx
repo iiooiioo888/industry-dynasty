@@ -10,9 +10,9 @@ import {
   type WorldState,
 } from '@industry-dynasty/sim';
 import type { CSSProperties } from 'react';
-import { ArtSlot } from '../art/ArtSlot';
-import { ART_SLOTS } from '../art/slots';
-import '../art/art.css';
+import { ASSET_SLOTS, MAP_ART_SLOT } from '../assets/slots';
+import { cellFeatureArt, resolveMapFeatureArt, type CellFeatureArt } from '../map/map-feature-art';
+import { MapCellFeatureArt } from './MapFeatureSprites';
 import './GameMap.css';
 
 export interface GameMapProps {
@@ -67,17 +67,23 @@ function cellClass(
   return classes.join(' ');
 }
 
-function primaryArt(parcel: Parcel): 'mapRoad' | 'mapCityHub' | 'mapPopDense' | null {
-  if (parcel.role === 'road') {
-    return 'mapRoad';
+function primarySlot(art: CellFeatureArt | undefined): string | undefined {
+  if (!art) {
+    return undefined;
   }
-  if (parcel.role === 'city-hub') {
-    return 'mapCityHub';
+  if (art.marketHub) {
+    return MAP_ART_SLOT.marketHub;
   }
-  if (parcel.populationDensity >= 70) {
-    return 'mapPopDense';
+  if (art.cityHub) {
+    return MAP_ART_SLOT.cityHub;
   }
-  return null;
+  if (art.road) {
+    return MAP_ART_SLOT.road;
+  }
+  if (art.popDense) {
+    return MAP_ART_SLOT.popDense;
+  }
+  return undefined;
 }
 
 function ariaLabel(state: WorldState, parcel: Parcel): string {
@@ -97,12 +103,25 @@ export function GameMap({ state, selectedParcelId, onSelectParcel }: GameMapProp
   const localId = state.localPlayerId;
   const openCount = state.auctionLots.filter((l) => l.status === 'open').length;
   const cityNames = state.map.cities.map((city) => city.name).join(' · ');
+  const featureArt = resolveMapFeatureArt(state);
 
   return (
     <section className="map-shell" aria-label="世界地圖">
       <div className="map-toolbar">
         <span>地圖 · {cityNames || '點選土地'}</span>
         {openCount > 0 && <span className="map-auction-chip">拍賣中 {openCount}</span>}
+        <span className="map-market-cue" title={`港區市場 (${MARKET_HUB.x}, ${MARKET_HUB.y})`}>
+          <img
+            src={ASSET_SLOTS.ui.marketHub}
+            alt=""
+            width={22}
+            height={22}
+            draggable={false}
+            decoding="async"
+            data-art-slot={MAP_ART_SLOT.marketHub}
+          />
+          港區 {MARKET_HUB.x},{MARKET_HUB.y}
+        </span>
         <span className="map-dim">
           {width} × {height}
         </span>
@@ -116,7 +135,7 @@ export function GameMap({ state, selectedParcelId, onSelectParcel }: GameMapProp
           const hasBids = lot?.highBidderId != null;
           const isMarket = parcel.x === MARKET_HUB.x && parcel.y === MARKET_HUB.y;
           const axis = roadAxisAt(state.map.parcels, parcel);
-          const art = primaryArt(parcel);
+          const art = cellFeatureArt(featureArt, parcel.x, parcel.y);
           const city = state.map.cities.find((hub) => hub.x === parcel.x && hub.y === parcel.y);
           const showDensity =
             parcel.role === 'land' &&
@@ -134,7 +153,7 @@ export function GameMap({ state, selectedParcelId, onSelectParcel }: GameMapProp
                   ? { backgroundColor: densityColor(parcel.populationDensity) }
                   : undefined
               }
-              data-art-slot={art ? ART_SLOTS[art].id : undefined}
+              data-art-slot={primarySlot(art)}
               data-role={parcel.role}
               onClick={() => onSelectParcel(parcel.id)}
               title={ariaLabel(state, parcel)}
@@ -148,10 +167,7 @@ export function GameMap({ state, selectedParcelId, onSelectParcel }: GameMapProp
               ) : axis ? (
                 <span className="road-stripe" />
               ) : null}
-              {art ? <ArtSlot slot={art} /> : null}
-              {parcel.role === 'city-hub' ? (
-                <ArtSlot slot="mapCityBuilding" className="city-building" />
-              ) : null}
+              <MapCellFeatureArt art={art} />
               {city ? <span className="city-label">{city.name}</span> : null}
               {hasOpenAuction && (
                 <span className="map-cell-auction-tag" aria-hidden="true">
@@ -199,6 +215,47 @@ export function GameMap({ state, selectedParcelId, onSelectParcel }: GameMapProp
         <span>
           <i className="swatch building-ready" /> 工廠運營
         </span>
+        <span>
+          <img
+            className="swatch art-icon"
+            src={ASSET_SLOTS.map.road}
+            alt=""
+            data-art-slot={MAP_ART_SLOT.road}
+          />
+          道路圖層
+        </span>
+        <span>
+          <img
+            className="swatch art-icon"
+            src={ASSET_SLOTS.map.cityHub}
+            alt=""
+            data-art-slot={MAP_ART_SLOT.cityHub}
+          />
+          城市據點圖層
+        </span>
+        <span>
+          <img
+            className="swatch art-icon"
+            src={ASSET_SLOTS.map.popDense}
+            alt=""
+            data-art-slot={MAP_ART_SLOT.popDense}
+          />
+          人口密集圖層
+        </span>
+        <span>
+          <img
+            className="swatch art-icon"
+            src={ASSET_SLOTS.map.cityBuilding}
+            alt=""
+            data-art-slot={MAP_ART_SLOT.cityBuilding}
+          />
+          城市建築圖層
+        </span>
+        {featureArt.source === 'placeholder' && (
+          <span className="map-legend-note">
+            道路、城市與人口密集為美術占位；地理資料寫入後會改接同一組圖層鍵。
+          </span>
+        )}
       </div>
     </section>
   );

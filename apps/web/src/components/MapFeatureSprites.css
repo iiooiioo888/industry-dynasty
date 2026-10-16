@@ -1,0 +1,115 @@
+.map-art {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.map-art img {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+}
+
+.map-art-pop {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: screen;
+  opacity: 0.9;
+}
+
+.map-art-road {
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: translate(-50%, -50%);
+  mix-blend-mode: screen;
+}
+
+.map-art-building {
+  left: 50%;
+  top: 58%;
+  width: 150%;
+  height: 150%;
+  object-fit: contain;
+  transform: translate(-50%, -50%);
+}
+
+.map-art-hub {
+  left: 50%;
+  top: 8%;
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+  transform: translate(-50%, 0);
+  mix-blend-mode: screen;
+}
+
+.map-art-market-frame {
+  box-shadow: inset 0 0 0 2px #c9a961;
+}
+
+.map-art-market {
+  left: 50%;
+  top: 50%;
+  width: 90%;
+  height: 90%;
+  object-fit: cover;
+  transform: translate(-50%, -50%);
+  border-radius: 2px;
+}
+
+.map-cell.market-hub:has(.map-art-market)::after {
+  content: none;
+}
+
+.map-cell-auction-tag {
+  z-index: 3;
+}
+
+.map-cell-resource-dot {
+  z-index: 4;
+}
+
+.map-market-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.1rem 0.4rem 0.1rem 0.15rem;
+  border: 1px solid #c9a961;
+  border-radius: 3px;
+  background: #14120e;
+  color: #c9a961;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.map-market-cue img {
+  width: 22px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 2px;
+  background: #0c0e12;
+}
+
+.map-legend .swatch.art-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  object-fit: cover;
+  border: 1px solid #c9a961;
+  border-radius: 2px;
+  vertical-align: middle;
+  background: #12151a;
+}
+
+.map-legend-note {
+  flex-basis: 100%;
+  color: #c9a961;
+  font-size: 0.68rem;
+}

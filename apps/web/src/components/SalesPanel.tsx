@@ -11,7 +11,7 @@ import {
   type WorldState,
 } from '@industry-dynasty/sim';
 import { useEffect, useMemo, useState } from 'react';
-import { ASSET_SLOTS } from '../assets/slots';
+import { ASSET_SLOTS, MAP_ART_SLOT } from '../assets/slots';
 import './SalesPanel.css';
 
 export interface SalesPanelProps {
@@ -80,6 +80,23 @@ export function SalesPanel({ state, selectedParcelId, onSell }: SalesPanelProps)
         <span className="sys-panel-tag">SAL</span>
         <h2>NPC 收購 · 上架銷售</h2>
       </header>
+      <div className="market-hub-cue">
+        <img
+          src={ASSET_SLOTS.ui.marketHub}
+          alt=""
+          width={48}
+          height={48}
+          draggable={false}
+          decoding="async"
+          data-art-slot={MAP_ART_SLOT.marketHub}
+        />
+        <span>
+          港區市場
+          <small>
+            ({MARKET_HUB.x},{MARKET_HUB.y})
+          </small>
+        </span>
+      </div>
       <div className="npc-row">
         <img
           className="npc-slot"
@@ -114,7 +131,9 @@ export function SalesPanel({ state, selectedParcelId, onSell }: SalesPanelProps)
         <dl className="sales-quote">
           <div>
             <dt>出貨點</dt>
-            <dd>({shipParcel.x},{shipParcel.y})</dd>
+            <dd>
+              ({shipParcel.x},{shipParcel.y})
+            </dd>
           </div>
           <div>
             <dt>港區牌價</dt>
@@ -130,7 +149,11 @@ export function SalesPanel({ state, selectedParcelId, onSell }: SalesPanelProps)
           </div>
         </dl>
       )}
-      {blockReason && <p className="sales-block-reason" role="alert">{blockReason}</p>}
+      {blockReason && (
+        <p className="sales-block-reason" role="alert">
+          {blockReason}
+        </p>
+      )}
       {holdings.length > 0 && shipParcel && preferred?.ownerId !== player.id && (
         <p className="sys-muted">
           未選你的土地時，已自動用最靠近市場的 ({shipParcel.x},{shipParcel.y}) 計算運輸。
