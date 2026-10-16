@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { runFullLoop, runDoNothing } from './full-loop.js';
 import { DEFAULT_WORLD_CONFIG } from '../world/config.js';
 
@@ -9,7 +9,10 @@ describe('完整遊戲迴圈量測', () => {
     console.log(`  起始現金 ${DEFAULT_WORLD_CONFIG.startingCash}  期末現金 ${r.finalCash}`);
     console.log(`  淨利 ${r.netProfit}   狀態 ${r.status}   通關門檻 ${r.scenarioTarget}`);
     console.log(`  PnL: ${JSON.stringify(r.pnl)}`);
-    console.log(`  無持有土地時不會產生土地稅 → 淨利應為 0`);
+    // 護欄：不做事不該通關，否則門檻形同虛設
+    expect(r.netProfit).toBe(0);
+    expect(r.status).toBe('lost');
+    expect(r.reachedTarget).toBe(false);
   });
 
   it('單一礦脈工坊：真實生產鏈下的收支', () => {
@@ -28,6 +31,33 @@ describe('完整遊戲迴圈量測', () => {
           `${String(d.factories).padStart(9)}  ${d.status}`,
       );
     }
+  });
+
+  it('可通關性護欄：合理的經營策略必須真的能通關', () => {
+    // 這是本專案最重要的一條測試。修正前模擬器的最佳策略淨利是 −24,125（lost），
+    // 遊戲**不可能通關**；任何讓它再次變成不可能的改動都應該在這裡失敗。
+    const results = [1, 2, 4, 8].map((maxParcels) => ({
+      maxParcels,
+      r: runFullLoop({ maxParcels, startingCash: 100_000 }),
+    }));
+
+    console.log('\n=== 可通關性 ===');
+    for (const { maxParcels, r } of results) {
+      console.log(
+        `  maxParcels=${String(maxParcels).padStart(2)}  淨利=${String(r.netProfit).padStart(8)}` +
+          `  狀態=${r.status}  達標=${r.reachedTarget}`,
+      );
+    }
+
+    for (const { maxParcels, r } of results) {
+      expect(r.netProfit, `maxParcels=${maxParcels} 應為獲利`).toBeGreaterThan(0);
+      expect(r.reachedTarget, `maxParcels=${maxParcels} 應達成通關門檻`).toBe(true);
+      expect(r.status, `maxParcels=${maxParcels} 狀態應為 won`).toBe('won');
+    }
+
+    // 護欄：數量槓桿必須是正向的，不能「多蓋工廠反而更虧」
+    const profits = results.map((x) => x.r.netProfit);
+    expect(Math.max(...profits)).toBeGreaterThan(Math.min(...profits));
   });
 
   it('最大礦脈工坊數量：看能否接近通關門檻', () => {
