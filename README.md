@@ -68,6 +68,35 @@ pnpm install
 
 ---
 
+## Docker 測試部署 · Docker test deploy
+
+以 **nginx** 提供 `apps/web` 的 Vite 靜態建置（目前 playable 內容為 **main / Sprint 2**：拍賣、建廠；不含未合併的 Sprint 3 生產）。
+
+**需求**：主機已安裝 [Docker](https://docs.docker.com/engine/install/) 與 Compose plugin。
+
+```bash
+# 於專案根目錄（建議路徑範例：/var/www/industry-dynasty/）
+git clone <你的 repo URL> /var/www/industry-dynasty
+cd /var/www/industry-dynasty
+docker compose up -d --build
+```
+
+- 容器對外埠：**8080** → 容器內 nginx **80**
+- 瀏覽器開啟：**http://47.82.83.20:8080/**（請將 IP 換成你的主機；本範例為測試機 `47.82.83.20`）
+- 僅靜態前端；遊戲狀態在瀏覽器本地執行，**無**線上權威伺服器。
+
+停止服務：
+
+```bash
+docker compose down
+```
+
+### English
+
+Multi-stage image: `pnpm` builds `apps/web`, **nginx:alpine** serves `dist`. Run `docker compose up -d --build` from the repo root; open `http://<your-host>:8080/`. Example test host path: `/var/www/industry-dynasty/`. SSH access is **your** responsibility (e.g. `root` + key); this repo does not store server credentials.
+
+---
+
 ## 套件結構 · Package layout
 
 ```

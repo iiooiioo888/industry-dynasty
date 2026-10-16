@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.gitignore
+*.md
+!README.md
+.vite
+coverage
+apps/web/tsconfig.tsbuildinfo
+**/*.tsbuildinfo
+.cursor
+terminals
+packages/sim/src/production
