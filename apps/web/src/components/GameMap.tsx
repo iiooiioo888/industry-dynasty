@@ -9,11 +9,28 @@ import {
   type ParcelId,
   type WorldState,
 } from '@industry-dynasty/sim';
-import type { CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { ASSET_SLOTS, MAP_ART_SLOT } from '../assets/slots';
 import { cellFeatureArt, resolveMapFeatureArt, type CellFeatureArt } from '../map/map-feature-art';
 import { MapCellFeatureArt } from './MapFeatureSprites';
+import { ParcelFocusCard } from './ParcelFocusCard';
 import './GameMap.css';
+
+const NARROW_MAP_QUERY = '(max-width: 960px)';
+
+function useNarrowMap(): boolean {
+  const [narrow, setNarrow] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia(NARROW_MAP_QUERY).matches : false,
+  );
+  useEffect(() => {
+    const media = window.matchMedia(NARROW_MAP_QUERY);
+    const apply = () => setNarrow(media.matches);
+    apply();
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, []);
+  return narrow;
+}
 
 export interface GameMapProps {
   state: WorldState;
@@ -99,6 +116,7 @@ function ariaLabel(state: WorldState, parcel: Parcel): string {
 }
 
 export function GameMap({ state, selectedParcelId, onSelectParcel }: GameMapProps) {
+  const narrow = useNarrowMap();
   const { width, height } = state.map.size;
   const localId = state.localPlayerId;
   const openCount = state.auctionLots.filter((l) => l.status === 'open').length;
@@ -106,9 +124,11 @@ export function GameMap({ state, selectedParcelId, onSelectParcel }: GameMapProp
   const featureArt = resolveMapFeatureArt(state);
 
   return (
-    <section className="map-shell" aria-label="世界地圖">
+    <section className="map-shell" aria-label={narrow ? '地塊方位' : '世界地圖'}>
       <div className="map-toolbar">
-        <span>地圖 · {cityNames || '點選土地'}</span>
+        <span>
+          {narrow ? '方位' : '地圖'} · {cityNames || '點選土地'}
+        </span>
         {openCount > 0 && <span className="map-auction-chip">拍賣中 {openCount}</span>}
         <span className="map-market-cue" title={`港區市場 (${MARKET_HUB.x}, ${MARKET_HUB.y})`}>
           <img
@@ -126,137 +146,150 @@ export function GameMap({ state, selectedParcelId, onSelectParcel }: GameMapProp
           {width} × {height}
         </span>
       </div>
-      <div className="map-grid" style={{ gridTemplateColumns: `repeat(${width}, minmax(0, 1fr))` }}>
-        {state.map.parcels.map((parcel) => {
-          const selected = selectedParcelId?.value === parcel.id.value;
-          const isLocalOwner = parcel.ownerId === localId;
-          const lot = findOpenLotForParcel(state, parcel.id);
-          const hasOpenAuction = lot !== undefined && !parcel.ownerId && parcel.role === 'land';
-          const hasBids = lot?.highBidderId != null;
-          const isMarket = parcel.x === MARKET_HUB.x && parcel.y === MARKET_HUB.y;
-          const axis = roadAxisAt(state.map.parcels, parcel);
-          const art = cellFeatureArt(featureArt, parcel.x, parcel.y);
-          const city = state.map.cities.find((hub) => hub.x === parcel.x && hub.y === parcel.y);
-          const showDensity =
-            parcel.role === 'land' &&
-            !hasOpenAuction &&
-            !isLocalOwner &&
-            !parcel.ownerId &&
-            parcel.state === 'empty';
-          return (
-            <button
-              key={parcel.id.value}
-              type="button"
-              className={`${cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids, axis)}${isMarket ? ' market-hub' : ''}`}
-              style={
-                showDensity
-                  ? { backgroundColor: densityColor(parcel.populationDensity) }
-                  : undefined
-              }
-              data-art-slot={primarySlot(art)}
-              data-role={parcel.role}
-              onClick={() => onSelectParcel(parcel.id)}
-              title={ariaLabel(state, parcel)}
-              aria-label={ariaLabel(state, parcel)}
-            >
-              {axis === 'cross' ? (
-                <>
-                  <span className="road-stripe h" />
-                  <span className="road-stripe v" />
-                </>
-              ) : axis ? (
-                <span className="road-stripe" />
-              ) : null}
-              <MapCellFeatureArt art={art} />
-              {city ? <span className="city-label">{city.name}</span> : null}
-              {hasOpenAuction && (
-                <span className="map-cell-auction-tag" aria-hidden="true">
-                  拍
-                </span>
-              )}
-              {parcel.role === 'land' && (
-                <span
-                  className="map-cell-resource-dot"
+      {narrow ? (
+        <ParcelFocusCard
+          state={state}
+          selectedParcelId={selectedParcelId}
+          onSelectParcel={onSelectParcel}
+        />
+      ) : (
+        <>
+          <div
+            className="map-grid"
+            style={{ gridTemplateColumns: `repeat(${width}, minmax(0, 1fr))` }}
+          >
+            {state.map.parcels.map((parcel) => {
+              const selected = selectedParcelId?.value === parcel.id.value;
+              const isLocalOwner = parcel.ownerId === localId;
+              const lot = findOpenLotForParcel(state, parcel.id);
+              const hasOpenAuction = lot !== undefined && !parcel.ownerId && parcel.role === 'land';
+              const hasBids = lot?.highBidderId != null;
+              const isMarket = parcel.x === MARKET_HUB.x && parcel.y === MARKET_HUB.y;
+              const axis = roadAxisAt(state.map.parcels, parcel);
+              const art = cellFeatureArt(featureArt, parcel.x, parcel.y);
+              const city = state.map.cities.find((hub) => hub.x === parcel.x && hub.y === parcel.y);
+              const showDensity =
+                parcel.role === 'land' &&
+                !hasOpenAuction &&
+                !isLocalOwner &&
+                !parcel.ownerId &&
+                parcel.state === 'empty';
+              return (
+                <button
+                  key={parcel.id.value}
+                  type="button"
+                  className={`${cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids, axis)}${isMarket ? ' market-hub' : ''}`}
                   style={
-                    {
-                      '--res-hue': `${PARCEL_RESOURCE_DEFS[parcel.resource.kind].colorHue}`,
-                    } as CSSProperties
+                    showDensity
+                      ? { backgroundColor: densityColor(parcel.populationDensity) }
+                      : undefined
                   }
-                  title={`${parcel.resource.nameZh} · 儲量${parcel.resource.reserves}`}
-                  aria-hidden="true"
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
-      <p className="map-strategy">
-        靠近人口密集區、城市與道路，收購量與單價較高。道路與城市核心不出售。
-      </p>
-      <div className="map-legend">
-        <span>
-          <i className="swatch auction-live" /> 拍賣中（閃爍）
-        </span>
-        <span>
-          <i className="swatch heat" /> 人口熱度
-        </span>
-        <span>
-          <i className="swatch road" /> 道路
-        </span>
-        <span>
-          <i className="swatch city" /> 城市據點
-        </span>
-        <span>
-          <i className="swatch owned" /> 你的土地
-        </span>
-        <span>
-          <i className="swatch under-construction" /> 建造中
-        </span>
-        <span>
-          <i className="swatch building-ready" /> 工廠運營
-        </span>
-        <span>
-          <img
-            className="swatch art-icon"
-            src={ASSET_SLOTS.map.road}
-            alt=""
-            data-art-slot={MAP_ART_SLOT.road}
-          />
-          道路圖層
-        </span>
-        <span>
-          <img
-            className="swatch art-icon"
-            src={ASSET_SLOTS.map.cityHub}
-            alt=""
-            data-art-slot={MAP_ART_SLOT.cityHub}
-          />
-          城市據點圖層
-        </span>
-        <span>
-          <img
-            className="swatch art-icon"
-            src={ASSET_SLOTS.map.popDense}
-            alt=""
-            data-art-slot={MAP_ART_SLOT.popDense}
-          />
-          人口密集圖層
-        </span>
-        <span>
-          <img
-            className="swatch art-icon"
-            src={ASSET_SLOTS.map.cityBuilding}
-            alt=""
-            data-art-slot={MAP_ART_SLOT.cityBuilding}
-          />
-          城市建築圖層
-        </span>
-        {featureArt.source === 'placeholder' && (
-          <span className="map-legend-note">
-            道路、城市與人口密集為美術占位；地理資料寫入後會改接同一組圖層鍵。
-          </span>
-        )}
-      </div>
+                  data-art-slot={primarySlot(art)}
+                  data-role={parcel.role}
+                  onClick={() => onSelectParcel(parcel.id)}
+                  title={ariaLabel(state, parcel)}
+                  aria-label={ariaLabel(state, parcel)}
+                >
+                  {axis === 'cross' ? (
+                    <>
+                      <span className="road-stripe h" />
+                      <span className="road-stripe v" />
+                    </>
+                  ) : axis ? (
+                    <span className="road-stripe" />
+                  ) : null}
+                  <MapCellFeatureArt art={art} />
+                  {city ? <span className="city-label">{city.name}</span> : null}
+                  {hasOpenAuction && (
+                    <span className="map-cell-auction-tag" aria-hidden="true">
+                      拍
+                    </span>
+                  )}
+                  {parcel.role === 'land' && (
+                    <span
+                      className="map-cell-resource-dot"
+                      style={
+                        {
+                          '--res-hue': `${PARCEL_RESOURCE_DEFS[parcel.resource.kind].colorHue}`,
+                        } as CSSProperties
+                      }
+                      title={`${parcel.resource.nameZh} · 儲量${parcel.resource.reserves}`}
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="map-strategy">
+            靠近人口密集區、城市與道路，收購量與單價較高。道路與城市核心不出售。
+          </p>
+          <div className="map-legend">
+            <span>
+              <i className="swatch auction-live" /> 拍賣中（閃爍）
+            </span>
+            <span>
+              <i className="swatch heat" /> 人口熱度
+            </span>
+            <span>
+              <i className="swatch road" /> 道路
+            </span>
+            <span>
+              <i className="swatch city" /> 城市據點
+            </span>
+            <span>
+              <i className="swatch owned" /> 你的土地
+            </span>
+            <span>
+              <i className="swatch under-construction" /> 建造中
+            </span>
+            <span>
+              <i className="swatch building-ready" /> 工廠運營
+            </span>
+            <span>
+              <img
+                className="swatch art-icon"
+                src={ASSET_SLOTS.map.road}
+                alt=""
+                data-art-slot={MAP_ART_SLOT.road}
+              />
+              道路圖層
+            </span>
+            <span>
+              <img
+                className="swatch art-icon"
+                src={ASSET_SLOTS.map.cityHub}
+                alt=""
+                data-art-slot={MAP_ART_SLOT.cityHub}
+              />
+              城市據點圖層
+            </span>
+            <span>
+              <img
+                className="swatch art-icon"
+                src={ASSET_SLOTS.map.popDense}
+                alt=""
+                data-art-slot={MAP_ART_SLOT.popDense}
+              />
+              人口密集圖層
+            </span>
+            <span>
+              <img
+                className="swatch art-icon"
+                src={ASSET_SLOTS.map.cityBuilding}
+                alt=""
+                data-art-slot={MAP_ART_SLOT.cityBuilding}
+              />
+              城市建築圖層
+            </span>
+            {featureArt.source === 'placeholder' && (
+              <span className="map-legend-note">
+                道路、城市與人口密集為美術占位；地理資料寫入後會改接同一組圖層鍵。
+              </span>
+            )}
+          </div>
+        </>
+      )}
     </section>
   );
 }
