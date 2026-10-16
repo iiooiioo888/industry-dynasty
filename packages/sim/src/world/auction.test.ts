@@ -9,7 +9,7 @@ import { findOpenLotForParcel } from './state.js';
 
 describe('土地拍賣', () => {
   it('出價後結算會扣款並寫入持有人', () => {
-    const parcelId = parcelIdFromCoords(2, 3);
+    const parcelId = parcelIdFromCoords(4, 1);
     let state = createInitialWorld({ startingCash: 50_000 });
     const lot = findOpenLotForParcel(state, parcelId)!;
     const bid = minNextBid(lot);
@@ -42,6 +42,12 @@ describe('土地拍賣', () => {
       state: 'empty' as const,
       ownerId: null,
       resource: generateParcelResource(1, 1),
+      role: 'land' as const,
+      populationDensity: 20,
+      roadAccess: 0.4,
+      cityProximity: 0.2,
+      nearestCityName: null,
+      nearestCityDistance: 4,
     };
     const player = { id: 'player-1', name: '測試', cash: 5000 };
     const withBid = { ...lot, highBid: 1200, highBidderId: 'player-1' };

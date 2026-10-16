@@ -3,6 +3,7 @@ import {
   FACTORY_TYPES,
   findParcel,
   getSite,
+  quoteLocalDemand,
   type FactoryTypeId,
   type ParcelId,
   type WorldState,
@@ -40,7 +41,9 @@ export function BuildPanel({
     return (
       <section className="sys-panel build-panel">
         <h2>建造中</h2>
-        <p>{def.nameZh} · ({parcel.x}, {parcel.y})</p>
+        <p>
+          {def.nameZh} · ({parcel.x}, {parcel.y})
+        </p>
         <div className="progress-bar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
           <div className="progress-fill" style={{ width: `${pct}%` }} />
         </div>
@@ -48,7 +51,9 @@ export function BuildPanel({
           進度 {site.progressTicks} / {site.totalTicks} 週期（{pct}%）
         </p>
         <div className="panel-actions">
-          <button type="button" onClick={onAdvanceBuild}>推進建設週期</button>
+          <button type="button" onClick={onAdvanceBuild}>
+            推進建設週期
+          </button>
           <button type="button" className="secondary" onClick={() => onCancelBuild(parcel.id)}>
             取消建造（退 50%）
           </button>
@@ -65,13 +70,21 @@ export function BuildPanel({
     return null;
   }
 
+  const demand = quoteLocalDemand(parcel);
+
   return (
     <section className="sys-panel build-panel">
       <header className="sys-panel-head">
         <span className="sys-panel-tag">BLD</span>
         <h2>建造選單</h2>
       </header>
-      <p className="sys-muted">土地 ({parcel.x}, {parcel.y}) · 現金 ${player.cash.toLocaleString()}</p>
+      <p className="sys-muted">
+        土地 ({parcel.x}, {parcel.y}) · 人口 {parcel.populationDensity} · 現金 $
+        {player.cash.toLocaleString()}
+      </p>
+      <p className="panel-hint">
+        若在此銷售：每週約 {demand.weeklyVolume} 件，單價 ${demand.unitPrice.toLocaleString()}。
+      </p>
       <ul className="factory-list">
         {FACTORY_TYPE_LIST.map((def) => {
           const affordable = player.cash >= def.buildCost;
@@ -85,7 +98,8 @@ export function BuildPanel({
                   {def.footprint.width}×{def.footprint.height}
                 </p>
                 <p className="factory-meta">
-                  基礎物流 {def.baseLogisticsEfficiency.toFixed(2)}× · 每鄰 +{(def.adjacencyEfficiencyBonus * 100).toFixed(0)}%
+                  基礎物流 {def.baseLogisticsEfficiency.toFixed(2)}× · 每鄰 +
+                  {(def.adjacencyEfficiencyBonus * 100).toFixed(0)}%
                 </p>
                 <button
                   type="button"

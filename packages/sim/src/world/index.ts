@@ -2,6 +2,23 @@ export { type WorldAction } from './actions.js';
 export { applyBidToLot, minNextBid, settleLot, validateBid } from './auction-logic.js';
 export { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
 export { createInitialWorld } from './create-world.js';
+export {
+  DEMAND_BASE_UNIT_PRICE,
+  DEMAND_BASE_WEEKLY_VOLUME,
+  quoteAuctionMinPrice,
+  quoteLocalDemand,
+  type LocalDemandQuote,
+} from './demand.js';
+export {
+  CITY_INFLUENCE_RADIUS,
+  buildGeography,
+  denseZoneAt,
+  isPurchasableRole,
+  roadAxisAt,
+  roadNamesAt,
+  type MapGeography,
+  type RoadAxis,
+} from './geography.js';
 export { applyWorldAction } from './reducer.js';
 export {
   findOpenLotForParcel,

@@ -2,6 +2,7 @@ import type { AuctionLot } from '../types/auction.js';
 import type { Parcel } from '../types/map.js';
 import type { WorldConfig } from './config.js';
 import { createAuctionLot } from './auction-logic.js';
+import { quoteAuctionMinPrice } from './demand.js';
 import type { Player, WorldState } from './state.js';
 
 export interface TaxTickParcelOutcome {
@@ -32,7 +33,7 @@ export function processParcelTax(
   if (unpaid >= config.landTaxReauctionThreshold) {
     reauctioned = true;
     unpaid = 0;
-    const minPrice = config.auctionMinPriceBase + (parcel.x + parcel.y) * config.auctionMinPriceStep;
+    const minPrice = quoteAuctionMinPrice(parcel, config);
     newLot = createAuctionLot(parcel.id, minPrice, nextLotId);
     nextParcel = {
       ...parcel,

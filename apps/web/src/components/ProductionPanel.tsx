@@ -2,6 +2,8 @@ import {
   findParcel,
   getProductionLine,
   getSite,
+  getSiteLogisticsView,
+  quoteLocalDemand,
   RECIPE_LIST,
   type ParcelId,
   type RecipeId,
@@ -50,25 +52,40 @@ export function ProductionPanel({
     );
   }
 
-  const pct = line && line.cycleTicks > 0
-    ? Math.round((line.progressTicks / line.cycleTicks) * 100)
-    : 0;
+  const pct =
+    line && line.cycleTicks > 0 ? Math.round((line.progressTicks / line.cycleTicks) * 100) : 0;
+  const demand = quoteLocalDemand(parcel);
+  const locationBonus =
+    site?.phase === 'complete'
+      ? getSiteLogisticsView(state.map, parcel, site, state.sites).locationBonus
+      : 0;
 
   return (
     <section className="sys-panel production-panel">
       <header className="sys-panel-head">
         <span className="sys-panel-tag">MFG</span>
-        <h2>生產線 · ({parcel.x},{parcel.y})</h2>
+        <h2>
+          生產線 · ({parcel.x},{parcel.y})
+        </h2>
       </header>
 
       <ParcelResourceBadge resource={parcel.resource} variant="prominent" />
+      {site?.phase === 'complete' ? (
+        <p className="panel-hint">
+          區位 +{locationBonus.toFixed(2)}（道路 {Math.round(parcel.roadAccess * 100)}% · 城市{' '}
+          {Math.round(parcel.cityProximity * 100)}%）· 在此收購每週 {demand.weeklyVolume} 件，單價 $
+          {demand.unitPrice.toLocaleString()}
+        </p>
+      ) : null}
 
       {line ? (
         <>
           <dl className="prod-metrics">
             <div>
               <dt>地皮加成</dt>
-              <dd>{line.localResourceNameZh} ×{line.localResourceBonus.toFixed(2)}</dd>
+              <dd>
+                {line.localResourceNameZh} ×{line.localResourceBonus.toFixed(2)}
+              </dd>
             </div>
             <div>
               <dt>狀態</dt>
@@ -80,7 +97,9 @@ export function ProductionPanel({
             </div>
             <div>
               <dt>週期</dt>
-              <dd>{line.progressTicks}/{line.cycleTicks}（工人路程 +{line.workerTravelTicks}）</dd>
+              <dd>
+                {line.progressTicks}/{line.cycleTicks}（工人路程 +{line.workerTravelTicks}）
+              </dd>
             </div>
             <div>
               <dt>產出係數</dt>

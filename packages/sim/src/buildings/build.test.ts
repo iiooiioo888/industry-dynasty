@@ -46,7 +46,7 @@ describe('建造流程', () => {
 
   it('取消建造可部分退款', () => {
     let state = createInitialWorld({ startingCash: 200_000 });
-    const { state: withLand, parcelId } = ownParcel(state, 2, 2);
+    const { state: withLand, parcelId } = ownParcel(state, 1, 1);
     state = withLand;
     const cashBefore = state.players['player-1'].cash;
 
@@ -59,7 +59,9 @@ describe('建造流程', () => {
 
     expect(getSite(state, parcelId)).toBeUndefined();
     expect(state.players['player-1'].cash).toBe(
-      cashBefore - FACTORY_TYPES.workshop.buildCost + Math.floor(FACTORY_TYPES.workshop.buildCost * 0.5),
+      cashBefore -
+        FACTORY_TYPES.workshop.buildCost +
+        Math.floor(FACTORY_TYPES.workshop.buildCost * 0.5),
     );
   });
 });
@@ -67,9 +69,9 @@ describe('建造流程', () => {
 describe('相鄰效率', () => {
   it('相鄰完工工廠提高物流效率係數', () => {
     let state = createInitialWorld({ startingCash: 500_000 });
-    const a = ownParcel(state, 5, 5);
+    const a = ownParcel(state, 4, 5);
     state = a.state;
-    const b = ownParcel(state, 6, 5);
+    const b = ownParcel(state, 5, 5);
     state = b.state;
 
     for (const parcelId of [a.parcelId, b.parcelId]) {
@@ -94,5 +96,7 @@ describe('相鄰效率', () => {
     expect(view.adjacentFactoryCount).toBe(1);
     expect(view.factor).toBeGreaterThan(view.base);
     expect(view.adjacencyBonus).toBe(FACTORY_TYPES.workshop.adjacencyEfficiencyBonus);
+    expect(view.locationBonus).toBeGreaterThan(0);
+    expect(view.factor).toBeCloseTo(view.base + view.adjacencyBonus + view.locationBonus, 5);
   });
 });

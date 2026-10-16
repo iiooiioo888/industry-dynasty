@@ -8,6 +8,10 @@ export interface LogisticsEfficiencyView {
   readonly base: number;
   readonly adjacencyBonus: number;
   readonly adjacentFactoryCount: number;
+  /** 靠近道路與城市帶來的吞吐加成，與相鄰工廠分開計算。 */
+  readonly locationBonus: number;
+  readonly roadAccess: number;
+  readonly cityProximity: number;
 }
 
 const CARDINAL_OFFSETS = [
@@ -51,18 +55,32 @@ export function countAdjacentCompleteFactories(
   return count;
 }
 
+const ROAD_LOGISTICS_WEIGHT = 0.08;
+const CITY_LOGISTICS_WEIGHT = 0.06;
+
 export function computeLogisticsEfficiency(
   factoryType: FactoryTypeDef,
   adjacentFactoryCount: number,
+  location?: { roadAccess: number; cityProximity: number },
 ): LogisticsEfficiencyView {
+  const roadAccess = clamp01(location?.roadAccess ?? 0);
+  const cityProximity = clamp01(location?.cityProximity ?? 0);
   const adjacencyBonus = adjacentFactoryCount * factoryType.adjacencyEfficiencyBonus;
-  const factor = factoryType.baseLogisticsEfficiency + adjacencyBonus;
+  const locationBonus = ROAD_LOGISTICS_WEIGHT * roadAccess + CITY_LOGISTICS_WEIGHT * cityProximity;
+  const factor = factoryType.baseLogisticsEfficiency + adjacencyBonus + locationBonus;
   return {
     factor,
     base: factoryType.baseLogisticsEfficiency,
     adjacencyBonus,
     adjacentFactoryCount,
+    locationBonus,
+    roadAccess,
+    cityProximity,
   };
+}
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
 }
 
 export function getSiteLogisticsView(
@@ -73,5 +91,8 @@ export function getSiteLogisticsView(
 ): LogisticsEfficiencyView {
   const factoryType = FACTORY_TYPES[site.factoryTypeId];
   const neighbors = countAdjacentCompleteFactories(map, parcel, sites);
-  return computeLogisticsEfficiency(factoryType, neighbors);
+  return computeLogisticsEfficiency(factoryType, neighbors, {
+    roadAccess: parcel.roadAccess,
+    cityProximity: parcel.cityProximity,
+  });
 }

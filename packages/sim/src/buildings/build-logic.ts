@@ -12,7 +12,14 @@ export interface StartBuildResult {
   site?: ConstructingSite;
 }
 
-export function canBuildOnParcel(parcel: Parcel, ownerId: string, site: ParcelSite | undefined): boolean {
+export function canBuildOnParcel(
+  parcel: Parcel,
+  ownerId: string,
+  site: ParcelSite | undefined,
+): boolean {
+  if (parcel.role !== 'land') {
+    return false;
+  }
   if (parcel.ownerId !== ownerId) {
     return false;
   }

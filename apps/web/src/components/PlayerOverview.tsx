@@ -1,4 +1,4 @@
-import { getPlayerHoldings, type WorldState } from '@industry-dynasty/sim';
+import { getPlayerHoldings, quoteLocalDemand, type WorldState } from '@industry-dynasty/sim';
 import './PlayerOverview.css';
 
 export interface PlayerOverviewProps {
@@ -28,14 +28,19 @@ export function PlayerOverview({ state, onAdvanceTax }: PlayerOverviewProps) {
         <p className="panel-muted">尚無土地，請從拍賣取得。</p>
       ) : (
         <ul className="holdings-list">
-          {holdings.map((p) => (
-            <li key={p.id.value}>
-              ({p.x}, {p.y})
-              {state.unpaidLandTax[p.id.value]
-                ? ` · 欠稅 $${state.unpaidLandTax[p.id.value].toLocaleString()}`
-                : ''}
-            </li>
-          ))}
+          {holdings.map((p) => {
+            const quote = quoteLocalDemand(p);
+            return (
+              <li key={p.id.value}>
+                ({p.x}, {p.y}) · 人口 {p.populationDensity} · ${quote.unitPrice}/件 ·{' '}
+                {quote.weeklyVolume}
+                件/週
+                {state.unpaidLandTax[p.id.value]
+                  ? ` · 欠稅 $${state.unpaidLandTax[p.id.value].toLocaleString()}`
+                  : ''}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

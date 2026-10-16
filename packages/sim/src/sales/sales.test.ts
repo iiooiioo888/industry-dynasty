@@ -16,6 +16,12 @@ function parcelAt(x: number, y: number) {
     state: 'owned' as const,
     ownerId: 'player-1',
     resource: generateParcelResource(x, y),
+    role: 'land' as const,
+    populationDensity: 20,
+    roadAccess: 0.4,
+    cityProximity: 0.2,
+    nearestCityName: null,
+    nearestCityDistance: 4,
   };
 }
 

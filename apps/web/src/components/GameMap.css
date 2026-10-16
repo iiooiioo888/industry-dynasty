@@ -11,6 +11,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   padding: 0.5rem 0.75rem;
   font-size: 0.8rem;
   color: #9aa3b2;
@@ -20,23 +21,33 @@
 
 .map-dim {
   font-variant-numeric: tabular-nums;
+  flex: none;
 }
 
 .map-grid {
   display: grid;
   gap: 1px;
   padding: 1px;
-  background: #2f3640;
+  background: #2a241c;
   flex: 1;
   min-height: 0;
 }
 
 .map-cell.interactive {
+  position: relative;
   border: none;
   padding: 0;
   cursor: pointer;
   min-height: 0;
-  transition: background 0.12s ease, box-shadow 0.12s ease;
+  overflow: hidden;
+  background-color: #1e242c;
+  transition:
+    filter 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.map-cell.interactive:hover {
+  filter: brightness(1.16);
 }
 
 .map-cell.auction-live {
@@ -52,7 +63,9 @@
 }
 
 .map-cell.auction-selected {
-  box-shadow: inset 0 0 0 3px #fff, 0 0 14px #ff6b4a;
+  box-shadow:
+    inset 0 0 0 3px #fff,
+    0 0 14px #ff6b4a;
   z-index: 2;
 }
 
@@ -60,6 +73,7 @@
   position: absolute;
   right: 2px;
   bottom: 2px;
+  z-index: 3;
   width: 6px;
   height: 6px;
   border-radius: 1px;
@@ -68,13 +82,10 @@
   pointer-events: none;
 }
 
-.map-cell.interactive {
-  position: relative;
-}
-
 .map-cell-auction-tag {
   position: absolute;
   inset: 0;
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -115,32 +126,66 @@
   background: #1e242c;
 }
 
-.map-cell.empty:hover {
-  background: #2a3442;
+.map-cell.role-road {
+  background-color: #3d3428;
+}
+
+.map-cell.role-city-hub {
+  background-color: #1d446f;
+  background-image: linear-gradient(160deg, #2a5f96, #16324f);
+}
+
+.road-stripe {
+  position: absolute;
+  background: #d7c59a;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.road-h .road-stripe,
+.road-stripe.h {
+  left: 0;
+  right: 0;
+  top: 36%;
+  height: 28%;
+}
+
+.road-v .road-stripe,
+.road-stripe.v {
+  top: 0;
+  bottom: 0;
+  left: 36%;
+  width: 28%;
+}
+
+.city-label {
+  position: absolute;
+  left: 2px;
+  top: 1px;
+  z-index: 2;
+  font-size: clamp(0.45rem, 1.05vw, 0.68rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: #f4f7fb;
+  text-shadow: 0 1px 2px #041018;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .map-cell.owned {
-  background: #1d4d3a;
-}
-
-.map-cell.owned:hover {
-  background: #256349;
+  box-shadow: inset 0 0 0 3px #3dd68c;
 }
 
 .map-cell.other-owned {
-  background: #3d3520;
+  box-shadow: inset 0 0 0 3px #a68b4b;
 }
 
 .map-cell.under-construction {
-  background: #5c4a1f;
-}
-
-.map-cell.under-construction:hover {
-  background: #6d5824;
+  box-shadow: inset 0 0 0 3px #e3b341;
 }
 
 .map-cell.building-ready {
-  background: #2d4a6e;
+  box-shadow: inset 0 0 0 3px #6eb5ff;
 }
 
 .map-cell.market-hub {
@@ -159,18 +204,34 @@
 }
 
 .map-cell.selected {
-  box-shadow: inset 0 0 0 2px #6eb5ff;
+  box-shadow:
+    inset 0 0 0 2px #f4f8ff,
+    inset 0 0 0 5px #8ec5ff;
   z-index: 1;
+}
+
+.map-cell.owned.selected {
+  box-shadow:
+    inset 0 0 0 2px #f4fff8,
+    inset 0 0 0 5px #3dd68c;
+}
+
+.map-strategy {
+  margin: 0;
+  padding: 0.45rem 0.75rem 0;
+  font-size: 0.75rem;
+  color: #c4cad4;
+  background: #12151a;
 }
 
 .map-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem 1rem;
+  gap: 0.65rem 1rem;
   padding: 0.55rem 0.75rem;
   font-size: 0.75rem;
   color: #8b949e;
-  border-top: 1px solid #2f3640;
+  background: #12151a;
 }
 
 .map-legend .swatch {
@@ -187,19 +248,26 @@
   border: 1px solid #ff8c42;
 }
 
-.map-legend .swatch.empty {
-  background: #1e242c;
-  border: 1px solid #3d4654;
+.map-legend .swatch.heat {
+  background: linear-gradient(90deg, #1a222e, #9a3e34);
+}
+
+.map-legend .swatch.road {
+  background: #d7c59a;
+}
+
+.map-legend .swatch.city {
+  background: #2a5f96;
 }
 
 .map-legend .swatch.owned {
-  background: #1d4d3a;
+  background: #3dd68c;
 }
 
 .map-legend .swatch.under-construction {
-  background: #5c4a1f;
+  background: #e3b341;
 }
 
 .map-legend .swatch.building-ready {
-  background: #2d4a6e;
+  background: #6eb5ff;
 }

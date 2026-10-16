@@ -50,7 +50,7 @@ describe('生產配方', () => {
 
   it('缺料時累積閒置損失', () => {
     let state = createInitialWorld({ startingCash: 200_000 });
-    const { state: ready, parcelId } = ownAndCompleteFactory(state, 2, 2);
+    const { state: ready, parcelId } = ownAndCompleteFactory(state, 4, 4);
     state = ready;
     state = {
       ...state,
@@ -84,6 +84,12 @@ describe('距離懲罰', () => {
         state: 'building-ready',
         ownerId: 'p',
         resource: generateParcelResource(0, 1),
+        role: 'land',
+        populationDensity: 20,
+        roadAccess: 0.4,
+        cityProximity: 0.2,
+        nearestCityName: null,
+        nearestCityDistance: 4,
       },
       1,
     );
@@ -97,6 +103,12 @@ describe('距離懲罰', () => {
         state: 'building-ready',
         ownerId: 'p',
         resource: generateParcelResource(10, 10),
+        role: 'land',
+        populationDensity: 12,
+        roadAccess: 0.12,
+        cityProximity: 0,
+        nearestCityName: null,
+        nearestCityDistance: 8,
       },
       1,
     );

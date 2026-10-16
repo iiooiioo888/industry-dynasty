@@ -19,16 +19,8 @@ import {
 } from './production-reducer.js';
 import { applyTaxTickWithPnl } from './day-reducer.js';
 import { bumpPlayerPnl } from './pnl-helpers.js';
-import {
-  applyAdvanceDay,
-  applySellToNpc,
-} from './sales-reducer.js';
-import {
-  findOpenLotForParcel,
-  findParcel,
-  type Player,
-  type WorldState,
-} from './state.js';
+import { applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
+import { findOpenLotForParcel, findParcel, type Player, type WorldState } from './state.js';
 
 let buildingIdCounter = 20_000;
 
@@ -94,7 +86,7 @@ function applyBid(state: WorldState, parcelId: ParcelId, amount: number): WorldS
   if (!lot || !player || !parcel) {
     return state;
   }
-  if (parcel.ownerId !== null) {
+  if (parcel.ownerId !== null || parcel.role !== 'land') {
     return state;
   }
 

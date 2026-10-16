@@ -1,0 +1,33 @@
+.market-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.market-head h2 {
+  margin: 0;
+}
+
+.market-place {
+  margin: 0.1rem 0 0;
+  font-size: 0.8rem;
+  color: #c4cad4;
+}
+
+.market-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+}
+
+.market-stats dt {
+  font-size: 0.7rem;
+  color: #8b949e;
+}
+
+.market-stats dd {
+  margin: 0.15rem 0 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+}

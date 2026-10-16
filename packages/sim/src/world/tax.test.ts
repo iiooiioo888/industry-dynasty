@@ -55,6 +55,12 @@ describe('土地稅與收回拍賣', () => {
       state: 'owned' as const,
       ownerId: 'player-1',
       resource: generateParcelResource(3, 3),
+      role: 'land' as const,
+      populationDensity: 10,
+      roadAccess: 0.12,
+      cityProximity: 0,
+      nearestCityName: null,
+      nearestCityDistance: 8,
     };
     const player = { id: 'player-1', name: '測試', cash: 200 };
     const outcome = processParcelTax(parcel, player, 0, DEFAULT_WORLD_CONFIG, 'lot-x');

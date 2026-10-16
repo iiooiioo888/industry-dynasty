@@ -10,6 +10,7 @@ import { AuctionPanel } from './components/AuctionPanel';
 import { BuildPanel } from './components/BuildPanel';
 import { GameMap } from './components/GameMap';
 import { InventoryPanel } from './components/InventoryPanel';
+import { MarketPanel } from './components/MarketPanel';
 import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
 import { ProductionPanel } from './components/ProductionPanel';
@@ -27,17 +28,14 @@ export function App() {
         <span className="brand">產業霸權 · 產業控制台</span>
         <span className="meta">
           {SIM_PACKAGE_VERSION} · 第 {state.gameDay} 天 · 稅務 T{state.taxTick} · 生產 P
-          {state.productionTick}
+          {state.productionTick} · 道路／城市／人口需求
         </span>
       </header>
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
       <div className="shell-body">
         <aside className="shell-col shell-col-left">
           <PnLPanel state={state} />
-          <PlayerOverview
-            state={state}
-            onAdvanceTax={() => dispatch({ type: 'ADVANCE_DAY' })}
-          />
+          <PlayerOverview state={state} onAdvanceTax={() => dispatch({ type: 'ADVANCE_DAY' })} />
           <InventoryPanel state={state} />
         </aside>
         <main className="shell-col shell-col-center">
@@ -58,6 +56,7 @@ export function App() {
             onAdvanceProduction={() => dispatch({ type: 'ADVANCE_PRODUCTION_TICK' })}
             onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
           />
+          <MarketPanel state={state} selectedParcelId={selectedParcelId} />
           <BuildPanel
             state={state}
             selectedParcelId={selectedParcelId}

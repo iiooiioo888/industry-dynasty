@@ -2,6 +2,7 @@ import {
   findOpenLotForParcel,
   findParcel,
   minNextBid,
+  quoteLocalDemand,
   type ParcelId,
   type WorldState,
 } from '@industry-dynasty/sim';
@@ -46,13 +47,27 @@ export function AuctionPanel({ state, selectedParcelId, onBid, onSettle }: Aucti
     );
   }
 
+  if (parcel.role !== 'land') {
+    return (
+      <section className="sys-panel auction-panel">
+        <AuctionHead />
+        <p className="sys-muted">
+          {parcel.role === 'road' ? '道路' : (parcel.nearestCityName ?? '城市據點')}
+          不開放拍賣。請改選周圍的可購土地；人口越密，底價與日後售價越高。
+        </p>
+      </section>
+    );
+  }
+
   if (parcel.ownerId === state.localPlayerId) {
     const unpaid = state.unpaidLandTax[parcel.id.value] ?? 0;
     if (unpaid > 0) {
       return (
         <section className="sys-panel auction-panel">
           <AuctionHead />
-          <p className="panel-warn">座標 ({parcel.x}, {parcel.y}) 累計欠稅：${unpaid.toLocaleString()}</p>
+          <p className="panel-warn">
+            座標 ({parcel.x}, {parcel.y}) 累計欠稅：${unpaid.toLocaleString()}
+          </p>
         </section>
       );
     }
@@ -63,17 +78,37 @@ export function AuctionPanel({ state, selectedParcelId, onBid, onSettle }: Aucti
     return (
       <section className="sys-panel auction-panel">
         <AuctionHead />
-        <p className="sys-muted">土地 ({parcel.x}, {parcel.y}) — 無進行中拍賣。</p>
+        <p className="sys-muted">
+          土地 ({parcel.x}, {parcel.y}) — 無進行中拍賣。
+        </p>
       </section>
     );
   }
+
+  const quote = quoteLocalDemand(parcel);
 
   return (
     <section className="sys-panel auction-panel auction-panel-active">
       <div className="auction-panel-live-badge">● 拍賣進行中 — 請出價</div>
       <AuctionHead />
       <ParcelResourceBadge resource={parcel.resource} variant="prominent" />
-      <p className="sys-muted">座標 ({parcel.x}, {parcel.y}) · 此地皮資源獨一無二</p>
+      <p className="sys-muted">
+        座標 ({parcel.x}, {parcel.y}) · 人口 {parcel.populationDensity} · 此地皮資源獨一無二
+      </p>
+      <dl className="auction-stats">
+        <div>
+          <dt>人口密度</dt>
+          <dd>{parcel.populationDensity}</dd>
+        </div>
+        <div>
+          <dt>預估單價</dt>
+          <dd>${quote.unitPrice.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>每週可售</dt>
+          <dd>{quote.weeklyVolume} 件</dd>
+        </div>
+      </dl>
       <dl className="auction-stats">
         <div>
           <dt>底價</dt>
