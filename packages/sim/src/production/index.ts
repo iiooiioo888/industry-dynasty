@@ -21,4 +21,22 @@ export {
   type ProductionLine,
   type ProductionStatus,
 } from './production-line.js';
-export { RECIPE_LIST, RECIPES, type RecipeDef, type RecipeId } from './recipes.js';
+export {
+  craftedByTier,
+  planProfitPerTick,
+  recipeBlockReason,
+  recipeOutputLabel,
+  recipeSourceLabel,
+  techStage,
+  unitsUntilNextStage,
+} from './chain.js';
+export {
+  CHAIN_STAGES,
+  RECIPE_LIST,
+  RECIPES,
+  TECH_GATES,
+  type RecipeDef,
+  type RecipeId,
+  type RecipeStage,
+} from './recipes.js';
+export { ITEM_LIST, type ItemTier } from './items.js';

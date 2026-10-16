@@ -1,8 +1,11 @@
 import { getSiteLogisticsView } from '../buildings/adjacency.js';
 import type { CompleteSite } from '../buildings/site.js';
 import { getSiteForParcel } from '../buildings/build-logic.js';
+import { recipeBlockReason } from '../production/chain.js';
 import {
+  addItem,
   createProductionLine,
+  getItemQty,
   RECIPES,
   stopProductionLine,
   tickProductionLine,
@@ -34,13 +37,18 @@ export function applyStartProduction(
   if (!recipe) {
     return state;
   }
+  if (
+    recipeBlockReason({
+      recipe,
+      resourceKind: parcel.resource.kind,
+      factoryTypeId: site.factoryTypeId,
+      crafted: state.craftedTotals[player.id],
+    })
+  ) {
+    return state;
+  }
 
-  const logistics = getSiteLogisticsView(
-    state.map,
-    parcel,
-    site as CompleteSite,
-    state.sites,
-  );
+  const logistics = getSiteLogisticsView(state.map, parcel, site as CompleteSite, state.sites);
   const line = createProductionLine(recipe, parcel, logistics.factor);
 
   return {
@@ -65,6 +73,7 @@ export function applyStopProduction(state: WorldState, parcelId: ParcelId): Worl
 
 export function applyProductionTick(state: WorldState): WorldState {
   let inventories = { ...state.inventories };
+  let craftedTotals = { ...state.craftedTotals };
   const productionLines = { ...state.productionLines };
   let map = state.map;
 
@@ -81,8 +90,16 @@ export function applyProductionTick(state: WorldState): WorldState {
     const ownerId = site.ownerId;
     const recipe = RECIPES[line.recipeId];
     const stock = inventories[ownerId] ?? {};
+    const beforeQty = getItemQty(stock, recipe.outputItemId);
     const result = tickProductionLine(line, recipe, stock, parcel);
+    const granted = getItemQty(result.stock, recipe.outputItemId) - beforeQty;
     inventories = { ...inventories, [ownerId]: result.stock };
+    if (granted > 0) {
+      craftedTotals = {
+        ...craftedTotals,
+        [ownerId]: addItem(craftedTotals[ownerId] ?? {}, recipe.outputItemId, granted),
+      };
+    }
     productionLines[key] = result.line;
     map = {
       ...map,
@@ -94,6 +111,7 @@ export function applyProductionTick(state: WorldState): WorldState {
     ...state,
     map,
     inventories,
+    craftedTotals,
     productionLines,
     productionTick: state.productionTick + 1,
   };

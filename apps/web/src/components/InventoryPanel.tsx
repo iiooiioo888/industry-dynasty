@@ -1,7 +1,5 @@
-import { getItemQty, getPlayerInventory, ITEMS, type ItemId, type WorldState } from '@industry-dynasty/sim';
+import { getItemQty, getPlayerInventory, ITEM_LIST, type WorldState } from '@industry-dynasty/sim';
 import './InventoryPanel.css';
-
-const DISPLAY_ITEMS: ItemId[] = ['raw-ore', 'resin', 'basic-part', 'alloy-plate'];
 
 export interface InventoryPanelProps {
   state: WorldState;
@@ -17,11 +15,10 @@ export function InventoryPanel({ state }: InventoryPanelProps) {
         <h2>庫存</h2>
       </header>
       <ul className="inventory-list">
-        {DISPLAY_ITEMS.map((id) => {
-          const def = ITEMS[id];
-          const qty = getItemQty(stock, id);
+        {ITEM_LIST.map((def) => {
+          const qty = getItemQty(stock, def.id);
           return (
-            <li key={id} className={qty === 0 ? 'dim' : ''}>
+            <li key={def.id} className={qty === 0 ? 'dim' : ''}>
               <span>{def.nameZh}</span>
               <span className="qty">{qty}</span>
             </li>

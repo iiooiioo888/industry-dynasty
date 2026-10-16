@@ -1,11 +1,7 @@
 import type { ItemId } from '../production/items.js';
 
 export type ParcelResourceKind =
-  | 'iron-vein'
-  | 'resin-bog'
-  | 'quartz-sand'
-  | 'coal-seam'
-  | 'copper-shale';
+  'iron-vein' | 'resin-bog' | 'quartz-sand' | 'coal-seam' | 'copper-shale';
 
 export interface ParcelResourceDef {
   readonly kind: ParcelResourceKind;
@@ -15,11 +11,21 @@ export interface ParcelResourceDef {
 }
 
 export const PARCEL_RESOURCE_DEFS: Record<ParcelResourceKind, ParcelResourceDef> = {
-  'iron-vein': { kind: 'iron-vein', nameZh: '鐵礦脈', linkedItemId: 'raw-ore', colorHue: 12 },
+  'iron-vein': { kind: 'iron-vein', nameZh: '鐵脈', linkedItemId: 'raw-ore', colorHue: 12 },
   'resin-bog': { kind: 'resin-bog', nameZh: '樹脂沼', linkedItemId: 'resin', colorHue: 95 },
-  'quartz-sand': { kind: 'quartz-sand', nameZh: '石英沙層', linkedItemId: 'basic-part', colorHue: 200 },
-  'coal-seam': { kind: 'coal-seam', nameZh: '煤層', linkedItemId: 'raw-ore', colorHue: 240 },
-  'copper-shale': { kind: 'copper-shale', nameZh: '銅页岩', linkedItemId: 'alloy-plate', colorHue: 28 },
+  'quartz-sand': {
+    kind: 'quartz-sand',
+    nameZh: '石英砂',
+    linkedItemId: 'quartz-grit',
+    colorHue: 200,
+  },
+  'coal-seam': { kind: 'coal-seam', nameZh: '煤層', linkedItemId: 'coal', colorHue: 240 },
+  'copper-shale': {
+    kind: 'copper-shale',
+    nameZh: '銅頁岩',
+    linkedItemId: 'copper-ore',
+    colorHue: 28,
+  },
 };
 
 const KINDS = Object.keys(PARCEL_RESOURCE_DEFS) as ParcelResourceKind[];
@@ -54,7 +60,10 @@ export function generateParcelResource(x: number, y: number): ParcelResource {
   };
 }
 
-export function resourceThroughputBonus(resource: ParcelResource, recipeUsesLinkedItem: boolean): number {
+export function resourceThroughputBonus(
+  resource: ParcelResource,
+  recipeUsesLinkedItem: boolean,
+): number {
   if (!recipeUsesLinkedItem) {
     return 1;
   }

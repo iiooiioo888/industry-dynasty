@@ -54,6 +54,7 @@ export function createInitialWorld(config: Partial<WorldConfig> = {}): WorldStat
     productionTick: 0,
     sites: {},
     inventories: { [player.id]: { ...DEFAULT_STARTING_STOCK } },
+    craftedTotals: { [player.id]: {} },
     productionLines: {},
     gameDay: 0,
     npcBuyOffers: generateNpcBuyOffers(0),

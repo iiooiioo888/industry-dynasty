@@ -1,8 +1,5 @@
 import type { Parcel } from '../types/map.js';
-import {
-  recipeUsesLinkedResource,
-  resourceThroughputBonus,
-} from '../world/parcel-resources.js';
+import { recipeUsesLinkedResource, resourceThroughputBonus } from '../world/parcel-resources.js';
 import { ITEMS } from './items.js';
 import { addItem, getItemQty, removeItem, type PlayerStock } from './items.js';
 import { computeProductionTiming } from './logistics.js';
@@ -38,10 +35,12 @@ export function createProductionLine(
     parcel,
     logisticsEfficiency,
   );
-  const usesLocal = recipeUsesLinkedResource(
-    parcel.resource,
-    recipe.inputs.map((i) => i.itemId),
-  );
+  const usesLocal = recipe.sourceKind
+    ? parcel.resource.kind === recipe.sourceKind
+    : recipeUsesLinkedResource(
+        parcel.resource,
+        recipe.inputs.map((i) => i.itemId),
+      );
   const localBonus = resourceThroughputBonus(parcel.resource, usesLocal);
   const throughputFactor = Math.min(1.5, timing.throughputFactor * localBonus);
 
@@ -80,7 +79,22 @@ function consumeRecipeInputs(
 ): { ok: boolean; stock: PlayerStock; parcel: Parcel } {
   let nextParcel = parcel;
   let nextStock = stock;
-  const linked = parcel.resource.linkedItemId;
+  if (recipe.reserveCost > 0) {
+    if (
+      nextParcel.resource.kind !== recipe.sourceKind ||
+      nextParcel.resource.reserves < recipe.reserveCost
+    ) {
+      return { ok: false, stock, parcel };
+    }
+    nextParcel = {
+      ...nextParcel,
+      resource: {
+        ...nextParcel.resource,
+        reserves: nextParcel.resource.reserves - recipe.reserveCost,
+      },
+    };
+  }
+  const linked = nextParcel.resource.linkedItemId;
 
   for (const input of recipe.inputs) {
     let need = input.quantity;
@@ -109,6 +123,14 @@ function consumeRecipeInputs(
 }
 
 function inputsAffordable(parcel: Parcel, recipe: RecipeDef, stock: PlayerStock): boolean {
+  if (recipe.reserveCost > 0) {
+    if (
+      parcel.resource.kind !== recipe.sourceKind ||
+      parcel.resource.reserves < recipe.reserveCost
+    ) {
+      return false;
+    }
+  }
   for (const input of recipe.inputs) {
     let need = input.quantity;
     if (input.itemId === parcel.resource.linkedItemId && parcel.resource.reserves > 0) {

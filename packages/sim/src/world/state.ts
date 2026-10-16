@@ -24,6 +24,8 @@ export interface WorldState {
   readonly productionTick: number;
   readonly sites: Readonly<Record<string, ParcelSite>>;
   readonly inventories: Readonly<Record<string, PlayerStock>>;
+  /** 實際入庫累計（不含開局配給），用來解鎖下一階段配方 */
+  readonly craftedTotals: Readonly<Record<string, PlayerStock>>;
   readonly productionLines: Readonly<Record<string, ProductionLine>>;
   readonly gameDay: number;
   readonly npcBuyOffers: readonly NpcBuyOffer[];
@@ -56,6 +58,9 @@ export function getPlayerInventory(state: WorldState, playerId: string): PlayerS
   return state.inventories[playerId] ?? {};
 }
 
-export function getProductionLine(state: WorldState, parcelId: ParcelId): ProductionLine | undefined {
+export function getProductionLine(
+  state: WorldState,
+  parcelId: ParcelId,
+): ProductionLine | undefined {
   return state.productionLines[parcelId.value];
 }

@@ -1,4 +1,4 @@
-import { PARCEL_RESOURCE_DEFS, type ParcelResource } from '@industry-dynasty/sim';
+import { ITEMS, PARCEL_RESOURCE_DEFS, type ParcelResource } from '@industry-dynasty/sim';
 import type { CSSProperties } from 'react';
 import './ParcelResourceBadge.css';
 
@@ -20,7 +20,7 @@ export function ParcelResourceBadge({ resource, variant = 'compact' }: ParcelRes
       <span className="res-meta">
         品質 {resource.richness} · 儲量 {resource.reserves}/{resource.initialReserves}（{pct}%）
       </span>
-      <span className="res-link">關聯原料：{resource.linkedItemId}</span>
+      <span className="res-link">開採：{ITEMS[resource.linkedItemId].nameZh}</span>
     </div>
   );
 }

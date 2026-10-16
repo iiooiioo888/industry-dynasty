@@ -57,3 +57,74 @@
   width: 100%;
   margin-top: 0.65rem;
 }
+
+.stage-pills {
+  display: flex;
+  gap: 0.3rem;
+  margin: 0 0 0.35rem;
+  padding: 0;
+  list-style: none;
+}
+
+.stage-pills li {
+  flex: 1;
+  text-align: center;
+  border: 1px solid var(--sys-border);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  padding: 0.08rem 0.2rem;
+  color: var(--sys-muted);
+}
+
+.stage-pills li.on {
+  color: #d5ffe4;
+  border-color: #2f6b45;
+  background: #163224;
+}
+
+.chain-note {
+  margin-bottom: 0.35rem;
+}
+
+.chain-scroll h3 {
+  margin: 0.35rem 0 0.1rem;
+  font-size: 0.68rem;
+  color: var(--sys-accent);
+}
+
+.chain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chain-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding: 0.18rem 0;
+  border-bottom: 1px solid var(--sys-border);
+  font-size: 0.68rem;
+}
+
+.chain-meta {
+  color: var(--sys-muted);
+  font-size: 0.62rem;
+}
+
+.recipe-block {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.62rem;
+  color: var(--sys-warn);
+}
+
+.recipe-list .sys-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.chain-advance {
+  width: 100%;
+  margin-top: 0.45rem;
+}

@@ -1,18 +1,86 @@
-export type ItemId = 'raw-ore' | 'resin' | 'basic-part' | 'alloy-plate';
+export type ItemTier = 'raw' | 'intermediate' | 'finished';
+
+export type ItemId =
+  | 'raw-ore'
+  | 'resin'
+  | 'coal'
+  | 'copper-ore'
+  | 'quartz-grit'
+  | 'iron-ingot'
+  | 'copper-ingot'
+  | 'silica'
+  | 'basic-part'
+  | 'alloy-plate';
 
 export interface ItemDef {
   readonly id: ItemId;
   readonly nameZh: string;
-  /** 單位名目價值（Sprint 3 用於可見利潤／損失） */
+  readonly tier: ItemTier;
+  /**
+   * 單位名目價值。收購價只使用 sellable 的四種；
+   * 煤炭、銅礦、石英砂粒與錠／矽片要再加工成可售品。
+   */
   readonly unitValue: number;
+  readonly sellable: boolean;
 }
 
-export const ITEMS: Record<ItemId, ItemDef> = {
-  'raw-ore': { id: 'raw-ore', nameZh: '原礦', unitValue: 50 },
-  resin: { id: 'resin', nameZh: '樹脂', unitValue: 40 },
-  'basic-part': { id: 'basic-part', nameZh: '基礎零件', unitValue: 180 },
-  'alloy-plate': { id: 'alloy-plate', nameZh: '合金板', unitValue: 420 },
-};
+export const ITEMS = {
+  'raw-ore': { id: 'raw-ore', nameZh: '原礦', tier: 'raw', unitValue: 50, sellable: true },
+  resin: { id: 'resin', nameZh: '樹脂', tier: 'raw', unitValue: 40, sellable: true },
+  coal: { id: 'coal', nameZh: '煤炭', tier: 'raw', unitValue: 20, sellable: false },
+  'copper-ore': { id: 'copper-ore', nameZh: '銅礦', tier: 'raw', unitValue: 45, sellable: false },
+  'quartz-grit': {
+    id: 'quartz-grit',
+    nameZh: '石英砂粒',
+    tier: 'raw',
+    unitValue: 28,
+    sellable: false,
+  },
+  'iron-ingot': {
+    id: 'iron-ingot',
+    nameZh: '鐵錠',
+    tier: 'intermediate',
+    unitValue: 145,
+    sellable: false,
+  },
+  'copper-ingot': {
+    id: 'copper-ingot',
+    nameZh: '銅錠',
+    tier: 'intermediate',
+    unitValue: 140,
+    sellable: false,
+  },
+  silica: { id: 'silica', nameZh: '矽片', tier: 'intermediate', unitValue: 100, sellable: false },
+  'basic-part': {
+    id: 'basic-part',
+    nameZh: '基礎零件',
+    tier: 'intermediate',
+    unitValue: 180,
+    sellable: true,
+  },
+  'alloy-plate': {
+    id: 'alloy-plate',
+    nameZh: '合金板',
+    tier: 'finished',
+    unitValue: 420,
+    sellable: true,
+  },
+} as const satisfies Record<ItemId, ItemDef>;
+
+const ITEM_ORDER: readonly ItemId[] = [
+  'raw-ore',
+  'resin',
+  'coal',
+  'copper-ore',
+  'quartz-grit',
+  'iron-ingot',
+  'copper-ingot',
+  'silica',
+  'basic-part',
+  'alloy-plate',
+];
+
+export const ITEM_LIST: readonly ItemDef[] = ITEM_ORDER.map((id) => ITEMS[id]);
 
 export type PlayerStock = Readonly<Record<string, number>>;
 

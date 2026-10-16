@@ -18,6 +18,12 @@ export const ASSET_SLOTS = {
   items: {
     'raw-ore': '/assets/item-raw-ore.png',
     resin: '/assets/item-resin.png',
+    coal: '/assets/res-coal-seam.png',
+    'copper-ore': '/assets/res-copper-shale.png',
+    'quartz-grit': '/assets/res-quartz-sand.png',
+    'iron-ingot': '/assets/item-raw-ore.png',
+    'copper-ingot': '/assets/item-alloy-plate.png',
+    silica: '/assets/res-quartz-sand.png',
     'basic-part': '/assets/item-basic-part.png',
     'alloy-plate': '/assets/item-alloy-plate.png',
   },
