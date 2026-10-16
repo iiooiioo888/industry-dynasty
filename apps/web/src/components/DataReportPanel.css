@@ -5,8 +5,11 @@
   display: flex;
   flex-direction: column;
   overflow: auto;
+  overscroll-behavior: contain;
   background: linear-gradient(180deg, rgba(88, 166, 255, 0.05), transparent 12rem), #0c1016;
   color: #e8e6e3;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
 .report-topbar {
@@ -35,6 +38,7 @@
   margin: 0.15rem 0 0;
   font-size: 1.45rem;
   letter-spacing: 0.12em;
+  overflow-wrap: anywhere;
 }
 
 .report-controls {
@@ -237,8 +241,26 @@
 
 .strategy-table {
   width: 100%;
+  min-width: 28rem;
   border-collapse: collapse;
   font-size: 0.92rem;
+}
+
+@media (max-width: 640px) {
+  .report-topbar,
+  .report-body {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .report-topbar h2 {
+    font-size: 1.15rem;
+    letter-spacing: 0.06em;
+  }
+
+  .report-controls {
+    width: 100%;
+  }
 }
 
 .strategy-table th,

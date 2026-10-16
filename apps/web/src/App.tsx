@@ -28,14 +28,12 @@ export function App() {
     <div className="shell">
       <header className="shell-titlebar">
         <span className="brand">產業霸權 · 產業控制台</span>
-        <span className="titlebar-actions">
-          <button type="button" className="report-launch" onClick={() => setReportOpen(true)}>
-            數據報表
-          </button>
-          <span className="meta">
-            {SIM_PACKAGE_VERSION} · 第 {state.gameDay} 天 · 稅務 T{state.taxTick} · 生產 P
-            {state.productionTick} · 道路／城市／人口需求
-          </span>
+        <button type="button" className="report-launch" onClick={() => setReportOpen(true)}>
+          數據報表
+        </button>
+        <span className="meta">
+          {SIM_PACKAGE_VERSION} · 第 {state.gameDay} 天 · 稅務 T{state.taxTick} · 生產 P
+          {state.productionTick} · 道路／城市／人口需求
         </span>
       </header>
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />

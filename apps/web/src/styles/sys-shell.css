@@ -18,22 +18,28 @@
   border: 1px solid var(--sys-border);
   border-radius: 4px;
   padding: 0.55rem 0.65rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .sys-panel-head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.45rem;
   margin-bottom: 0.45rem;
   padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--sys-border);
+  min-width: 0;
 }
 
 .sys-panel-head h2 {
   margin: 0;
+  min-width: 0;
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.04em;
+  line-height: 1.35;
 }
 
 .sys-panel-tag {
@@ -59,6 +65,10 @@
   background: linear-gradient(180deg, #1e3a5f 0%, #152a45 100%);
   color: var(--sys-text);
   cursor: pointer;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  touch-action: manipulation;
 }
 
 .sys-btn.secondary {
@@ -73,9 +83,11 @@
 
 .sys-btn-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
 }
 
 .sys-btn-row .sys-btn {
-  flex: 1;
+  flex: 1 1 8rem;
+  min-width: 0;
 }

@@ -1,9 +1,14 @@
 .prod-metrics {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.35rem 0.5rem;
   margin: 0 0 0.5rem;
   font-size: 0.75rem;
+  min-width: 0;
+}
+
+.prod-metrics > div {
+  min-width: 0;
 }
 
 .prod-metrics dt {
@@ -13,6 +18,7 @@
 .prod-metrics dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 .prod-metrics dd.warn {
@@ -33,6 +39,7 @@
   font-size: 0.65rem;
   color: var(--sys-muted);
   margin-top: 0.2rem;
+  overflow-wrap: anywhere;
 }
 
 .progress-bar {
@@ -60,6 +67,7 @@
 
 .stage-pills {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.3rem;
   margin: 0 0 0.35rem;
   padding: 0;
@@ -67,13 +75,15 @@
 }
 
 .stage-pills li {
-  flex: 1;
+  flex: 1 1 4.5rem;
+  min-width: 0;
   text-align: center;
   border: 1px solid var(--sys-border);
   border-radius: 999px;
   font-size: 0.68rem;
   padding: 0.08rem 0.2rem;
   color: var(--sys-muted);
+  overflow-wrap: anywhere;
 }
 
 .stage-pills li.on {
@@ -105,11 +115,17 @@
   padding: 0.18rem 0;
   border-bottom: 1px solid var(--sys-border);
   font-size: 0.68rem;
+  min-width: 0;
+}
+
+.chain-list li span {
+  overflow-wrap: anywhere;
 }
 
 .chain-meta {
   color: var(--sys-muted);
   font-size: 0.62rem;
+  overflow-wrap: anywhere;
 }
 
 .recipe-block {

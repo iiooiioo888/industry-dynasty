@@ -9,15 +9,20 @@ body {
   margin: 0;
   padding: 0;
   width: 100%;
+  max-width: 100%;
   height: 100%;
   overflow: hidden;
   background: var(--sys-bg-deep, #06080b);
   color: var(--sys-text, #d8dee9);
   font-family: var(--sys-font, system-ui, sans-serif);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 #root {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  height: 100dvh;
   overflow: hidden;
 }

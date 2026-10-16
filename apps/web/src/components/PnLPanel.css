@@ -21,8 +21,19 @@
 .pnl-lines li {
   display: flex;
   justify-content: space-between;
+  gap: 0.5rem;
   padding: 0.2rem 0;
   border-bottom: 1px solid var(--sys-border);
+  min-width: 0;
+}
+
+.pnl-lines li span:first-child {
+  min-width: 0;
+}
+
+.pnl-lines li span:last-child {
+  flex: none;
+  font-variant-numeric: tabular-nums;
 }
 
 .pnl-goal {

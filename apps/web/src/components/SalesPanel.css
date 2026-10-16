@@ -60,6 +60,9 @@
 
 .sales-field select,
 .sales-field input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 0.35rem;
   background: var(--sys-bg-deep);
   border: 1px solid var(--sys-border);
@@ -69,10 +72,15 @@
 
 .sales-quote {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 0.35rem;
   font-size: 0.7rem;
   margin: 0.35rem 0 0.5rem;
+  min-width: 0;
+}
+
+.sales-quote > div {
+  min-width: 0;
 }
 
 .sales-quote dt {

@@ -60,9 +60,14 @@
 
 .auction-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
   margin: 0.75rem 0;
+  min-width: 0;
+}
+
+.auction-stats > div {
+  min-width: 0;
 }
 
 .auction-stats dt {
@@ -73,6 +78,13 @@
 .auction-stats dd {
   margin: 0.15rem 0 0;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 380px) {
+  .auction-stats {
+    grid-template-columns: 1fr;
+  }
 }
 
 .bid-field {
@@ -83,6 +95,9 @@
 }
 
 .bid-field input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 0.45rem 0.5rem;
   border-radius: 6px;
   border: 1px solid #3d4654;
@@ -92,12 +107,14 @@
 
 .panel-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.75rem;
 }
 
 .panel-actions button {
-  flex: 1;
+  flex: 1 1 8rem;
+  min-width: 0;
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
   border: none;
