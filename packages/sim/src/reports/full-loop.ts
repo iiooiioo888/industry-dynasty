@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 完整遊戲迴圈模擬器 · full-loop simulator
  *
  * 與 `reports/simulate.ts` 的差別：那個檔案用的是**簡化的營運收入模型**
@@ -46,6 +46,16 @@ export interface FullLoopOptions {
    * 「加工能不能把價值加上去」，而不是只看配方表。
    */
   readonly depth?: 0 | 1 | 2;
+  /**
+   * 深度經營時，保留幾座工廠專門開採（其餘才加工）。
+   *
+   * 太少會讓加工廠缺料（例如 6 座加工廠只有 1 座礦場供料，樹脂永遠不夠），
+   * 太多則失去加工的比例。預設 2：剛好對應 `make-basic-part` 需要的
+   * 鐵脈與樹脂沼各一座。
+   */
+  readonly extractorCount?: number;
+  /** 除錯／量測用：每天排完生產後呼叫一次。 */
+  readonly inspect?: (day: number, state: WorldState) => void;
 }
 
 export interface FullLoopDay {
@@ -94,22 +104,47 @@ const PREFERRED_RESOURCE_ORDER = [
   'coal-seam',
 ] as const;
 
-function pickResourceKind(state: WorldState, recipeId: RecipeId | undefined): string | null {
+function pickResourceKinds(
+  state: WorldState,
+  recipeId: RecipeId | undefined,
+  depth: 0 | 1 | 2,
+): string[] {
   if (recipeId) {
     const kind = RECIPES[recipeId]?.sourceKind;
     if (kind) {
-      return kind;
+      return [kind];
     }
   }
-  for (const kind of PREFERRED_RESOURCE_ORDER) {
-    const available = state.map.parcels.some(
+  if (depth > 0) {
+    // 深度經營需要「一條供應鏈」：基礎零件要 2 原礦 + 1 樹脂，
+    // 所以至少要有鐵脈與樹脂沼各一座，其餘工廠才能加工。
+    return ['iron-vein', 'resin-bog'];
+  }
+  const single = PREFERRED_RESOURCE_ORDER.find((kind) =>
+    state.map.parcels.some(
       (p) => p.role === 'land' && p.ownerId === null && p.resource.kind === kind,
-    );
-    if (available) {
+    ),
+  );
+  return single ? [single] : [];
+}
+
+/** 目前持有地塊中各礦脈的數量。 */
+function ownedVeinCounts(state: WorldState, playerId: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const parcel of getPlayerHoldings(state, playerId)) {
+    counts.set(parcel.resource.kind, (counts.get(parcel.resource.kind) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/** 依「還缺哪種礦脈」決定下一塊要買什麼，缺齊之後就買第一種以擴張產能。 */
+function nextVeinToBuy(kinds: readonly string[], owned: Map<string, number>): string | null {
+  for (const kind of kinds) {
+    if ((owned.get(kind) ?? 0) === 0) {
       return kind;
     }
   }
-  return null;
+  return kinds[0] ?? null;
 }
 
 function countCompleteFactories(state: WorldState, playerId: string): number {
@@ -141,8 +176,46 @@ function chooseParcelToBuy(state: WorldState, resourceKind: string | null): Parc
   return candidates[0]?.parcel.id ?? null;
 }
 
+/**
+ * 賣出前要為加工廠保留多少原料。
+ *
+ * 天真的「每天全部賣掉」會讓下游永遠缺料：加工配方需要 2～3 單位原料，
+ * 而開採每天只進帳幾單位，一賣光就永遠湊不齊，加工線形同不存在。
+ * 這裡為每座加工廠保留足以啟動數輪的緩衝。
+ */
+function reserveQtyFor(
+  state: WorldState,
+  playerId: string,
+  itemId: string,
+  depth: 0 | 1 | 2,
+  extractorCount: number,
+): number {
+  if (depth === 0) {
+    return 0;
+  }
+  const sites = Object.values(state.sites).filter(
+    (s) => s.phase === 'complete' && s.ownerId === playerId,
+  );
+  // 開採廠以外的工廠才會加工
+  const processors = Math.max(0, sites.length - Math.max(1, extractorCount));
+  if (processors === 0) {
+    return 0;
+  }
+  let need = 0;
+  for (const recipe of Object.values(RECIPES)) {
+    if (recipe.inputs.length === 0) continue;
+    if (!(recipe.stage === 'process' ? depth >= 1 : depth >= 2)) continue;
+    const input = recipe.inputs.find((i) => i.itemId === itemId);
+    if (input) {
+      need = Math.max(need, input.quantity);
+    }
+  }
+  // 每座加工廠保留「每輪需求 × 3 輪」的緩衝
+  return need * processors * 3;
+}
+
 /** 把庫存裡所有可販售品項賣給當日報價最佳的 NPC，回傳新狀態。 */
-function sellInventory(state: WorldState): WorldState {
+function sellInventory(state: WorldState, depth: 0 | 1 | 2, extractorCount: number): WorldState {
   let next = state;
   const playerId = next.localPlayerId;
   const holdings = getPlayerHoldings(next, playerId);
@@ -166,10 +239,11 @@ function sellInventory(state: WorldState): WorldState {
       continue;
     }
 
-    const qty = Math.min(
-      getItemQty(next.inventories[playerId] ?? {}, item.id),
-      best.offer.maxQuantity,
-    );
+    const held = getItemQty(next.inventories[playerId] ?? {}, item.id);
+    // 保留加工廠需要的原料，否則「全部賣掉」會讓下游永遠拿不到料 ——
+    // 實際上線性生產鏈根本跑不起來（實測 ore/resin 每天歸零）。
+    const reserve = reserveQtyFor(next, playerId, item.id, depth, extractorCount);
+    const qty = Math.min(Math.max(0, held - reserve), best.offer.maxQuantity);
     if (qty <= 0) {
       continue;
     }
@@ -205,6 +279,7 @@ export function startProductionEverywhere(
   state: WorldState,
   fallbackRecipe: RecipeId | null,
   depth: 0 | 1 | 2,
+  extractorCount = 2,
 ): WorldState {
   let next = state;
   const playerId = next.localPlayerId;
@@ -212,21 +287,18 @@ export function startProductionEverywhere(
     ([, site]) => site.phase === 'complete' && site.ownerId === playerId,
   );
 
-  // 第一座（依 key 排序，決定性）固定當開採廠，供應原料
-  const producerKey = sites.map(([k]) => k).sort()[0];
+  // 前 `extractorCount` 座（依 key 排序，決定性）當開採廠，供應原料。
+  const extractorKeys = new Set(sites.map(([k]) => k).sort().slice(0, Math.max(1, extractorCount)));
 
   for (const [key, site] of sites) {
-    if (next.productionLines[key]) {
-      continue;
-    }
     const parcel = next.map.parcels.find((p) => p.id.value === key);
     if (!parcel) {
       continue;
     }
 
-    let recipeId: RecipeId | null = null;
-
-    if (depth > 0 && key !== producerKey) {
+    // 決定「這座工廠在目前庫存下最該跑什麼」。
+    let desired: RecipeId | null = null;
+    if (depth > 0 && !extractorKeys.has(key)) {
       const stock = next.inventories[playerId] ?? {};
       const candidates = Object.values(RECIPES)
         .filter((r) => r.inputs.length > 0)
@@ -234,28 +306,45 @@ export function startProductionEverywhere(
         .filter((r) => (r.buildings as readonly string[]).includes(site.factoryTypeId))
         .filter((r) => r.inputs.every((i) => getItemQty(stock, i.itemId) >= i.quantity))
         .map((r) => {
-          const outVal = ITEMS[r.outputItemId].unitValue * r.outputQuantity * (r.outputMultiplier ?? 1);
+          const outVal =
+            ITEMS[r.outputItemId].unitValue * r.outputQuantity * (r.outputMultiplier ?? 1);
           const inVal = r.inputs.reduce((s, i) => s + ITEMS[i.itemId].unitValue * i.quantity, 0);
           return { r, margin: outVal - inVal };
         })
         .sort((a, b) => b.margin - a.margin);
-      recipeId = candidates[0]?.r.id ?? null;
+      desired = candidates[0]?.r.id ?? null;
     }
-
-    recipeId ??= extractionRecipeFor(parcel.resource.kind) ?? fallbackRecipe;
-    if (!recipeId) {
+    desired ??= extractionRecipeFor(parcel.resource.kind) ?? fallbackRecipe;
+    if (!desired) {
       continue;
     }
-    const recipe = RECIPES[recipeId];
-    if (!(recipe.buildings as readonly string[]).includes(site.factoryTypeId)) {
-      // 開採配方在組裝廠也能跑；加工配方若廠型不符則退回開採
-      const fallback = extractionRecipeFor(parcel.resource.kind) ?? fallbackRecipe;
-      if (!fallback || !(RECIPES[fallback].buildings as readonly string[]).includes(site.factoryTypeId)) {
+    if (!(RECIPES[desired].buildings as readonly string[]).includes(site.factoryTypeId)) {
+      // 廠型不符就退回開採；開採配方在兩種廠型都能跑
+      const fb = extractionRecipeFor(parcel.resource.kind) ?? fallbackRecipe;
+      if (!fb || !(RECIPES[fb].buildings as readonly string[]).includes(site.factoryTypeId)) {
         continue;
       }
-      recipeId = fallback;
+      desired = fb;
     }
-    next = applyWorldAction(next, { type: 'START_PRODUCTION', parcelId: parcel.id, recipeId });
+
+    const line = next.productionLines[key];
+    const isUpgrade = line !== undefined && line.recipeId !== desired;
+    // 缺料時切換沒有損失；正在跑則等這一輪做完再切，避免浪費已累積的進度。
+    const readyToSwitch = line === undefined || line.status === 'waiting_inputs' || line.progressTicks === 0;
+    if (!isUpgrade && line !== undefined) {
+      continue;
+    }
+    if (isUpgrade && !readyToSwitch) {
+      continue;
+    }
+    if (line !== undefined) {
+      next = applyWorldAction(next, { type: 'STOP_PRODUCTION', parcelId: parcel.id });
+    }
+    next = applyWorldAction(next, {
+      type: 'START_PRODUCTION',
+      parcelId: parcel.id,
+      recipeId: desired,
+    });
   }
   return next;
 }
@@ -276,7 +365,7 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
 
   let state = createInitialWorld(config);
   const days: FullLoopDay[] = [];
-  const resourceKind = pickResourceKind(state, options.recipeId);
+  const resourceKinds = pickResourceKinds(state, options.recipeId, options.depth ?? 0);
 
   const record = (): void => {
     const playerId = state.localPlayerId;
@@ -297,7 +386,9 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
     // 1) 買地（現金要夠付底價 + 建廠成本）
     const owned = getPlayerHoldings(state, state.localPlayerId).length;
     if (owned < maxParcels) {
-      const target = chooseParcelToBuy(state, resourceKind);
+      const ownedVeins = ownedVeinCounts(state, state.localPlayerId);
+      const kindToBuy = nextVeinToBuy(resourceKinds, ownedVeins);
+      const target = chooseParcelToBuy(state, kindToBuy);
       if (target) {
         const lot = state.auctionLots.find(
           (l) => l.parcelId.value === target.value && l.status === 'open',
@@ -335,13 +426,16 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
     }
 
     // 4) 排生產
-    state = startProductionEverywhere(state, options.recipeId ?? null, options.depth ?? 0);
+    state = startProductionEverywhere(state, options.recipeId ?? null, options.depth ?? 0, options.extractorCount ?? 2);
+
+    // 除錯用：讓呼叫端觀察每一天排定的配方
+    options.inspect?.(day, state);
 
     // 5) 推進生產
     state = applyWorldAction(state, { type: 'ADVANCE_PRODUCTION_TICK' });
 
-    // 6) 賣出
-    state = sellInventory(state);
+    // 6) 賣出（保留加工廠需要的原料）
+    state = sellInventory(state, options.depth ?? 0, options.extractorCount ?? 2);
 
     // 7) 結束本日（稅、維護、刷新 NPC 報價、通關判定）
     state = applyWorldAction(state, { type: 'ADVANCE_DAY' });
