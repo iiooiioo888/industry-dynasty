@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { executeSellToNpc } from '../sales/sell-logic.js';
 import { generateNpcBuyOffers } from '../sales/market.js';
 import { ITEMS, VALUE_CHAIN, type PlayerStock } from '../production/items.js';
@@ -138,5 +138,69 @@ describe('配方毛利：哪條路線真的有錢賺', () => {
       const inVal = r.inputs.reduce((s, i) => s + ITEMS[i.itemId].unitValue * i.quantity, 0);
       expect(outVal - inVal, `${r.id} 加工後反而虧錢`).toBeGreaterThan(0);
     }
+  });
+
+  it('加工讓不可販售的礦脈得以變現，且報酬與最佳開採同量級', () => {
+    const perTick = (r: (typeof RECIPES)[keyof typeof RECIPES]): number => {
+      const outVal = ITEMS[r.outputItemId].unitValue * r.outputQuantity * (r.outputMultiplier ?? 1);
+      const inVal = r.inputs.reduce((s, i) => s + ITEMS[i.itemId].unitValue * i.quantity, 0);
+      return (outVal - inVal) / r.baseCycleTicks;
+    };
+    const extraction = Object.values(RECIPES).filter((r) => r.inputs.length === 0);
+    const processing = Object.values(RECIPES).filter((r) => r.inputs.length > 0);
+    const bestExtract = Math.max(...extraction.map(perTick));
+
+    console.log('\n=== 每刻報酬 ===');
+    for (const r of extraction) {
+      console.log(
+        `  [開採] ${r.id.padEnd(18)} ${perTick(r).toFixed(0).padStart(6)}/刻` +
+          `  sellable=${ITEMS[r.outputItemId].sellable}`,
+      );
+    }
+    for (const r of processing) {
+      console.log(
+        `  [加工] ${r.id.padEnd(18)} ${perTick(r).toFixed(0).padStart(6)}/刻` +
+          `  sellable=${ITEMS[r.outputItemId].sellable}`,
+      );
+    }
+
+    // 開採的每刻報酬由「產出倍率 × 品項單價」決定，而鐵礦兩者都最高，
+    // 所以它是唯一的天花板（1,500/刻）。加工不必贏過它才算合理 ——
+    // 加工的價值在於**讓其餘三分之二的地圖能用**。
+    const ironTick = perTick(RECIPES['extract-iron']);
+
+    // 護欄一：加工報酬必須與最佳開採同量級（至少六成）。
+    // 低於此就會出現「整張圖只有鐵礦值得蓋」的退化玩法。
+    // 門檻取六成而非更高，是因為鐵礦同時擁有最高單價與 6 倍產出倍率，
+    // 是刻意的天花板；加工不必追上它，只要不被它甩開。
+    for (const r of processing) {
+      expect(
+        perTick(r),
+        `${r.id} 每刻 ${perTick(r).toFixed(0)} 遠低於鐵礦的 ${ironTick.toFixed(0)}`,
+      ).toBeGreaterThan(ironTick * 0.6);
+    }
+
+    // 護欄二：不可販售的礦脈，加工後每刻報酬必須嚴格為正 ——
+    // 那些礦脈不加工就是 0 收入，加工是它們唯一的變現途徑。
+    const deadExtraction = extraction.filter((r) => !ITEMS[r.outputItemId].sellable);
+    expect(deadExtraction.length).toBeGreaterThan(0);
+    for (const extract of deadExtraction) {
+      const consumers = processing.filter((r) =>
+        r.inputs.some((i) => i.itemId === extract.outputItemId),
+      );
+      expect(consumers.length, `${extract.outputItemId} 沒有配方能消化`).toBeGreaterThan(0);
+      for (const c of consumers) {
+        expect(perTick(c), `${c.id} 消化 ${extract.outputItemId} 卻不賺錢`).toBeGreaterThan(0);
+      }
+    }
+
+    // 護欄三：使用不可販售礦脈的加工配方，必須存在
+    //（否則那三分之二的地圖仍然無用）
+    const usesDeadVein = processing.filter((r) =>
+      r.inputs.some((i) => deadExtraction.some((e) => e.outputItemId === i.itemId)),
+    );
+    expect(usesDeadVein.length).toBeGreaterThan(0);
+    console.log(`\n  可消化不可販售礦脈的配方：${usesDeadVein.map((r) => r.id).join(', ')}`);
+    void bestExtract;
   });
 });
