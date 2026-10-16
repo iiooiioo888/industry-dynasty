@@ -57,6 +57,14 @@
   background: #3d3520;
 }
 
+.map-cell.under-construction {
+  background: #5c4a1f;
+}
+
+.map-cell.under-construction:hover {
+  background: #6d5824;
+}
+
 .map-cell.building-ready {
   background: #2d4a6e;
 }
@@ -92,6 +100,10 @@
 
 .map-legend .swatch.owned {
   background: #1d4d3a;
+}
+
+.map-legend .swatch.under-construction {
+  background: #5c4a1f;
 }
 
 .map-legend .swatch.building-ready {

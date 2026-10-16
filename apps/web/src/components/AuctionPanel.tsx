@@ -38,16 +38,15 @@ export function AuctionPanel({ state, selectedParcelId, onBid, onSettle }: Aucti
 
   if (parcel.ownerId === state.localPlayerId) {
     const unpaid = state.unpaidLandTax[parcel.id.value] ?? 0;
-    return (
-      <section className="panel auction-panel">
-        <h2>你的土地</h2>
-        <p>座標 ({parcel.x}, {parcel.y})</p>
-        <p className="panel-muted">狀態：{parcel.state === 'building-ready' ? '可建造' : '已持有'}</p>
-        {unpaid > 0 && (
-          <p className="panel-warn">累計欠稅：${unpaid.toLocaleString()}</p>
-        )}
-      </section>
-    );
+    if (unpaid > 0) {
+      return (
+        <section className="panel auction-panel">
+          <h2>土地稅</h2>
+          <p className="panel-warn">座標 ({parcel.x}, {parcel.y}) 累計欠稅：${unpaid.toLocaleString()}</p>
+        </section>
+      );
+    }
+    return null;
   }
 
   if (!lot) {

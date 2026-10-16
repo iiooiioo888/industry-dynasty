@@ -16,7 +16,9 @@ export function PlayerOverview({ state, onAdvanceTax }: PlayerOverviewProps) {
       <p className="cash-line">
         現金 <strong>${player.cash.toLocaleString()}</strong>
       </p>
-      <p className="meta-line">稅務週期：第 {state.taxTick} 期</p>
+      <p className="meta-line">
+        稅務週期：第 {state.taxTick} 期 · 建設週期：第 {state.buildTick} 期
+      </p>
       <button type="button" className="tax-btn" onClick={onAdvanceTax}>
         推進稅務週期
       </button>

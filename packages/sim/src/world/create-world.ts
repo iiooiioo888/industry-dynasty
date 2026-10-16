@@ -47,6 +47,8 @@ export function createInitialWorld(config: Partial<WorldConfig> = {}): WorldStat
     auctionLots: buildInitialAuctions(merged),
     unpaidLandTax: {},
     taxTick: 0,
+    buildTick: 0,
+    sites: {},
   };
 }
 

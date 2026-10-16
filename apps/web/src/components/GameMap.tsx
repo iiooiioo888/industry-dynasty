@@ -12,7 +12,9 @@ function cellClass(parcel: Parcel, isSelected: boolean, isLocalOwner: boolean): 
   if (isSelected) {
     classes.push('selected');
   }
-  if (parcel.state === 'building-ready') {
+  if (parcel.state === 'building') {
+    classes.push('under-construction');
+  } else if (parcel.state === 'building-ready') {
     classes.push('building-ready');
   } else if (isLocalOwner) {
     classes.push('owned');
@@ -56,7 +58,8 @@ export function GameMap({ state, selectedParcelId, onSelectParcel }: GameMapProp
       <div className="map-legend">
         <span><i className="swatch empty" /> 空地／拍賣中</span>
         <span><i className="swatch owned" /> 你的土地</span>
-        <span><i className="swatch building-ready" /> 可建造</span>
+        <span><i className="swatch under-construction" /> 建造中</span>
+        <span><i className="swatch building-ready" /> 工廠運營</span>
       </div>
     </section>
   );

@@ -1,3 +1,4 @@
+import type { ParcelSite } from '../buildings/site.js';
 import type { AuctionLot } from '../types/auction.js';
 import type { GameMap, Parcel, ParcelId } from '../types/map.js';
 
@@ -15,6 +16,9 @@ export interface WorldState {
   /** 各土地累計欠稅（僅持有期間累積，收回後清零） */
   readonly unpaidLandTax: Readonly<Record<string, number>>;
   readonly taxTick: number;
+  readonly buildTick: number;
+  /** 土地上的工地／完工建築，key = parcelId.value */
+  readonly sites: Readonly<Record<string, ParcelSite>>;
 }
 
 export function findParcel(state: WorldState, parcelId: ParcelId): Parcel | undefined {
@@ -32,4 +36,8 @@ export function findOpenLotForParcel(
 
 export function getPlayerHoldings(state: WorldState, playerId: string): readonly Parcel[] {
   return state.map.parcels.filter((p) => p.ownerId === playerId);
+}
+
+export function getSite(state: WorldState, parcelId: ParcelId): ParcelSite | undefined {
+  return state.sites[parcelId.value];
 }

@@ -12,8 +12,8 @@ export interface MapSize {
   readonly height: number;
 }
 
-/** 土地狀態：空地 / 已持有 / 可建造（Sprint 2+ 使用） */
-export type ParcelState = 'empty' | 'owned' | 'building-ready';
+/** 土地狀態：空地 / 已持有 / 建造中 / 已完工可運營 */
+export type ParcelState = 'empty' | 'owned' | 'building' | 'building-ready';
 
 export interface Parcel {
   readonly id: ParcelId;
