@@ -3,6 +3,8 @@ import { FACTORY_TYPES, type FactoryTypeId } from '../buildings/catalog.js';
 import type { Parcel, ParcelId } from '../types/map.js';
 import type { AuctionLot } from '../types/auction.js';
 import { minNextBid } from '../world/auction-logic.js';
+import { RECIPES } from '../production/recipes.js';
+import { ITEMS } from '../production/items.js';
 import { findParcel, getPlayerHoldings, type WorldState } from '../world/state.js';
 import type { WorldAction } from '../world/actions.js';
 import type { Rng } from './rng.js';
@@ -188,6 +190,26 @@ function chooseRandomBid(ctx: StrategyContext): WorldAction | null {
   return amount === null ? null : bidAction(parcel.id, amount);
 }
 
+/**
+ * 這塊地是否真的能讓這型工廠**賺到錢**。
+ *
+ * 兩個條件缺一不可：
+ * 1. 有對應的開採配方（`extract-iron` 只能在 `iron-vein` 上跑），
+ *    且該配方能在這型工廠執行。
+ * 2. 產出**可販售**。五種礦脈中只有鐵脈（原礦）與樹脂沼（樹脂）的產出可賣；
+ *    煤、銅、石英砂粒都不可販售，蓋在那些脈上只會持續付土地稅與維護費
+ *    卻完全沒有收入 —— 實測 `rapid-assembly` 就是因此 2 座工廠營收為 0。
+ */
+function parcelCanProduce(parcel: Parcel, factoryTypeId: FactoryTypeId): boolean {
+  return Object.values(RECIPES).some(
+    (recipe) =>
+      recipe.sourceKind === parcel.resource.kind &&
+      recipe.inputs.length === 0 &&
+      ITEMS[recipe.outputItemId].sellable &&
+      (recipe.buildings as readonly string[]).includes(factoryTypeId),
+  );
+}
+
 function chooseTypedBuilds(
   ctx: StrategyContext,
   factoryTypeId: FactoryTypeId,
@@ -196,14 +218,17 @@ function chooseTypedBuilds(
 ): WorldAction[] {
   const cost = FACTORY_TYPES[factoryTypeId].buildCost;
   const existing = countSites(ctx.state, ctx.playerId);
-  const parcels = buildableParcels(ctx).sort((a, b) => {
-    if (factoryTypeId === 'assembly-plant') {
-      return centerDistance(ctx.state, a) - centerDistance(ctx.state, b) || coordOrder(a, b);
-    }
-    const scoreDelta =
-      proximityScore(ctx.state, b, ctx.playerId) - proximityScore(ctx.state, a, ctx.playerId);
-    return scoreDelta || coordOrder(a, b);
-  });
+  const parcels = buildableParcels(ctx)
+    // 先排除永遠無法生產的地塊
+    .filter((parcel) => parcelCanProduce(parcel, factoryTypeId))
+    .sort((a, b) => {
+      if (factoryTypeId === 'assembly-plant') {
+        return centerDistance(ctx.state, a) - centerDistance(ctx.state, b) || coordOrder(a, b);
+      }
+      const scoreDelta =
+        proximityScore(ctx.state, b, ctx.playerId) - proximityScore(ctx.state, a, ctx.playerId);
+      return scoreDelta || coordOrder(a, b);
+    });
 
   const actions: WorldAction[] = [];
   let remainingCash = cashOf(ctx) - committedBidTotal(ctx.state, ctx.playerId);
@@ -233,7 +258,17 @@ function chooseRandomBuilds(ctx: StrategyContext): WorldAction[] {
   if (!parcel) {
     return [];
   }
-  const factoryTypeId: FactoryTypeId = ctx.rng() < 0.5 ? 'workshop' : 'assembly-plant';
+  const preferred: FactoryTypeId = ctx.rng() < 0.5 ? 'workshop' : 'assembly-plant';
+  // 先看偏好的廠型能不能在這塊地賺錢；不行就換另一種，兩種都不行就不蓋。
+  // 否則會蓋出「永遠不生產、只繳稅」的工廠（實測隨機策略每座工廠只創造
+  // 3,700 營收，遠低於可行區位的 16,000+）。
+  const viable: FactoryTypeId[] = parcelCanProduce(parcel, preferred)
+    ? [preferred]
+    : (['workshop', 'assembly-plant'] as const).filter((t) => parcelCanProduce(parcel, t));
+  const factoryTypeId = viable[0];
+  if (!factoryTypeId) {
+    return [];
+  }
   const cost = FACTORY_TYPES[factoryTypeId].buildCost;
   if (cashOf(ctx) < cost) {
     return [];

@@ -1,4 +1,4 @@
-import { applyWorldAction } from '../world/reducer.js';
+﻿import { applyWorldAction } from '../world/reducer.js';
 import { DEFAULT_WORLD_CONFIG } from '../world/config.js';
 import { createInitialWorld } from '../world/create-world.js';
 import { getPlayerHoldings, type Player, type WorldState } from '../world/state.js';
@@ -89,7 +89,7 @@ export function runSimulatedGames(options: SimulationOptions = {}): GameOutcome[
   const resolved = resolveSimulationOptions(options);
   const games: GameOutcome[] = [];
   for (let index = 0; index < resolved.gameCount; index += 1) {
-    games.push(runSingleGame(resolved, deriveGameSeed(resolved.seed, index)));
+    games.push(runSingleGame(resolved, deriveGameSeed(resolved.seed, index), options));
   }
   return games;
 }
@@ -106,7 +106,11 @@ export function runDataReport(options: SimulationOptions = {}): DataReport {
   });
 }
 
-function runSingleGame(config: ResolvedSimulation, seed: number): GameOutcome {
+function runSingleGame(
+  config: ResolvedSimulation,
+  seed: number,
+  options?: SimulationOptions,
+): GameOutcome {
   const rng = createRng(seed);
   let state = createMatchState(config);
 
@@ -134,6 +138,7 @@ function runSingleGame(config: ResolvedSimulation, seed: number): GameOutcome {
     }
 
     state = applyWorldAction(state, { type: 'ADVANCE_TAX_TICK' });
+    options?.inspect?.(tick, state);
   }
 
   return summarizeGame(state, config, seed);

@@ -22,6 +22,8 @@ export interface SimulationOptions {
   readonly mapHeight?: number;
   readonly startingCash?: number;
   readonly roster?: readonly SimRosterEntry[];
+  /** 除錯／量測用：每個 tick 結束後呼叫一次。 */
+  readonly inspect?: (tick: number, state: unknown) => void;
 }
 
 export interface ResolvedSimulation {
