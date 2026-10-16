@@ -1,3 +1,14 @@
+import {
+  applyBuyCommodity,
+  applyBuyStock,
+  applyDrawLoan,
+  applyOpenSavings,
+  applyRepayLoan,
+  applySellCommodity,
+  applySellStock,
+  applyWithdrawSavings,
+  settleFinancePeriod,
+} from '../bank/logic.js';
 import type { AuctionLot } from '../types/auction.js';
 import { FACTORY_TYPES, type FactoryTypeId } from '../buildings/catalog.js';
 import {
@@ -60,6 +71,24 @@ export function applyWorldAction(
       return applySellToNpc(state, action.offerId, action.quantity, action.shipFromParcelId);
     case 'ADVANCE_DAY':
       return applyAdvanceDay(state, config);
+    case 'ADVANCE_FINANCE_TICK':
+      return settleFinancePeriod(state, config.bank);
+    case 'OPEN_SAVINGS':
+      return applyOpenSavings(state, action.amount, config.bank);
+    case 'WITHDRAW_SAVINGS':
+      return applyWithdrawSavings(state);
+    case 'DRAW_LOAN':
+      return applyDrawLoan(state, action.productId, action.amount, config.bank);
+    case 'REPAY_LOAN':
+      return applyRepayLoan(state, action.loanId, action.amount);
+    case 'BUY_STOCK':
+      return applyBuyStock(state, action.symbol, action.shares);
+    case 'SELL_STOCK':
+      return applySellStock(state, action.symbol, action.shares);
+    case 'BUY_COMMODITY':
+      return applyBuyCommodity(state, action.commodityId, action.lots);
+    case 'SELL_COMMODITY':
+      return applySellCommodity(state, action.commodityId, action.lots, config.bank);
     case 'START_BUILD':
       return applyStart(state, action.parcelId, action.factoryTypeId);
     case 'ADVANCE_BUILD_TICK':

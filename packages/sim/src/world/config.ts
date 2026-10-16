@@ -1,3 +1,5 @@
+import { DEFAULT_BANK_CONFIG, type BankConfig } from '../bank/config.js';
+
 export interface WorldConfig {
   readonly mapWidth: number;
   readonly mapHeight: number;
@@ -14,6 +16,7 @@ export interface WorldConfig {
   /** 新上架土地的底價計算：base + (x + y) * step */
   readonly auctionMinPriceBase: number;
   readonly auctionMinPriceStep: number;
+  readonly bank: BankConfig;
 }
 
 export const DEFAULT_WORLD_CONFIG: WorldConfig = {
@@ -26,4 +29,5 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   landTaxReauctionThreshold: 1_500,
   auctionMinPriceBase: 800,
   auctionMinPriceStep: 40,
+  bank: DEFAULT_BANK_CONFIG,
 };

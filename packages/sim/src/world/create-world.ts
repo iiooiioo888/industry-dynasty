@@ -1,3 +1,4 @@
+import { emptyPlayerBank } from '../bank/logic.js';
 import type { AuctionLot } from '../types/auction.js';
 import { DEFAULT_STARTING_STOCK } from '../production/items.js';
 import { createScenarioState, emptyPnL, generateNpcBuyOffers } from '../sales/index.js';
@@ -52,6 +53,8 @@ export function createInitialWorld(config: Partial<WorldConfig> = {}): WorldStat
     taxTick: 0,
     buildTick: 0,
     productionTick: 0,
+    financeTick: 0,
+    bank: { [player.id]: emptyPlayerBank() },
     sites: {},
     inventories: { [player.id]: { ...DEFAULT_STARTING_STOCK } },
     craftedTotals: { [player.id]: {} },

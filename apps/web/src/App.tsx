@@ -7,6 +7,7 @@ import {
 import { useState } from 'react';
 import { AuctionAlertBanner } from './components/AuctionAlertBanner';
 import { AuctionPanel } from './components/AuctionPanel';
+import { BankPanel } from './components/BankPanel';
 import { BuildPanel } from './components/BuildPanel';
 import { DataReportPanel } from './components/DataReportPanel';
 import { GameMap } from './components/GameMap';
@@ -33,7 +34,7 @@ export function App() {
         </button>
         <span className="meta">
           {SIM_PACKAGE_VERSION} · 第 {state.gameDay} 天 · 稅務 T{state.taxTick} · 生產 P
-          {state.productionTick} · 道路／城市／人口需求
+          {state.productionTick} · 銀行 F{state.financeTick}
         </span>
       </header>
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
@@ -62,6 +63,22 @@ export function App() {
             onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
           />
           <MarketPanel state={state} selectedParcelId={selectedParcelId} />
+          <BankPanel
+            state={state}
+            onAdvanceWeek={() => dispatch({ type: 'ADVANCE_TAX_TICK' })}
+            onOpenSavings={(amount) => dispatch({ type: 'OPEN_SAVINGS', amount })}
+            onWithdrawSavings={() => dispatch({ type: 'WITHDRAW_SAVINGS' })}
+            onDrawLoan={(productId, amount) => dispatch({ type: 'DRAW_LOAN', productId, amount })}
+            onRepayLoan={(loanId, amount) => dispatch({ type: 'REPAY_LOAN', loanId, amount })}
+            onBuyStock={(symbol, shares) => dispatch({ type: 'BUY_STOCK', symbol, shares })}
+            onSellStock={(symbol, shares) => dispatch({ type: 'SELL_STOCK', symbol, shares })}
+            onBuyCommodity={(commodityId, lots) =>
+              dispatch({ type: 'BUY_COMMODITY', commodityId, lots })
+            }
+            onSellCommodity={(commodityId, lots) =>
+              dispatch({ type: 'SELL_COMMODITY', commodityId, lots })
+            }
+          />
           <BuildPanel
             state={state}
             selectedParcelId={selectedParcelId}

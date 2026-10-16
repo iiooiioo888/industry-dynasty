@@ -1,3 +1,4 @@
+import { settleFinancePeriod } from '../bank/logic.js';
 import { addPnL, emptyPnL } from '../sales/pnl.js';
 import type { WorldConfig } from './config.js';
 import type { WorldState } from './state.js';
@@ -12,8 +13,11 @@ export function applyTaxTickWithPnl(state: WorldState, config: WorldConfig): Wor
   const playerId = state.localPlayerId;
   const pnl = addPnL(next.pnl[playerId] ?? emptyPnL(), { taxPaid });
 
-  return {
-    ...next,
-    pnl: { ...next.pnl, [playerId]: pnl },
-  };
+  return settleFinancePeriod(
+    {
+      ...next,
+      pnl: { ...next.pnl, [playerId]: pnl },
+    },
+    config.bank,
+  );
 }

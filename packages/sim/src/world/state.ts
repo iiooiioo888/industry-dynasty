@@ -1,3 +1,4 @@
+import type { PlayerBank } from '../bank/types.js';
 import type { ParcelSite } from '../buildings/site.js';
 import type { NpcBuyOffer } from '../sales/market.js';
 import type { PnLSummary } from '../sales/pnl.js';
@@ -22,6 +23,9 @@ export interface WorldState {
   readonly taxTick: number;
   readonly buildTick: number;
   readonly productionTick: number;
+  /** 銀行週期。稅務週期與結束本日都會一起前進。 */
+  readonly financeTick: number;
+  readonly bank: Readonly<Record<string, PlayerBank>>;
   readonly sites: Readonly<Record<string, ParcelSite>>;
   readonly inventories: Readonly<Record<string, PlayerStock>>;
   /** 實際入庫累計（不含開局配給），用來解鎖下一階段配方 */
