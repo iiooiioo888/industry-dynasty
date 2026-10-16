@@ -2,15 +2,12 @@ import { applyWorldAction } from '../world/reducer.js';
 import { DEFAULT_WORLD_CONFIG } from '../world/config.js';
 import { createInitialWorld } from '../world/create-world.js';
 import { getPlayerHoldings, type Player, type WorldState } from '../world/state.js';
-import {
-  accrueOperatingProfit,
-  aggregateReport,
-  emptyLedger,
-  isBankrupt,
-  measureMarket,
-  playerCapacity,
-  type OperatingLedger,
-} from './economy.js';
+import { ITEMS, getItemQty } from '../production/items.js';
+import { RECIPES } from '../production/recipes.js';
+import { emptyPnL, netProfit } from '../sales/pnl.js';
+import { quoteSale } from '../sales/sell-logic.js';
+import { DEFAULT_SCENARIO } from '../sales/scenario.js';
+import { aggregateReport, isBankrupt, measureMarket, playerCapacity } from './economy.js';
 import { createRng, deriveGameSeed, shuffle } from './rng.js';
 import { bidLimit, chooseBid, chooseBuilds, type StrategyContext } from './strategies.js';
 import type {
@@ -112,7 +109,6 @@ export function runDataReport(options: SimulationOptions = {}): DataReport {
 function runSingleGame(config: ResolvedSimulation, seed: number): GameOutcome {
   const rng = createRng(seed);
   let state = createMatchState(config);
-  let ledger = emptyLedger();
 
   for (let tick = 0; tick < config.horizon; tick += 1) {
     const order = shuffle(config.roster, rng);
@@ -124,13 +120,23 @@ function runSingleGame(config: ResolvedSimulation, seed: number): GameOutcome {
       state = applyBotBuilds(state, bot, rng);
     }
     state = applyWorldAction(state, { type: 'ADVANCE_BUILD_TICK' });
-    const accrued = accrueOperatingProfit(state, ledger, config.horizon);
-    state = accrued.state;
-    ledger = accrued.ledger;
+
+    // 走**真實生產鏈**：為每座完工工廠排配方、推進生產、把成品賣給 NPC。
+    // 舊版用 `accrueOperatingProfit` 的簡化收益模型
+    // （FACTORY_BASE_YIELD × 物流係數 × 時間規劃），完全不經過配方、庫存與運費，
+    // 因此量到的策略排名與實際玩法無關。
+    for (const bot of order) {
+      state = applyBotProduction(state, bot);
+    }
+    state = applyWorldAction(state, { type: 'ADVANCE_PRODUCTION_TICK' });
+    for (const bot of order) {
+      state = applyBotSales(state, bot);
+    }
+
     state = applyWorldAction(state, { type: 'ADVANCE_TAX_TICK' });
   }
 
-  return summarizeGame(state, ledger, config, seed);
+  return summarizeGame(state, config, seed);
 }
 
 function createMatchState(config: ResolvedSimulation): WorldState {
@@ -203,6 +209,77 @@ function applyBotBuilds(
   return next;
 }
 
+/** 為這名玩家的每座完工工廠排入對應礦脈的開採配方。 */
+function applyBotProduction(state: WorldState, bot: SimRosterEntry): WorldState {
+  let next = { ...state, localPlayerId: bot.id };
+  for (const [key, site] of Object.entries(next.sites)) {
+    if (site.phase !== 'complete' || site.ownerId !== bot.id) {
+      continue;
+    }
+    if (next.productionLines[key]) {
+      continue;
+    }
+    const parcel = next.map.parcels.find((p) => p.id.value === key);
+    if (!parcel) {
+      continue;
+    }
+    const recipe = Object.values(RECIPES).find(
+      (r) => r.sourceKind === parcel.resource.kind && r.inputs.length === 0,
+    );
+    if (!recipe) {
+      continue;
+    }
+    if (!(recipe.buildings as readonly string[]).includes(site.factoryTypeId)) {
+      continue;
+    }
+    next = applyWorldAction(next, {
+      type: 'START_PRODUCTION',
+      parcelId: parcel.id,
+      recipeId: recipe.id,
+    });
+  }
+  return next;
+}
+
+/** 把這名玩家庫存裡的可販售品項賣給當日報價最佳的 NPC。 */
+function applyBotSales(state: WorldState, bot: SimRosterEntry): WorldState {
+  let next = { ...state, localPlayerId: bot.id };
+  const holdings = getPlayerHoldings(next, bot.id);
+  const shipFrom = holdings[0];
+  if (!shipFrom) {
+    return { ...next, localPlayerId: state.localPlayerId };
+  }
+  for (const item of Object.values(ITEMS)) {
+    if (!item.sellable) {
+      continue;
+    }
+    const offers = next.npcBuyOffers.filter((o) => o.itemId === item.id);
+    if (offers.length === 0) {
+      continue;
+    }
+    const best = offers
+      .map((o) => ({ offer: o, quote: quoteSale(o, shipFrom) }))
+      .sort((a, b) => b.quote.netPerUnit - a.quote.netPerUnit)[0];
+    if (!best || best.quote.netPerUnit <= 0) {
+      continue;
+    }
+    const qty = Math.min(
+      getItemQty(next.inventories[bot.id] ?? {}, item.id),
+      best.offer.maxQuantity,
+    );
+    if (qty <= 0) {
+      continue;
+    }
+    next = applyWorldAction(next, {
+      type: 'SELL_TO_NPC',
+      offerId: best.offer.id,
+      quantity: qty,
+      shipFromParcelId: shipFrom.id,
+    });
+  }
+  return { ...next, localPlayerId: state.localPlayerId };
+}
+
 function settleAffordable(state: WorldState): WorldState {
   const ranked = state.auctionLots
     .filter((lot) => lot.status === 'open' && lot.highBidderId !== null)
@@ -227,12 +304,7 @@ function settleAffordable(state: WorldState): WorldState {
   return next;
 }
 
-function summarizeGame(
-  state: WorldState,
-  ledger: OperatingLedger,
-  config: ResolvedSimulation,
-  seed: number,
-): GameOutcome {
+function summarizeGame(state: WorldState, config: ResolvedSimulation, seed: number): GameOutcome {
   const players: GamePlayerOutcome[] = config.roster.map((bot) => {
     const player = state.players[bot.id];
     const endingCash = player?.cash ?? 0;
@@ -240,18 +312,24 @@ function summarizeGame(
     const completeFactories = Object.values(state.sites).filter(
       (site) => site.phase === 'complete' && site.ownerId === bot.id,
     ).length;
+    // 淨利改用真實 PnL（營收 − 稅 − 維護 − 運費 − 拍賣 − 建廠 − 閒置），
+    // 這是 `evaluateScenario` 判定通關所用的同一個數字。
+    const pnl = state.pnl[bot.id] ?? emptyPnL();
+    const profit = netProfit(pnl);
     return {
       playerId: bot.id,
       name: bot.name,
       strategy: bot.strategy,
       startingCash: config.startingCash,
       endingCash,
-      netProfit: endingCash - config.startingCash,
+      netProfit: profit,
+      // 通關判定與實際遊戲一致：horizon 結束時淨利是否達到門檻
+      won: profit >= DEFAULT_SCENARIO.targetNetProfit,
       bankrupt: isBankrupt(endingCash, completeFactories),
       ownedParcels,
       completeFactories,
       capacity: playerCapacity(state, bot.id),
-      revenue: ledger.revenueByPlayer[bot.id] ?? 0,
+      revenue: pnl.revenue,
     };
   });
 

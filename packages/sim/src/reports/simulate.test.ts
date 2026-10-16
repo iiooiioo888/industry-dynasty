@@ -48,9 +48,11 @@ describe('模擬對局', () => {
       roster: [speculator('solo-speculator')],
     });
     const player = game?.players[0];
-    // 核心不變：它永遠不建廠、收入為 0，因此拿到第 0 名
+    // 核心不變：它永遠不建廠、沒有產能，因此沒有可持續收入
     expect(player?.completeFactories).toBe(0);
-    expect(player?.revenue).toBe(0);
+    expect(player?.capacity).toBe(0);
+    // 唯一的收入是賣掉開局配發的起始原料（一次性）
+    expect(player?.won).toBe(false);
     // 稅率調降後（土地稅 30/日），囤地不再必然破產 ——
     // 它靠閒置現金利息撐住，但持有土地本身仍然不產生任何收入。
     expect(player?.netProfit).toBeLessThan(

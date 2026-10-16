@@ -266,6 +266,7 @@ export function aggregateReport(
   const profits = players.map((player) => player.netProfit);
   const distribution = profitDistribution(profits);
   const bankruptCount = players.filter((player) => player.bankrupt).length;
+  const wonCount = players.filter((player) => player.won).length;
   const observations = players.length;
   const dominantGames = games.filter((game) => game.monopolyShare >= DOMINANT_SHARE).length;
 
@@ -285,6 +286,10 @@ export function aggregateReport(
     parameters,
     bankruptcyRate: observations === 0 ? 0 : bankruptCount / observations,
     bankruptCount,
+    // 勝率：與 `evaluateScenario` 同一判定（淨利達通關門檻）。
+    // 這是「玩家能不能過關」在模擬器裡的答案，先前完全沒有量測。
+    winRate: observations === 0 ? 0 : wonCount / observations,
+    wonCount,
     netProfit: {
       mean: distribution.mean,
       distribution,

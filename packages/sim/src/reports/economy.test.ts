@@ -27,6 +27,7 @@ function player(
     startingCash: 100,
     endingCash: 100,
     netProfit: 0,
+    won: false,
     bankrupt: false,
     ownedParcels: 0,
     completeFactories: 0,

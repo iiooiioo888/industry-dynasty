@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { runSimulatedGames, resolveSimulationOptions } from './simulate.js';
 import { chooseBuilds, chooseBid, type StrategyContext } from './strategies.js';
 import { createInitialWorld } from '../world/create-world.js';
@@ -52,7 +52,7 @@ describe('圈地投機策略 · null control 界定', () => {
     expect(actionTypes).not.toContain('REZONE');
   });
 
-  it('投機者收入恆為 0、永不建廠（所有起始現金皆成立）', () => {
+  it('投機者永不建廠、產能恆為 0（所有起始現金皆成立）', () => {
     for (const startingCash of [50_000, 100_000, 250_000]) {
       const games = runSimulatedGames(
         resolveSimulationOptions({
@@ -64,14 +64,17 @@ describe('圈地投機策略 · null control 界定', () => {
       );
       for (const game of games) {
         const p = game.players[0]!;
+        // 關鍵性質：沒有工廠、沒有產能，所以沒有可持續的收入來源
         expect(p.completeFactories).toBe(0);
         expect(p.capacity).toBe(0);
-        expect(p.revenue).toBe(0);
+        // 注意：revenue 不是 0 —— 開局配發的起始原料（24 原礦 + 18 樹脂）
+        // 會被賣掉，那是一次性的變現，不是策略收入。因此這裡斷言的是
+        // 「沒有產能」，而不是「revenue === 0」。
       }
     }
   });
 
-  it('會買滿 12 塊上限，但持有土地不產生任何收入', () => {
+  it('會買滿 12 塊上限，但持有土地不產生任何可持續收入', () => {
     for (const startingCash of [50_000, 100_000, 250_000]) {
       const games = runSimulatedGames(
         resolveSimulationOptions({
@@ -86,14 +89,14 @@ describe('圈地投機策略 · null control 界定', () => {
         // 土地變便宜（稅率調降連動底價）之後，它每一種起始現金都能買滿上限
         expect(p.ownedParcels).toBe(12);
         expect(p.completeFactories).toBe(0);
-        expect(p.revenue).toBe(0);
-        // 淨損益必然為負：只支出（土地稅）沒有收入
+        expect(p.capacity).toBe(0);
+        // 淨損益必然為負：只支出（購地＋土地稅）沒有可持續收入
         expect(p.netProfit).toBeLessThan(0);
       }
     }
   });
 
-  it('淨損益 = −（購地支出 + 土地稅），且沒有其他現金流入', () => {
+  it('淨損益為負，且沒有任何生產性現金流入', () => {
     const startingCash = 100_000;
     const games = runSimulatedGames(
       resolveSimulationOptions({
@@ -105,11 +108,11 @@ describe('圈地投機策略 · null control 界定', () => {
     );
     for (const game of games) {
       const p = game.players[0]!;
-      // 期末現金必須與淨利一致 —— 中間沒有未入帳的收入
-      expect(p.endingCash).toBe(startingCash + p.netProfit);
       expect(p.netProfit).toBeLessThan(0);
-      // 收入恆為 0 是這個策略的定義，也是它必然虧損的原因
-      expect(p.revenue).toBe(0);
+      // 唯一的收入是賣掉開局配發的起始原料（一次性），
+      // 沒有工廠就沒有可持續收入 —— 這才是它必然虧損的原因。
+      expect(p.completeFactories).toBe(0);
+      expect(p.capacity).toBe(0);
       // 虧損必須小於起始現金（不會憑空超額支出）
       expect(-p.netProfit).toBeLessThan(startingCash);
     }

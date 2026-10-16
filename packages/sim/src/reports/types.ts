@@ -41,6 +41,8 @@ export interface GamePlayerOutcome {
   readonly startingCash: number;
   readonly endingCash: number;
   readonly netProfit: number;
+  /** 是否達成通關門檻（與 `evaluateScenario` 同一判定） */
+  readonly won: boolean;
   readonly bankrupt: boolean;
   readonly ownedParcels: number;
   readonly completeFactories: number;
@@ -98,6 +100,9 @@ export interface DataReport {
   readonly parameters: ReportParameters;
   readonly bankruptcyRate: number;
   readonly bankruptCount: number;
+  /** 達成通關門檻的觀測比例（與 `evaluateScenario` 同一判定） */
+  readonly winRate: number;
+  readonly wonCount: number;
   readonly netProfit: {
     readonly mean: number;
     readonly distribution: ProfitDistribution;
