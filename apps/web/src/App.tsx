@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { AuctionAlertBanner } from './components/AuctionAlertBanner';
 import { AuctionPanel } from './components/AuctionPanel';
 import { BuildPanel } from './components/BuildPanel';
+import { DataReportPanel } from './components/DataReportPanel';
 import { GameMap } from './components/GameMap';
 import { InventoryPanel } from './components/InventoryPanel';
 import { MarketPanel } from './components/MarketPanel';
@@ -21,14 +22,20 @@ import './App.css';
 export function App() {
   const { state, dispatch } = useWorldState();
   const [selectedParcelId, setSelectedParcelId] = useState<ParcelId | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   return (
     <div className="shell">
       <header className="shell-titlebar">
         <span className="brand">產業霸權 · 產業控制台</span>
-        <span className="meta">
-          {SIM_PACKAGE_VERSION} · 第 {state.gameDay} 天 · 稅務 T{state.taxTick} · 生產 P
-          {state.productionTick} · 道路／城市／人口需求
+        <span className="titlebar-actions">
+          <button type="button" className="report-launch" onClick={() => setReportOpen(true)}>
+            數據報表
+          </button>
+          <span className="meta">
+            {SIM_PACKAGE_VERSION} · 第 {state.gameDay} 天 · 稅務 T{state.taxTick} · 生產 P
+            {state.productionTick} · 道路／城市／人口需求
+          </span>
         </span>
       </header>
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
@@ -82,6 +89,7 @@ export function App() {
           />
         </aside>
       </div>
+      {reportOpen ? <DataReportPanel onClose={() => setReportOpen(false)} /> : null}
     </div>
   );
 }

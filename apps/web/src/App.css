@@ -21,12 +21,41 @@
 .shell-titlebar .brand {
   font-weight: 700;
   letter-spacing: 0.12em;
+  flex-shrink: 0;
+}
+
+.titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.report-launch {
+  flex-shrink: 0;
+  border: 1px solid var(--sys-border);
+  background: var(--sys-surface);
+  color: var(--sys-text);
+  border-radius: 999px;
+  padding: 0.08rem 0.65rem;
+  letter-spacing: 0.08em;
+  font: inherit;
+  cursor: pointer;
+}
+
+.report-launch:hover {
+  border-color: var(--sys-accent);
+  color: var(--sys-accent);
 }
 
 .shell-titlebar .meta {
   font-family: var(--sys-mono);
   color: var(--sys-muted);
   font-size: 0.65rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shell-body {
@@ -79,5 +108,9 @@
   .shell-col-left,
   .shell-col-right {
     max-height: 28vh;
+  }
+
+  .shell-titlebar .brand {
+    letter-spacing: 0.04em;
   }
 }
