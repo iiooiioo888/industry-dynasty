@@ -1,0 +1,66 @@
+.sales-panel .npc-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.npc-slot {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border: 1px solid var(--sys-border);
+  border-radius: 4px;
+  background: var(--sys-bg-deep);
+}
+
+.npc-fallback {
+  font-size: 0.75rem;
+  color: var(--sys-accent);
+  font-weight: 600;
+}
+
+.sales-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  margin-bottom: 0.45rem;
+}
+
+.sales-field select,
+.sales-field input {
+  padding: 0.35rem;
+  background: var(--sys-bg-deep);
+  border: 1px solid var(--sys-border);
+  color: var(--sys-text);
+  border-radius: 3px;
+}
+
+.sales-quote {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  margin: 0.35rem 0 0.5rem;
+}
+
+.sales-quote dt {
+  color: var(--sys-muted);
+}
+
+.sales-quote dd {
+  margin: 0;
+}
+
+.sales-quote .pos {
+  color: #6dd96d;
+}
+
+.sales-quote .neg {
+  color: var(--sys-warn);
+}
+
+.sys-btn.full {
+  width: 100%;
+}

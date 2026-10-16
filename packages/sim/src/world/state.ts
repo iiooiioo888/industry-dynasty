@@ -1,4 +1,7 @@
 import type { ParcelSite } from '../buildings/site.js';
+import type { NpcBuyOffer } from '../sales/market.js';
+import type { PnLSummary } from '../sales/pnl.js';
+import type { ScenarioState } from '../sales/scenario.js';
 import type { ProductionLine } from '../production/production-line.js';
 import type { PlayerStock } from '../production/items.js';
 import type { AuctionLot } from '../types/auction.js';
@@ -22,6 +25,10 @@ export interface WorldState {
   readonly sites: Readonly<Record<string, ParcelSite>>;
   readonly inventories: Readonly<Record<string, PlayerStock>>;
   readonly productionLines: Readonly<Record<string, ProductionLine>>;
+  readonly gameDay: number;
+  readonly npcBuyOffers: readonly NpcBuyOffer[];
+  readonly pnl: Readonly<Record<string, PnLSummary>>;
+  readonly scenario: ScenarioState;
 }
 
 export function findParcel(state: WorldState, parcelId: ParcelId): Parcel | undefined {

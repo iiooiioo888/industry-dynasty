@@ -10,8 +10,10 @@ import { AuctionPanel } from './components/AuctionPanel';
 import { BuildPanel } from './components/BuildPanel';
 import { GameMap } from './components/GameMap';
 import { InventoryPanel } from './components/InventoryPanel';
+import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
 import { ProductionPanel } from './components/ProductionPanel';
+import { SalesPanel } from './components/SalesPanel';
 import { useWorldState } from './game/useWorldState';
 import './App.css';
 
@@ -24,16 +26,17 @@ export function App() {
       <header className="shell-titlebar">
         <span className="brand">產業霸權 · 產業控制台</span>
         <span className="meta">
-          {SIM_PACKAGE_VERSION} · 稅務 T{state.taxTick} · 建設 B{state.buildTick} · 生產 P
+          {SIM_PACKAGE_VERSION} · 第 {state.gameDay} 天 · 稅務 T{state.taxTick} · 生產 P
           {state.productionTick}
         </span>
       </header>
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
       <div className="shell-body">
         <aside className="shell-col shell-col-left">
+          <PnLPanel state={state} />
           <PlayerOverview
             state={state}
-            onAdvanceTax={() => dispatch({ type: 'ADVANCE_TAX_TICK' })}
+            onAdvanceTax={() => dispatch({ type: 'ADVANCE_DAY' })}
           />
           <InventoryPanel state={state} />
         </aside>
@@ -64,6 +67,13 @@ export function App() {
             onAdvanceBuild={() => dispatch({ type: 'ADVANCE_BUILD_TICK' })}
             onCancelBuild={(parcelId) => dispatch({ type: 'CANCEL_BUILD', parcelId })}
             onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
+          />
+          <SalesPanel
+            state={state}
+            selectedParcelId={selectedParcelId}
+            onSell={(offerId, quantity, shipFromParcelId) =>
+              dispatch({ type: 'SELL_TO_NPC', offerId, quantity, shipFromParcelId })
+            }
           />
           <AuctionPanel
             state={state}

@@ -12,4 +12,6 @@ export type WorldAction =
   | { type: 'DEMOLISH'; parcelId: ParcelId }
   | { type: 'START_PRODUCTION'; parcelId: ParcelId; recipeId: RecipeId }
   | { type: 'STOP_PRODUCTION'; parcelId: ParcelId }
-  | { type: 'ADVANCE_PRODUCTION_TICK' };
+  | { type: 'ADVANCE_PRODUCTION_TICK' }
+  | { type: 'SELL_TO_NPC'; offerId: string; quantity: number; shipFromParcelId: ParcelId }
+  | { type: 'ADVANCE_DAY' };

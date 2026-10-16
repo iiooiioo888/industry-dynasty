@@ -3,7 +3,7 @@ import { SIM_PACKAGE_VERSION, createInitialWorld } from './index.js';
 
 describe('@industry-dynasty/sim', () => {
   it('exports sprint 1 package version', () => {
-    expect(SIM_PACKAGE_VERSION).toBe('0.3.0-sprint3');
+    expect(SIM_PACKAGE_VERSION).toBe('0.4.0-sprint4');
   });
 
   it('creates a world with auctions for every parcel', () => {

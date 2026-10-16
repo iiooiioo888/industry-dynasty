@@ -14,6 +14,8 @@ export {
   type WorldState,
 } from './state.js';
 export { processParcelTax } from './tax-logic.js';
+export { applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
+export { netProfit, emptyPnL, type PnLSummary } from '../sales/pnl.js';
 export {
   generateParcelResource,
   PARCEL_RESOURCE_DEFS,

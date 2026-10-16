@@ -1,5 +1,5 @@
 import type { AuctionLot } from '../types/auction.js';
-import type { FactoryTypeId } from '../buildings/catalog.js';
+import { FACTORY_TYPES, type FactoryTypeId } from '../buildings/catalog.js';
 import {
   advanceConstruction,
   applyCancelBuild,
@@ -17,7 +17,12 @@ import {
   applyStopProduction,
   clearProductionAtParcel,
 } from './production-reducer.js';
-import { processParcelTax } from './tax-logic.js';
+import { applyTaxTickWithPnl } from './day-reducer.js';
+import { bumpPlayerPnl } from './pnl-helpers.js';
+import {
+  applyAdvanceDay,
+  applySellToNpc,
+} from './sales-reducer.js';
 import {
   findOpenLotForParcel,
   findParcel,
@@ -25,13 +30,7 @@ import {
   type WorldState,
 } from './state.js';
 
-let lotIdCounter = 10_000;
 let buildingIdCounter = 20_000;
-
-function nextLotId(): string {
-  lotIdCounter += 1;
-  return `lot-${lotIdCounter}`;
-}
 
 function nextBuildingId(): string {
   buildingIdCounter += 1;
@@ -64,7 +63,11 @@ export function applyWorldAction(
     case 'SETTLE_AUCTION':
       return applySettle(state, action.parcelId);
     case 'ADVANCE_TAX_TICK':
-      return applyTaxTick(state, config);
+      return applyTaxTickWithPnl(state, config);
+    case 'SELL_TO_NPC':
+      return applySellToNpc(state, action.offerId, action.quantity, action.shipFromParcelId);
+    case 'ADVANCE_DAY':
+      return applyAdvanceDay(state, config);
     case 'START_BUILD':
       return applyStart(state, action.parcelId, action.factoryTypeId);
     case 'ADVANCE_BUILD_TICK':
@@ -131,63 +134,17 @@ function applySettle(state: WorldState, parcelId: ParcelId): WorldState {
     };
   }
 
-  if (result.sold) {
+  if (result.sold && result.player && lot.highBidderId) {
     const key = parcel.id.value;
+    const spend = lot.highBid;
     nextState = {
       ...nextState,
       unpaidLandTax: { ...nextState.unpaidLandTax, [key]: 0 },
+      pnl: bumpPlayerPnl(nextState, lot.highBidderId, { auctionSpend: spend }),
     };
   }
 
   return nextState;
-}
-
-function applyTaxTick(state: WorldState, config: WorldConfig): WorldState {
-  let map = state.map;
-  let players = state.players;
-  const unpaidLandTax = { ...state.unpaidLandTax };
-  const sites = { ...state.sites };
-  let productionLines = { ...state.productionLines };
-  const auctionLots = [...state.auctionLots];
-  const owned = map.parcels.filter((p) => p.ownerId !== null);
-
-  for (const parcel of owned) {
-    const ownerId = parcel.ownerId!;
-    const player = players[ownerId];
-    if (!player) {
-      continue;
-    }
-
-    const key = parcel.id.value;
-    const currentUnpaid = unpaidLandTax[key] ?? 0;
-    const outcome = processParcelTax(parcel, player, currentUnpaid, config, nextLotId());
-
-    map = updateParcelInMap(map, outcome.parcel);
-    if (outcome.player) {
-      players = updatePlayer(players, outcome.player);
-    }
-    if (outcome.reauctioned) {
-      delete unpaidLandTax[key];
-      delete sites[key];
-      productionLines = clearProductionAtParcel(productionLines, key);
-      if (outcome.newLot) {
-        auctionLots.push(outcome.newLot);
-      }
-    } else {
-      unpaidLandTax[key] = outcome.unpaidLandTax;
-    }
-  }
-
-  return {
-    ...state,
-    map,
-    players,
-    unpaidLandTax,
-    sites,
-    productionLines,
-    auctionLots,
-    taxTick: state.taxTick + 1,
-  };
 }
 
 function applyStart(
@@ -207,11 +164,13 @@ function applyStart(
     return state;
   }
 
+  const factoryType = FACTORY_TYPES[factoryTypeId];
   return {
     ...state,
     map: updateParcelInMap(state.map, result.parcel),
     players: updatePlayer(state.players, result.player),
     sites: { ...state.sites, [parcelId.value]: result.site },
+    pnl: bumpPlayerPnl(state, player.id, { buildSpend: factoryType.buildCost }),
   };
 }
 

@@ -1,4 +1,11 @@
-import { PARCEL_RESOURCE_DEFS, findOpenLotForParcel, type Parcel, type ParcelId, type WorldState } from '@industry-dynasty/sim';
+import {
+  MARKET_HUB,
+  PARCEL_RESOURCE_DEFS,
+  findOpenLotForParcel,
+  type Parcel,
+  type ParcelId,
+  type WorldState,
+} from '@industry-dynasty/sim';
 import type { CSSProperties } from 'react';
 import './GameMap.css';
 
@@ -66,11 +73,13 @@ export function GameMap({ state, selectedParcelId, onSelectParcel }: GameMapProp
           const lot = findOpenLotForParcel(state, parcel.id);
           const hasOpenAuction = lot !== undefined && !parcel.ownerId;
           const hasBids = lot?.highBidderId != null;
+          const isMarket =
+            parcel.x === MARKET_HUB.x && parcel.y === MARKET_HUB.y;
           return (
             <button
               key={parcel.id.value}
               type="button"
-              className={cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids)}
+              className={`${cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids)}${isMarket ? ' market-hub' : ''}`}
               onClick={() => onSelectParcel(parcel.id)}
               title={
                 hasOpenAuction

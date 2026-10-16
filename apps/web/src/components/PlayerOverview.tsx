@@ -21,7 +21,7 @@ export function PlayerOverview({ state, onAdvanceTax }: PlayerOverviewProps) {
       </p>
       <p className="meta-line">生產週期：第 {state.productionTick} 期</p>
       <button type="button" className="sys-btn full" onClick={onAdvanceTax}>
-        推進稅務週期
+        結束本日（稅務＋維護＋刷新收購價）
       </button>
       <h3>持有土地 ({holdings.length})</h3>
       {holdings.length === 0 ? (

@@ -4,6 +4,7 @@ import { generateParcelResource } from './parcel-resources.js';
 import { createAuctionLot } from './auction-logic.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
 import { DEFAULT_STARTING_STOCK } from '../production/items.js';
+import { createScenarioState, emptyPnL, generateNpcBuyOffers } from '../sales/index.js';
 import type { Player, WorldState } from './state.js';
 
 function buildMap(config: WorldConfig): GameMap {
@@ -55,6 +56,10 @@ export function createInitialWorld(config: Partial<WorldConfig> = {}): WorldStat
     sites: {},
     inventories: { [player.id]: { ...DEFAULT_STARTING_STOCK } },
     productionLines: {},
+    gameDay: 0,
+    npcBuyOffers: generateNpcBuyOffers(0),
+    pnl: { [player.id]: emptyPnL() },
+    scenario: createScenarioState(),
   };
 }
 
