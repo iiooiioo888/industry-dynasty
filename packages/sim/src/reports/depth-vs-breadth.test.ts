@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { runFullLoop } from './full-loop.js';
 import { BALANCE } from '../balance/targets.js';
 import { RECIPES } from '../production/recipes.js';
@@ -16,7 +16,9 @@ import { ITEMS } from '../production/items.js';
  */
 describe('深度 vs 廣度：達到通關門檻所需的土地', () => {
   it('掃描不同地塊數下各深度的淨利與達標情形', () => {
-    console.log(`\n=== 通關門檻 ${BALANCE.targetNetProfit}（${BALANCE.maxDays} 天，起始現金 100,000）===`);
+    console.log(
+      `\n=== 通關門檻 ${BALANCE.targetNetProfit}（${BALANCE.maxDays} 天，起始現金 100,000）===`,
+    );
     console.log(
       'parcels'.padStart(8) +
         'depth'.padStart(7) +
@@ -29,8 +31,10 @@ describe('深度 vs 廣度：達到通關門檻所需的土地', () => {
     const grid = new Map<string, { net: number; status: string; revenue: number }>();
     for (const parcels of [2, 3, 4, 6, 8]) {
       for (const depth of [0, 1, 2] as const) {
-        // 深度經營需要開採廠供料，但不該超過總工廠數
-        const extractorCount = depth === 0 ? 1 : Math.min(2, parcels);
+        // 公平比較：加工路線也必須有足夠礦場供料。
+        // 固定 2 座礦場卻讓加工廠一路增加到 6 座，只會量到「供應鏈被拉爆」，
+        // 而不是「加工本身划不划算」。維持約一半礦場、一半加工。
+        const extractorCount = depth === 0 ? 1 : Math.max(2, Math.floor(parcels / 2));
         const r = runFullLoop({
           maxParcels: parcels,
           depth,
@@ -66,7 +70,9 @@ describe('深度 vs 廣度：達到通關門檻所需的土地', () => {
         }
       }
       minParcels[depth] = found;
-      console.log(`  depth=${depth} → ${found === null ? '在 ≤8 塊地內無法達標' : `${found} 塊地`}`);
+      console.log(
+        `  depth=${depth} → ${found === null ? '在 ≤8 塊地內無法達標' : `${found} 塊地`}`,
+      );
     }
 
     // 護欄一：每一種深度都必須有「能達標」的配置。遊戲不該只有唯一解。
@@ -83,8 +89,7 @@ describe('深度 vs 廣度：達到通關門檻所需的土地', () => {
     // 護欄三：加工配方本身必須是「做了會賺」的
     for (const r of Object.values(RECIPES)) {
       if (r.inputs.length === 0) continue;
-      const outVal =
-        ITEMS[r.outputItemId].unitValue * r.outputQuantity * (r.outputMultiplier ?? 1);
+      const outVal = ITEMS[r.outputItemId].unitValue * r.outputQuantity * (r.outputMultiplier ?? 1);
       const inVal = r.inputs.reduce((s, i) => s + ITEMS[i.itemId].unitValue * i.quantity, 0);
       expect(outVal - inVal, `${r.id} 加工後應為正毛利`).toBeGreaterThan(0);
     }
@@ -101,10 +106,29 @@ describe('深度 vs 廣度：達到通關門檻所需的土地', () => {
 
     // 護欄四：至少一種規模下，加工深度必須真的勝過純開採 ——
     // 否則「加工深度」不是有效策略軸，只是較差的做法。
-    const depthWinsSomewhere = [2, 3, 4, 6, 8].some((p) => {
-      const base = grid.get(`${p}/0`)!.net;
-      return grid.get(`${p}/1`)!.net > base || grid.get(`${p}/2`)!.net > base;
-    });
-    expect(depthWinsSomewhere, '加工深度必須至少在一種規模下優於純開採').toBe(true);
+    const winsByDepth: Record<number, number[]> = { 0: [], 1: [], 2: [] };
+    for (const parcels of [2, 3, 4, 6, 8]) {
+      const base = grid.get(`${parcels}/0`)!.net;
+      for (const depth of [1, 2] as const) {
+        if (grid.get(`${parcels}/${depth}`)!.net > base) {
+          winsByDepth[depth]!.push(parcels);
+        }
+      }
+    }
+    console.log(
+      `\n  深度 1 勝過廣度的規模：${winsByDepth[1]!.length ? winsByDepth[1]!.join(', ') + ' 塊地' : '（無）'}`,
+    );
+    console.log(
+      `  深度 2 勝過廣度的規模：${winsByDepth[2]!.length ? winsByDepth[2]!.join(', ') + ' 塊地' : '（無）'}`,
+    );
+    expect(
+      winsByDepth[1]!.length,
+      '加工深度（一階）必須至少在一種規模下優於純開採',
+    ).toBeGreaterThan(0);
+
+    // 已知限制：二階加工在所有規模下都未勝出。原因是 `make-basic-part`
+    // 是唯一「一階且可販售」的配方，二階必須先做不可販售的中間財（鐵錠等），
+    // 期間沒有收入卻照樣付持有成本。這是 harness 的策略限制，
+    // 也反映了目前配方表的結構 —— 留待後續處理，不在這裡斷言。
   });
 });
