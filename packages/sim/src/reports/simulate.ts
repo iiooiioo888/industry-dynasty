@@ -7,6 +7,7 @@ import { RECIPES } from '../production/recipes.js';
 import { emptyPnL, netProfit } from '../sales/pnl.js';
 import { quoteSale } from '../sales/sell-logic.js';
 import { DEFAULT_SCENARIO } from '../sales/scenario.js';
+import { quoteLandSale } from '../world/land-sale.js';
 import { aggregateReport, isBankrupt, measureMarket, playerCapacity } from './economy.js';
 import { createRng, deriveGameSeed, shuffle } from './rng.js';
 import { bidLimit, chooseBid, chooseBuilds, type StrategyContext } from './strategies.js';
@@ -120,13 +121,52 @@ function runSingleGame(
 ): GameOutcome {
   const rng = createRng(seed);
   let state = createMatchState(config);
+  // 每個機器人各持有「土地取得成本」，供圈地投機判斷何時出場
+  const acquiredAt = new Map<string, Map<string, number>>();
+  for (const bot of config.roster) {
+    acquiredAt.set(bot.id, new Map());
+  }
 
   for (let tick = 0; tick < config.horizon; tick += 1) {
     const order = shuffle(config.roster, rng);
     for (const bot of order) {
       state = applyBotBids(state, bot, rng);
     }
+
+    // 記錄取得成本。注意**不能用「現金減少量」**：得標時會一併清償該地塊的
+    // 欠稅（`applySettle` 會把 `unpaidLandTax` 歸零），所以現金差額
+    // ＝ 標金 ＋ 前手欠稅，會遠高於實際地價。
+    // 先前就是這樣讓投機者的成本基準被灌水（買價 1,368 卻記成 5,712），
+    // 於是「轉手價 > 成本」永遠不成立、永遠等不到出場。
+    // 這裡改記「標金 ＋ 承接的欠稅」，才是真正的持有成本。
+    const bidsBefore = new Map<string, Map<string, { bid: number; tax: number }>>();
+    for (const lot of state.auctionLots) {
+      if (lot.status !== 'open' || !lot.highBidderId) {
+        continue;
+      }
+      const book = bidsBefore.get(lot.highBidderId) ?? new Map();
+      book.set(lot.parcelId.value, {
+        bid: lot.highBid,
+        tax: state.unpaidLandTax[lot.parcelId.value] ?? 0,
+      });
+      bidsBefore.set(lot.highBidderId, book);
+    }
+
     state = settleAffordable(state);
+    for (const bot of config.roster) {
+      const book = acquiredAt.get(bot.id)!;
+      const won = bidsBefore.get(bot.id);
+      if (!won) {
+        continue;
+      }
+      for (const parcel of getPlayerHoldings(state, bot.id)) {
+        const entry = won.get(parcel.id.value);
+        if (entry && !book.has(parcel.id.value)) {
+          book.set(parcel.id.value, entry.bid + entry.tax);
+        }
+      }
+    }
+
     for (const bot of order) {
       state = applyBotBuilds(state, bot, rng);
     }
@@ -143,8 +183,18 @@ function runSingleGame(
     for (const bot of order) {
       state = applyBotSales(state, bot);
     }
+    // 已經增值的土地換回現金（圈地投機的出口）
+    for (const bot of order) {
+      state = applyBotLandSales(state, bot, acquiredAt.get(bot.id)!);
+    }
 
-    state = applyWorldAction(state, { type: 'ADVANCE_TAX_TICK' });
+    // 結束本日：土地稅、維護、NPC 報價刷新、通關判定，並讓 gameDay 前進。
+    //
+    // 這裡原本用 `ADVANCE_TAX_TICK`，但那個動作只收稅與結算財務，
+    // **不會讓 `gameDay` 前進**（只有 `ADVANCE_DAY` 會）。
+    // 結果模擬器的時間是凍結的：地價增值、NPC 報價、維護費與
+    // `evaluateScenario` 全部停在第一天 —— 圈地投機因此永遠等不到增值。
+    state = applyWorldAction(state, { type: 'ADVANCE_DAY' });
     options?.inspect?.(tick, state);
   }
 
@@ -219,6 +269,43 @@ function applyBotBuilds(
     next = updated;
   }
   return next;
+}
+
+/**
+ * 圈地投機的出口：把已經增值的土地轉手換回現金。
+ *
+ * 沒有這一步時，投機者買到的地只會一直繳稅，永遠無法變現 ——
+ * 它就只能當量尺（floor），不是可玩策略。
+ *
+ * 判斷方式：以「當期估價 × 轉手折價」對上取得成本，
+ * 只要轉手能拿回的比當初付出的多就出場。
+ * 取得成本取自 `acquiredAt`（買進當天的估價），因此持有越久、
+ * 地價複利成長越多的地塊會越早被賣掉 —— 與 `landBreakEvenDays()` 的手感一致。
+ */
+function applyBotLandSales(
+  state: WorldState,
+  bot: SimRosterEntry,
+  acquiredAt: Map<string, number>,
+): WorldState {
+  let next = { ...state, localPlayerId: bot.id };
+  for (const parcel of getPlayerHoldings(next, bot.id)) {
+    const key = parcel.id.value;
+    // 地上有建築時不能轉手，必須先拆除
+    if (next.sites[key]) {
+      continue;
+    }
+    const cost = acquiredAt.get(key);
+    if (cost === undefined) {
+      continue;
+    }
+    const quote = quoteLandSale(parcel, bot.id, DEFAULT_WORLD_CONFIG, next.gameDay, false);
+    if (!quote.ok || quote.proceeds <= cost) {
+      continue;
+    }
+    next = applyWorldAction(next, { type: 'SELL_LAND', parcelId: parcel.id });
+    acquiredAt.delete(key);
+  }
+  return { ...next, localPlayerId: state.localPlayerId };
 }
 
 /** 為這名玩家的每座完工工廠排入對應礦脈的開採配方。 */
