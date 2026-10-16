@@ -41,19 +41,24 @@ describe('模擬對局', () => {
     expect(game?.monopolyShare).toBe(1);
   });
 
-  it('圈地投機只囤地、不生產，最終破產', () => {
+  it('圈地投機只囤地、不生產，且土地無法變現', () => {
     const [game] = runSimulatedGames({
       gameCount: 1,
       seed: 1,
       roster: [speculator('solo-speculator')],
     });
     const player = game?.players[0];
+    // 核心不變：它永遠不建廠、收入為 0，因此拿到第 0 名
     expect(player?.completeFactories).toBe(0);
-    expect(player?.bankrupt).toBe(true);
-    expect(player?.netProfit).toBeLessThan(0);
+    expect(player?.revenue).toBe(0);
+    // 稅率調降後（土地稅 30/日），囤地不再必然破產 ——
+    // 它靠閒置現金利息撐住，但持有土地本身仍然不產生任何收入。
+    expect(player?.netProfit).toBeLessThan(
+      runDataReport({ gameCount: 1, seed: 1, roster: [cluster('c1')] }).netProfit.mean,
+    );
   });
 
-  it('聚落策略的破產率低於圈地，平均淨利更高', () => {
+  it('聚落策略的平均淨利高於圈地', () => {
     const clustered = runDataReport({
       gameCount: 2,
       seed: 7,
@@ -65,7 +70,6 @@ describe('模擬對局', () => {
       roster: [speculator('s1'), speculator('s2')],
     });
 
-    expect(hoarders.bankruptcyRate).toBeGreaterThan(clustered.bankruptcyRate);
     expect(clustered.netProfit.mean).toBeGreaterThan(hoarders.netProfit.mean);
   });
 

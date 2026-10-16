@@ -35,6 +35,15 @@ export interface ProductionLine {
   readonly totalIdleLossValue: number;
   readonly localResourceBonus: number;
   readonly localResourceNameZh: string;
+  /**
+   * 產出係數造成的不足一單位餘額，累積到下一週期。
+   *
+   * 沒有這個欄位時，`round(outputQuantity × throughputFactor)` 會把損失**逐週期截斷**：
+   * 產出 2 單位的配方只要係數低於 0.75 就只剩 1 單位，低於 0.25 更會歸零，
+   * 於是距離會讓開採量直接砍半甚至完全停產。改成跨週期累積後，
+   * 距離只影響**長期平均產出**，不會出現這種懸崖。
+   */
+  readonly fractionalOutput: number;
 }
 
 export function motionPhase(
@@ -94,6 +103,7 @@ export function createProductionLine(
     totalIdleLossValue: 0,
     localResourceBonus: localBonus,
     localResourceNameZh: parcel.resource.nameZh,
+    fractionalOutput: 0,
   });
 }
 
@@ -228,9 +238,14 @@ export function tickProductionLine(
     };
   }
 
-  const theoretical = recipe.outputQuantity;
-  const actual = Math.max(0, Math.round(theoretical * working.throughputFactor));
+  // 開採類每週期產出多單位（見 EXTRACT_OUTPUT_MULTIPLIER），加工類維持 v1。
+  const theoretical = recipe.outputQuantity * (recipe.outputMultiplier ?? 1);
+  // 與上一週期的餘額合併後才取整，讓距離造成的損失平均分攤而不是逐週期截斷。
+  const rawOutput = theoretical * working.throughputFactor + (working.fractionalOutput ?? 0);
+  const actual = Math.max(0, Math.floor(rawOutput));
+  const fractionalOutput = rawOutput - actual;
   const unitVal = outputUnitValue(recipe);
+  // 距離損失按係數缺口計，餘額留在 fractionalOutput，不會被當成整單位損失。
   const distanceGap = Math.max(0, 1 - working.throughputFactor);
   const lostValue = Math.round(Math.max(0, theoretical * distanceGap * unitVal));
 
@@ -245,6 +260,7 @@ export function tickProductionLine(
     completedRuns: working.completedRuns + 1,
     totalOutputValue: working.totalOutputValue + actual * unitVal,
     totalDistanceLossValue: working.totalDistanceLossValue + lostValue,
+    fractionalOutput,
   });
 
   return { line: working, stock: nextStock, parcel: consumed.parcel };

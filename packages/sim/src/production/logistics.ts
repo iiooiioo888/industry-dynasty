@@ -19,23 +19,31 @@ export interface ProductionTimingView {
 }
 
 /**
- * 空間效率 × 時間規劃：距離增加週期、降低產出係數；物流效率縮短週期。
+ * 空間效率 × 時間規劃。
  *
- * 曲線形狀與係數集中在 `distance-cost.ts`；本函式只負責接到週期與產出係數。
- * 預設曲線（soft-exponential）在整張地圖上都不提前飽和，因此
- * 「空間效率」在每一格都仍然是有效決策。
+ * **距離只影響產出係數，不拉長週期。**
+ * 原本 `cycleTicks = (base + 距離) / 效率`，距離 8 的地塊每週期要 10 刻，
+ * 25 天只能跑 2.5 個週期，工廠幾乎沒有產出 —— 於是「每多蓋一座工廠就多虧一座」，
+ * 數量槓桿完全失效。改成距離只壓低「每次產出多少」之後：
+ *
+ * - 近址：週期短、產出滿載 → 坪效高
+ * - 遠址：週期一樣短，但每次產出打折 → 坪效低
+ *
+ * 兩者的每日產出仍然隨距離單調遞減（見 `distance-cost.test.ts`），
+ * 但不會出現「遠到幾乎不生產」的懸崖。
+ *
+ * `logisticsEfficiency`（道路、城市、相鄰工廠）仍會縮短週期，保留區位加成。
  */
 export function computeProductionTiming(
   baseCycleTicks: number,
-  travelTickPerDistance: number,
+  _travelTickPerDistance: number,
   parcel: Parcel,
   logisticsEfficiency: number,
   config: DistanceCostConfig = DEFAULT_DISTANCE_COST,
 ): ProductionTimingView {
   const workerTravelTicks = manhattanToSupplyHub(parcel);
-  const travelPenalty = workerTravelTicks * travelTickPerDistance;
-  const rawCycle = baseCycleTicks + travelPenalty;
-  const cycleTicks = Math.max(1, Math.ceil(rawCycle / Math.max(logisticsEfficiency, 0.5)));
+  const travelPenalty = workerTravelTicks * _travelTickPerDistance;
+  const cycleTicks = Math.max(1, Math.ceil(baseCycleTicks / Math.max(logisticsEfficiency, 0.5)));
   const throughputFactor = throughputCurve(workerTravelTicks, config.throughput);
   const idleLossPerTick = idleLossCurve(workerTravelTicks, travelPenalty, config.idle);
   return {

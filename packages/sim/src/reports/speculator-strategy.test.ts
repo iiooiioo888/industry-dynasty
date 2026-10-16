@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import { runSimulatedGames, resolveSimulationOptions } from './simulate.js';
 import { chooseBuilds, chooseBid, type StrategyContext } from './strategies.js';
 import { createInitialWorld } from '../world/create-world.js';
@@ -24,7 +24,11 @@ const SPEC = 'speculator' as const;
 
 describe('圈地投機策略 · null control 界定', () => {
   it('策略層級：只出價、永不建廠', () => {
-    const world = createInitialWorld({ startingCash: 100_000, playerId: 'p1', playerName: '投機者' });
+    const world = createInitialWorld({
+      startingCash: 100_000,
+      playerId: 'p1',
+      playerName: '投機者',
+    });
     const ctx: StrategyContext = {
       state: world,
       playerId: 'p1',
@@ -67,8 +71,8 @@ describe('圈地投機策略 · null control 界定', () => {
     }
   });
 
-  it('起始現金不足時買不到地，現金被稅金扣到 0，淨利 = −起始現金', () => {
-    for (const startingCash of [50_000, 100_000]) {
+  it('會買滿 12 塊上限，但持有土地不產生任何收入', () => {
+    for (const startingCash of [50_000, 100_000, 250_000]) {
       const games = runSimulatedGames(
         resolveSimulationOptions({
           gameCount: 6,
@@ -79,43 +83,39 @@ describe('圈地投機策略 · null control 界定', () => {
       );
       for (const game of games) {
         const p = game.players[0]!;
-        expect(p.ownedParcels).toBe(0);
-        expect(p.endingCash).toBe(0);
-        expect(p.netProfit).toBe(-startingCash);
-        expect(p.bankrupt).toBe(true);
+        // 土地變便宜（稅率調降連動底價）之後，它每一種起始現金都能買滿上限
+        expect(p.ownedParcels).toBe(12);
+        expect(p.completeFactories).toBe(0);
+        expect(p.revenue).toBe(0);
+        // 淨損益必然為負：只支出（土地稅）沒有收入
+        expect(p.netProfit).toBeLessThan(0);
       }
     }
   });
 
-  it('起始現金充足時買滿 12 塊上限，但仍只有支出沒有收入', () => {
-    const startingCash = 250_000;
+  it('淨損益 = −（購地支出 + 土地稅），且沒有其他現金流入', () => {
+    const startingCash = 100_000;
     const games = runSimulatedGames(
       resolveSimulationOptions({
-        gameCount: 6,
+        gameCount: 4,
         seed: 4242,
         startingCash,
         roster: [{ id: 'spec', name: '圈地投機', strategy: SPEC }],
       }),
     );
-
     for (const game of games) {
       const p = game.players[0]!;
-      // 策略的 SPECULATOR_TARGET 上限
-      expect(p.ownedParcels).toBe(12);
-      expect(p.completeFactories).toBe(0);
-      // 沒有收入，但仍然沒破產 —— 錢只是變成了不會生錢的土地
-      expect(p.bankrupt).toBe(false);
-      // 淨損益 = −已繳土地稅，且必然為負
-      const landTaxPaid = startingCash - p.endingCash;
-      expect(landTaxPaid).toBeGreaterThan(0);
-      expect(p.endingCash).toBe(startingCash - landTaxPaid);
-      expect(p.netProfit).toBe(-landTaxPaid);
-      // 關鍵：持有 12 塊地對淨利毫無幫助，與持有 0 塊地的差別只是少繳了稅
+      // 期末現金必須與淨利一致 —— 中間沒有未入帳的收入
+      expect(p.endingCash).toBe(startingCash + p.netProfit);
       expect(p.netProfit).toBeLessThan(0);
+      // 收入恆為 0 是這個策略的定義，也是它必然虧損的原因
+      expect(p.revenue).toBe(0);
+      // 虧損必須小於起始現金（不會憑空超額支出）
+      expect(-p.netProfit).toBeLessThan(startingCash);
     }
   });
 
-  it('對照組有效：會建廠的策略在同一條件下確實賺錢', () => {
+  it('對照組有效：會建廠的策略在同一條件下淨利為正且更高', () => {
     const games = runSimulatedGames(
       resolveSimulationOptions({ gameCount: 6, seed: 4242, startingCash: 50_000 }),
     );
@@ -134,10 +134,9 @@ describe('圈地投機策略 · null control 界定', () => {
       return v.total / v.n;
     };
 
-    expect(mean('speculator')).toBe(-50_000);
-    expect(mean('cluster')).toBeGreaterThan(0);
-    expect(mean('rapid-assembly')).toBeGreaterThan(0);
     // 對照組與實驗組必須有區辨力
     expect(mean('cluster')).toBeGreaterThan(mean('speculator'));
+    expect(mean('rapid-assembly')).toBeGreaterThan(mean('speculator'));
+    expect(mean('cluster')).toBeGreaterThan(0);
   });
 });

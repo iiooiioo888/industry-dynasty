@@ -112,8 +112,13 @@ describe('距離懲罰', () => {
       },
       1,
     );
-    expect(far.cycleTicks).toBeGreaterThan(near.cycleTicks);
+    // 距離只影響產出係數，不拉長週期：週期由配方與物流效率決定。
+    expect(far.cycleTicks).toBe(near.cycleTicks);
     expect(far.throughputFactor).toBeLessThan(near.throughputFactor);
+    // 每日產出仍然隨距離遞減 —— 這才是「坪效」的實際度量
+    const nearPerDay = near.throughputFactor / near.cycleTicks;
+    const farPerDay = far.throughputFactor / far.cycleTicks;
+    expect(farPerDay).toBeLessThan(nearPerDay);
   });
 
   it('近址工廠在相同 tick 內產出價值不低於遠址', () => {

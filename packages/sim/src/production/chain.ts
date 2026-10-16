@@ -71,7 +71,10 @@ export function planProfitPerTick(
     0,
   );
   const outputValue =
-    ITEMS[recipe.outputItemId].unitValue * recipe.outputQuantity * throughputFactor;
+    ITEMS[recipe.outputItemId].unitValue *
+    recipe.outputQuantity *
+    (recipe.outputMultiplier ?? 1) *
+    throughputFactor;
   return (outputValue - inputValue) / Math.max(cycleTicks, 1);
 }
 
