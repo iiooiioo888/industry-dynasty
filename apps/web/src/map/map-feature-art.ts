@@ -111,11 +111,12 @@ function mark(
     return;
   }
   const art = ensure(cells, x, y);
-  if (patch.road) art.road = true;
-  if (patch.cityHub) art.cityHub = true;
-  if (patch.cityBuilding) art.cityBuilding = true;
-  if (patch.popDense) art.popDense = true;
-  if (patch.marketHub) art.marketHub = true;
+  const flags = ['road', 'cityHub', 'cityBuilding', 'popDense', 'marketHub'] as const;
+  for (const flag of flags) {
+    if (patch[flag] !== undefined) {
+      art[flag] = patch[flag];
+    }
+  }
 }
 
 function readCell(record: Record<string, unknown>): CellRef | undefined {
@@ -248,7 +249,8 @@ function readWorldGeography(map: GameMap): WorldGeography {
 
   for (const parcel of map.parcels) {
     const record = parcel as Parcel & Record<string, unknown>;
-    const role = typeof record.role === 'string' ? record.role : undefined;
+    const loose = record as Record<string, unknown>;
+    const role = typeof loose.role === 'string' ? loose.role : undefined;
     const density = readFinite(record, 'populationDensity');
     if (role === 'road' || role === 'city-hub' || role === 'city' || density !== undefined) {
       present = true;
