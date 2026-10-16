@@ -1,0 +1,99 @@
+.map-shell {
+  border: 1px solid #2f3640;
+  border-radius: 8px;
+  background: #12151a;
+  overflow: hidden;
+}
+
+.map-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  color: #9aa3b2;
+  border-bottom: 1px solid #2f3640;
+  background: #161b22;
+}
+
+.map-dim {
+  font-variant-numeric: tabular-nums;
+}
+
+.map-grid {
+  display: grid;
+  gap: 1px;
+  padding: 1px;
+  background: #2f3640;
+  aspect-ratio: 16 / 12;
+  max-height: min(70vh, 520px);
+}
+
+.map-cell.interactive {
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  min-height: 0;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.map-cell.empty {
+  background: #1e242c;
+}
+
+.map-cell.empty:hover {
+  background: #2a3442;
+}
+
+.map-cell.owned {
+  background: #1d4d3a;
+}
+
+.map-cell.owned:hover {
+  background: #256349;
+}
+
+.map-cell.other-owned {
+  background: #3d3520;
+}
+
+.map-cell.building-ready {
+  background: #2d4a6e;
+}
+
+.map-cell.selected {
+  box-shadow: inset 0 0 0 2px #6eb5ff;
+  z-index: 1;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.75rem;
+  color: #8b949e;
+  border-top: 1px solid #2f3640;
+}
+
+.map-legend .swatch {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-right: 0.35rem;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+
+.map-legend .swatch.empty {
+  background: #1e242c;
+  border: 1px solid #3d4654;
+}
+
+.map-legend .swatch.owned {
+  background: #1d4d3a;
+}
+
+.map-legend .swatch.building-ready {
+  background: #2d4a6e;
+}
