@@ -3,7 +3,7 @@ import { DEFAULT_WORLD_CONFIG } from '../world/config.js';
 import { createInitialWorld } from '../world/create-world.js';
 import { getPlayerHoldings, type Player, type WorldState } from '../world/state.js';
 import { ITEMS, getItemQty } from '../production/items.js';
-import { RECIPES } from '../production/recipes.js';
+import { runProductionPlan } from '../production/planning.js';
 import { emptyPnL, netProfit } from '../sales/pnl.js';
 import { quoteSale } from '../sales/sell-logic.js';
 import { DEFAULT_SCENARIO } from '../sales/scenario.js';
@@ -308,36 +308,33 @@ function applyBotLandSales(
   return { ...next, localPlayerId: state.localPlayerId };
 }
 
-/** 為這名玩家的每座完工工廠排入對應礦脈的開採配方。 */
+/**
+ * 為這名玩家的完工工廠排出生產計畫。
+ *
+ * 走 `production/planning.ts` 的共用規則（與 `reports/full-loop.ts` 同一套），
+ * 所以機器人**會加工**而不只是開採。先前這裡是「一律挑該礦脈的開採配方」，
+ * 因此策略排名只反映「誰挖得多」，不反映「誰經營得好」。
+ *
+ * 深度固定為 1（允許一階加工）：機器人沒有跨廠的供應鏈規劃能力，
+ * 只做「開採 → 一階加工」這種同廠可完成的鏈路。
+ * 礦場與加工廠數量約各半，確保加工廠拿得到原料。
+ */
 function applyBotProduction(state: WorldState, bot: SimRosterEntry): WorldState {
-  let next = { ...state, localPlayerId: bot.id };
-  for (const [key, site] of Object.entries(next.sites)) {
-    if (site.phase !== 'complete' || site.ownerId !== bot.id) {
-      continue;
-    }
-    if (next.productionLines[key]) {
-      continue;
-    }
-    const parcel = next.map.parcels.find((p) => p.id.value === key);
-    if (!parcel) {
-      continue;
-    }
-    const recipe = Object.values(RECIPES).find(
-      (r) => r.sourceKind === parcel.resource.kind && r.inputs.length === 0,
-    );
-    if (!recipe) {
-      continue;
-    }
-    if (!(recipe.buildings as readonly string[]).includes(site.factoryTypeId)) {
-      continue;
-    }
-    next = applyWorldAction(next, {
-      type: 'START_PRODUCTION',
-      parcelId: parcel.id,
-      recipeId: recipe.id,
-    });
+  const playerId = bot.id;
+  const factoryKeys = Object.entries(state.sites)
+    .filter(([, site]) => site.phase === 'complete' && site.ownerId === playerId)
+    .map(([key]) => key);
+  if (factoryKeys.length === 0) {
+    return state;
   }
-  return next;
+  const extractorCount = Math.max(1, Math.floor(factoryKeys.length / 2));
+  return runProductionPlan(
+    { ...state, localPlayerId: playerId },
+    playerId,
+    factoryKeys,
+    1,
+    extractorCount,
+  );
 }
 
 /** 把這名玩家庫存裡的可販售品項賣給當日報價最佳的 NPC。 */

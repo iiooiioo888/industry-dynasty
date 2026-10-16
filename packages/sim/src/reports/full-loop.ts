@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 完整遊戲迴圈模擬器 · full-loop simulator
  *
  * 與 `reports/simulate.ts` 的差別：那個檔案用的是**簡化的營運收入模型**
@@ -12,7 +12,7 @@
  */
 import { FACTORY_TYPES, type FactoryTypeId } from '../buildings/catalog.js';
 import { RECIPES, type RecipeId } from '../production/recipes.js';
-import { techStage } from '../production/chain.js';
+import { applyProductionPlans, planProductionSlots } from '../production/planning.js';
 import { getItemQty, ITEMS } from '../production/items.js';
 import { netProfit } from '../sales/pnl.js';
 import { addPnL, emptyPnL } from '../sales/pnl.js';
@@ -306,87 +306,36 @@ export function startProductionEverywhere(
   depth: 0 | 1 | 2,
   extractorCount = 2,
 ): WorldState {
-  let next = state;
-  const playerId = next.localPlayerId;
-  const sites = Object.entries(next.sites).filter(
-    ([, site]) => site.phase === 'complete' && site.ownerId === playerId,
-  );
+  const playerId = state.localPlayerId;
+  const factoryKeys = Object.entries(state.sites)
+    .filter(([, site]) => site.phase === 'complete' && site.ownerId === playerId)
+    .map(([key]) => key);
 
-  // 前 `extractorCount` 座（依 key 排序，決定性）當開採廠，供應原料。
-  const extractorKeys = new Set(
-    sites
-      .map(([k]) => k)
-      .sort()
-      .slice(0, Math.max(1, extractorCount)),
-  );
-
-  for (const [key, site] of sites) {
-    const parcel = next.map.parcels.find((p) => p.id.value === key);
-    if (!parcel) {
+  // 配方選擇集中在 `production/planning.ts`，與機器人模擬共用同一套規則，
+  // 兩邊才不會各自漂移（先前機器人不會加工就是因為規則只存在這裡）。
+  const plans = planProductionSlots(state, playerId, factoryKeys, depth, extractorCount);
+  const planMap = new Map<RecipeId, string[]>();
+  for (const [index, key] of [...factoryKeys].sort().entries()) {
+    const plan = plans[index];
+    if (!plan) {
       continue;
     }
-
-    // 決定「這座工廠在目前庫存下最該跑什麼」。
-    let desired: RecipeId | null = null;
-    if (depth > 0 && !extractorKeys.has(key)) {
-      const stock = next.inventories[playerId] ?? {};
-      // 與引擎一致：以 craftedTotals 推導技術階段，尊重 minTechStage。
-      // 否則會反覆挑到「技術還沒開、或中間財根本不能賣」的配方。
-      const crafted = next.craftedTotals[playerId];
-      const eligible = Object.values(RECIPES)
-        .filter((r) => r.inputs.length > 0)
-        .filter((r) => (r.stage === 'process' ? depth >= 1 : depth >= 2))
-        // 成品必須可販售；否則做了換不到現金（錠、矽片留給下一階用）
-        .filter((r) => ITEMS[r.outputItemId].sellable)
-        .filter((r) => techStage(crafted) >= r.minTechStage)
-        .filter((r) => (r.buildings as readonly string[]).includes(site.factoryTypeId))
-        .sort((a, b) => a.id.localeCompare(b.id));
-      // 輪替而非全部搶同一個配方：否則所有加工廠會同時搶同一種原料而集體缺料
-      // （實測 6 座加工廠全跑熔鑄合金板時，原料需求遠超過礦場供給，整條線停擺）。
-      const processorKeys = sites
-        .map(([k]) => k)
-        .filter((k) => !extractorKeys.has(k))
-        .sort();
-      const slot = Math.max(0, processorKeys.indexOf(key));
-      const affordable = eligible.filter((r) =>
-        r.inputs.every((i) => getItemQty(stock, i.itemId) >= i.quantity),
-      );
-      const pool = affordable.length > 0 ? affordable : eligible;
-      desired = pool.length > 0 ? pool[slot % pool.length]!.id : null;
-    }
-    desired ??= extractionRecipeFor(parcel.resource.kind) ?? fallbackRecipe;
-    if (!desired) {
+    if (
+      !(RECIPES[plan.recipeId].buildings as readonly string[]).includes(
+        state.sites[key]!.factoryTypeId,
+      )
+    ) {
       continue;
     }
-    if (!(RECIPES[desired].buildings as readonly string[]).includes(site.factoryTypeId)) {
-      // 廠型不符就退回開採；開採配方在兩種廠型都能跑
-      const fb = extractionRecipeFor(parcel.resource.kind) ?? fallbackRecipe;
-      if (!fb || !(RECIPES[fb].buildings as readonly string[]).includes(site.factoryTypeId)) {
-        continue;
-      }
-      desired = fb;
-    }
-
-    const line = next.productionLines[key];
-    const isUpgrade = line !== undefined && line.recipeId !== desired;
-    // 缺料時切換沒有損失；正在跑則等這一輪做完再切，避免浪費已累積的進度。
-    const readyToSwitch =
-      line === undefined || line.status === 'waiting_inputs' || line.progressTicks === 0;
-    if (!isUpgrade && line !== undefined) {
-      continue;
-    }
-    if (isUpgrade && !readyToSwitch) {
-      continue;
-    }
-    if (line !== undefined) {
-      next = applyWorldAction(next, { type: 'STOP_PRODUCTION', parcelId: parcel.id });
-    }
-    next = applyWorldAction(next, {
-      type: 'START_PRODUCTION',
-      parcelId: parcel.id,
-      recipeId: desired,
-    });
+    planMap.set(plan.recipeId, [...(planMap.get(plan.recipeId) ?? []), key]);
   }
+
+  let next = state;
+  for (const [recipeId, keys] of planMap) {
+    const map = new Map(keys.map((k) => [k, recipeId]));
+    next = applyProductionPlans(next, map);
+  }
+  void fallbackRecipe;
   return next;
 }
 
