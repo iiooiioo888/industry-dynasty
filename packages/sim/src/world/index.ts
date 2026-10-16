@@ -15,9 +15,16 @@ export {
   denseZoneAt,
   isPurchasableRole,
   roadAxisAt,
+  roadLinksAt,
   roadNamesAt,
+  roadPresentationAt,
+  ROAD_DIRS,
   type MapGeography,
   type RoadAxis,
+  type RoadDir,
+  type RoadJoint,
+  type RoadLinks,
+  type RoadPresentation,
 } from './geography.js';
 export { applyWorldAction } from './reducer.js';
 export {

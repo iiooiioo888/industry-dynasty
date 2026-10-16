@@ -3,10 +3,11 @@ import {
   PARCEL_RESOURCE_DEFS,
   findOpenLotForParcel,
   quoteLocalDemand,
-  roadAxisAt,
   roadNamesAt,
+  roadPresentationAt,
   type Parcel,
   type ParcelId,
+  type RoadLinks,
   type WorldState,
 } from '@industry-dynasty/sim';
 import { useEffect, useState, type CSSProperties } from 'react';
@@ -50,11 +51,11 @@ function cellClass(
   isLocalOwner: boolean,
   hasOpenAuction: boolean,
   hasBids: boolean,
-  axis: string | null,
+  joint: string | null,
 ): string {
   const classes = ['map-cell', 'interactive', `role-${parcel.role}`];
-  if (axis) {
-    classes.push(`road-${axis}`);
+  if (joint) {
+    classes.push(`road-${joint}`);
   }
   if (hasOpenAuction && parcel.role === 'land') {
     classes.push('auction-live');
@@ -101,6 +102,10 @@ function primarySlot(art: CellFeatureArt | undefined): string | undefined {
     return MAP_ART_SLOT.popDense;
   }
   return undefined;
+}
+
+function roadLinkCode(links: RoadLinks): string {
+  return (['n', 'e', 's', 'w'] as const).filter((dir) => links[dir]).join('');
 }
 
 function ariaLabel(state: WorldState, parcel: Parcel): string {
@@ -165,7 +170,7 @@ export function GameMap({ state, selectedParcelId, onSelectParcel }: GameMapProp
               const hasOpenAuction = lot !== undefined && !parcel.ownerId && parcel.role === 'land';
               const hasBids = lot?.highBidderId != null;
               const isMarket = parcel.x === MARKET_HUB.x && parcel.y === MARKET_HUB.y;
-              const axis = roadAxisAt(state.map.parcels, parcel);
+              const road = roadPresentationAt(state.map.parcels, parcel, state.map.size);
               const art = cellFeatureArt(featureArt, parcel.x, parcel.y);
               const city = state.map.cities.find((hub) => hub.x === parcel.x && hub.y === parcel.y);
               const showDensity =
@@ -178,7 +183,7 @@ export function GameMap({ state, selectedParcelId, onSelectParcel }: GameMapProp
                 <button
                   key={parcel.id.value}
                   type="button"
-                  className={`${cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids, axis)}${isMarket ? ' market-hub' : ''}`}
+                  className={`${cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids, road?.joint ?? null)}${isMarket ? ' market-hub' : ''}`}
                   style={
                     showDensity
                       ? { backgroundColor: densityColor(parcel.populationDensity) }
@@ -186,19 +191,15 @@ export function GameMap({ state, selectedParcelId, onSelectParcel }: GameMapProp
                   }
                   data-art-slot={primarySlot(art)}
                   data-role={parcel.role}
+                  data-road-joint={road?.joint}
+                  data-road-mode={road?.mode}
+                  data-road-links={road ? roadLinkCode(road.links) : undefined}
+                  data-road-rotation={road?.mode === 'tile' ? road.rotation : undefined}
                   onClick={() => onSelectParcel(parcel.id)}
                   title={ariaLabel(state, parcel)}
                   aria-label={ariaLabel(state, parcel)}
                 >
-                  {axis === 'cross' ? (
-                    <>
-                      <span className="road-stripe h" />
-                      <span className="road-stripe v" />
-                    </>
-                  ) : axis ? (
-                    <span className="road-stripe" />
-                  ) : null}
-                  <MapCellFeatureArt art={art} />
+                  <MapCellFeatureArt art={art} road={road} />
                   {city ? <span className="city-label">{city.name}</span> : null}
                   {hasOpenAuction && (
                     <span className="map-cell-auction-tag" aria-hidden="true">

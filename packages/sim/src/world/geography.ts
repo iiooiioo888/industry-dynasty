@@ -47,16 +47,52 @@ export function roadNamesAt(map: Pick<GameMap, 'roads'>, x: number, y: number): 
 
 export type RoadAxis = 'h' | 'v' | 'cross';
 
+/** 道路格的四向。y 向下增大，`n` 是上一列。 */
+export const ROAD_DIRS = ['n', 'e', 's', 'w'] as const;
+export type RoadDir = (typeof ROAD_DIRS)[number];
+
+export interface RoadLinks {
+  readonly n: boolean;
+  readonly e: boolean;
+  readonly s: boolean;
+  readonly w: boolean;
+}
+
+/** 路口形態。`end` 只連一個方向；地圖外的那一側仍用整張直線圖接到邊界。 */
+export type RoadJoint = 'straight' | 'end' | 'corner' | 'tee' | 'cross';
+
+/**
+ * 單張直線道路圖怎麼貼。
+ * `tile`：整格旋轉（東西 0°、南北 90°）。
+ * `arms`：只畫連出去的方向，轉角／T／十字用同一張圖的路帶拼接。
+ */
+export interface RoadPresentation {
+  readonly joint: RoadJoint;
+  readonly mode: 'tile' | 'arms';
+  readonly rotation: 0 | 90;
+  readonly links: RoadLinks;
+  /** 要畫出來的臂。邊界路頭會多畫朝地圖外的一臂，直線才接到邊。 */
+  readonly arms: readonly RoadDir[];
+}
+
+const OPPOSITE_DIR: Record<RoadDir, RoadDir> = {
+  n: 's',
+  s: 'n',
+  e: 'w',
+  w: 'e',
+};
+
+/**
+ * 粗略軸向。只要同時有橫向與縱向連接就回傳 `cross`（含轉角與 T 字）。
+ * 貼圖請用 `roadPresentationAt`。
+ */
 export function roadAxisAt(parcels: readonly Parcel[], parcel: Parcel): RoadAxis | null {
-  if (parcel.role !== 'road') {
+  const links = roadLinksAt(parcels, parcel);
+  if (!links) {
     return null;
   }
-  const linked = (x: number, y: number) => {
-    const neighbor = parcels.find((p) => p.x === x && p.y === y);
-    return neighbor?.role === 'road' || neighbor?.role === 'city-hub';
-  };
-  const horizontal = linked(parcel.x - 1, parcel.y) || linked(parcel.x + 1, parcel.y);
-  const vertical = linked(parcel.x, parcel.y - 1) || linked(parcel.x, parcel.y + 1);
+  const horizontal = links.e || links.w;
+  const vertical = links.n || links.s;
   if (horizontal && vertical) {
     return 'cross';
   }
@@ -64,6 +100,95 @@ export function roadAxisAt(parcels: readonly Parcel[], parcel: Parcel): RoadAxis
     return 'v';
   }
   return 'h';
+}
+
+/** 與相鄰道路或城市核心相連的方向。非道路格回傳 null。 */
+export function roadLinksAt(parcels: readonly Parcel[], parcel: Parcel): RoadLinks | null {
+  if (parcel.role !== 'road') {
+    return null;
+  }
+  const linked = (x: number, y: number) => {
+    const neighbor = parcels.find((p) => p.x === x && p.y === y);
+    return neighbor?.role === 'road' || neighbor?.role === 'city-hub';
+  };
+  return {
+    n: linked(parcel.x, parcel.y - 1),
+    e: linked(parcel.x + 1, parcel.y),
+    s: linked(parcel.x, parcel.y + 1),
+    w: linked(parcel.x - 1, parcel.y),
+  };
+}
+
+export function roadPresentationAt(
+  parcels: readonly Parcel[],
+  parcel: Parcel,
+  size: { readonly width: number; readonly height: number },
+): RoadPresentation | null {
+  const links = roadLinksAt(parcels, parcel);
+  if (!links) {
+    return null;
+  }
+  const joint = roadJointOf(links);
+  const linkedArms = armsOf(links);
+  if (joint === 'straight') {
+    return axisTile(links, linkedArms.includes('n') || linkedArms.includes('s'));
+  }
+  if (joint === 'corner' || joint === 'tee' || joint === 'cross') {
+    return { joint, mode: 'arms', rotation: 0, links, arms: linkedArms };
+  }
+  const dir = linkedArms[0];
+  if (!dir || isOffMap(OPPOSITE_DIR[dir], parcel.x, parcel.y, size.width, size.height)) {
+    return axisTile(links, dir === 'n' || dir === 's', 'end');
+  }
+  return { joint: 'end', mode: 'arms', rotation: 0, links, arms: linkedArms };
+}
+
+function roadJointOf(links: RoadLinks): RoadJoint {
+  const count = ROAD_DIRS.reduce((sum, dir) => sum + (links[dir] ? 1 : 0), 0);
+  if (count >= 4) {
+    return 'cross';
+  }
+  if (count === 3) {
+    return 'tee';
+  }
+  if (count === 2) {
+    return (links.n && links.s) || (links.e && links.w) ? 'straight' : 'corner';
+  }
+  if (count === 1) {
+    return 'end';
+  }
+  return 'straight';
+}
+
+function axisTile(
+  links: RoadLinks,
+  vertical: boolean,
+  joint: RoadJoint = 'straight',
+): RoadPresentation {
+  return {
+    joint,
+    mode: 'tile',
+    rotation: vertical ? 90 : 0,
+    links,
+    arms: vertical ? ['n', 's'] : ['e', 'w'],
+  };
+}
+
+function armsOf(links: RoadLinks): RoadDir[] {
+  return ROAD_DIRS.filter((dir) => links[dir]);
+}
+
+function isOffMap(dir: RoadDir, x: number, y: number, width: number, height: number): boolean {
+  switch (dir) {
+    case 'n':
+      return y <= 0;
+    case 's':
+      return y >= height - 1;
+    case 'w':
+      return x <= 0;
+    case 'e':
+      return x >= width - 1;
+  }
 }
 
 function authoredLayout(

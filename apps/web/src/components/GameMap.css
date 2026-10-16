@@ -148,27 +148,126 @@
   background-image: linear-gradient(160deg, #2a5f96, #16324f);
 }
 
-.road-stripe {
+/* 路帶佔格心 28%（左右各留 36%）。直線用整張圖，路口只露出這個帶。 */
+.road-tile {
   position: absolute;
-  background: #d7c59a;
+  inset: 0;
+  container-type: size;
   pointer-events: none;
+  --road-inset-pct: 36;
+  --road-band-pct: 28;
+}
+
+.road-stripe,
+.road-clip {
+  position: absolute;
+  pointer-events: none;
+}
+
+.road-stripe {
+  background: #d7c59a;
   z-index: 0;
 }
 
-.road-h .road-stripe,
-.road-stripe.h {
-  left: 0;
-  right: 0;
-  top: 36%;
-  height: 28%;
+.road-clip {
+  overflow: hidden;
+  z-index: 1;
 }
 
-.road-v .road-stripe,
-.road-stripe.v {
+.road-tile .arm-n,
+.road-tile .arm-s {
+  left: calc(var(--road-inset-pct) * 1%);
+  width: calc(var(--road-band-pct) * 1%);
+  height: 50%;
+}
+
+.road-tile .arm-n {
   top: 0;
+}
+
+.road-tile .arm-s {
   bottom: 0;
-  left: 36%;
-  width: 28%;
+}
+
+.road-tile .arm-e,
+.road-tile .arm-w {
+  top: calc(var(--road-inset-pct) * 1%);
+  height: calc(var(--road-band-pct) * 1%);
+  width: 50%;
+}
+
+.road-tile .arm-e {
+  left: 50%;
+}
+
+.road-tile .arm-w {
+  left: 0;
+}
+
+.road-stripe.arm-n,
+.road-stripe.arm-s {
+  height: calc(50% + 1px);
+}
+
+.road-stripe.arm-e,
+.road-stripe.arm-w {
+  width: calc(50% + 1px);
+}
+
+.road-tile > .art-slot,
+.road-clip > .art-slot {
+  object-fit: fill;
+}
+
+/* 直線圖底是黑的，與既有道路圖層一樣用 screen 退掉。路口只裁路帶，保持不透明。 */
+.road-tile > .art-slot {
+  mix-blend-mode: screen;
+}
+
+.road-tile > .art-slot.road-rot-90 {
+  inset: auto;
+  width: 100cqh;
+  height: 100cqw;
+  max-width: none;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.road-clip > .art-slot {
+  inset: auto;
+  max-width: none;
+}
+
+.road-clip.arm-w > .art-slot,
+.road-clip.arm-e > .art-slot {
+  width: 100cqw;
+  height: 100cqh;
+  top: calc(var(--road-inset-pct) * -1cqh);
+}
+
+.road-clip.arm-w > .art-slot {
+  left: 0;
+}
+
+.road-clip.arm-e > .art-slot {
+  left: -50cqw;
+}
+
+.road-clip.arm-n > .art-slot,
+.road-clip.arm-s > .art-slot {
+  width: 100cqh;
+  height: 100cqw;
+  left: calc(50cqw - var(--road-inset-pct) * 1cqw);
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.road-clip.arm-n > .art-slot {
+  top: 50cqh;
+}
+
+.road-clip.arm-s > .art-slot {
+  top: 0;
 }
 
 .city-label {
