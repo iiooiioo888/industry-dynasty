@@ -1,4 +1,5 @@
 import { emptyPlayerBank } from '../bank/logic.js';
+import { initialSimClock } from './clock.js';
 import type { AuctionLot } from '../types/auction.js';
 import { DEFAULT_STARTING_STOCK } from '../production/items.js';
 import { createScenarioState, emptyPnL, generateNpcBuyOffers } from '../sales/index.js';
@@ -63,6 +64,7 @@ export function createInitialWorld(config: Partial<WorldConfig> = {}): WorldStat
     npcBuyOffers: generateNpcBuyOffers(0),
     pnl: { [player.id]: emptyPnL() },
     scenario: createScenarioState(),
+    clock: initialSimClock(),
   };
 }
 

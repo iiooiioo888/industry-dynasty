@@ -198,8 +198,11 @@ export function ProductionPanel({
                   <div>
                     <dt>狀態</dt>
                     <dd>
-                      {line.status === 'running' && '運轉中'}
-                      {line.status === 'waiting_inputs' && '待料（閒置損失）'}
+                      {line.status === 'running' &&
+                        line.phase === 'traveling' &&
+                        '趕路（抵達後才作業）'}
+                      {line.status === 'running' && line.phase === 'working' && '作業中'}
+                      {line.status === 'waiting_inputs' && '待料閒置（移動暫停）'}
                       {line.status === 'stopped' && '已停止'}
                     </dd>
                   </div>

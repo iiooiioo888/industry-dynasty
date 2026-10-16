@@ -170,7 +170,7 @@
     max-height: none;
   }
 
-  .shell button:not(.map-cell),
+  .shell button:not(.map-cell):not(.clock-btn),
   .shell select,
   .shell input {
     min-height: 2.75rem;

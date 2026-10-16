@@ -1,4 +1,5 @@
 import { getSiteLogisticsView } from '../buildings/adjacency.js';
+import { SIM_MS_PER_TICK } from './clock.js';
 import type { CompleteSite } from '../buildings/site.js';
 import { getSiteForParcel } from '../buildings/build-logic.js';
 import { recipeBlockReason } from '../production/chain.js';
@@ -49,7 +50,7 @@ export function applyStartProduction(
   }
 
   const logistics = getSiteLogisticsView(state.map, parcel, site as CompleteSite, state.sites);
-  const line = createProductionLine(recipe, parcel, logistics.factor);
+  const line = createProductionLine(recipe, parcel, logistics.factor, state.clock.simMs);
 
   return {
     ...state,
@@ -92,6 +93,16 @@ export function applyProductionTick(state: WorldState): WorldState {
     const stock = inventories[ownerId] ?? {};
     const beforeQty = getItemQty(stock, recipe.outputItemId);
     const result = tickProductionLine(line, recipe, stock, parcel);
+    const stalled = result.line.status === 'waiting_inputs';
+    const stallTicks = stalled
+      ? line.status === 'waiting_inputs'
+        ? line.stallTicks
+        : Math.min(1, Math.max(0, (state.clock.simMs - line.progressAnchorMs) / SIM_MS_PER_TICK))
+      : 0;
+    const progressAnchorMs =
+      !stalled && line.stallTicks > 0
+        ? state.clock.simMs - line.stallTicks * SIM_MS_PER_TICK
+        : state.clock.simMs;
     const granted = getItemQty(result.stock, recipe.outputItemId) - beforeQty;
     inventories = { ...inventories, [ownerId]: result.stock };
     if (granted > 0) {
@@ -100,7 +111,7 @@ export function applyProductionTick(state: WorldState): WorldState {
         [ownerId]: addItem(craftedTotals[ownerId] ?? {}, recipe.outputItemId, granted),
       };
     }
-    productionLines[key] = result.line;
+    productionLines[key] = { ...result.line, progressAnchorMs, stallTicks };
     map = {
       ...map,
       parcels: map.parcels.map((p) => (p.id.value === key ? result.parcel : p)),

@@ -1,4 +1,5 @@
 import type { CommodityId, LoanProductId, StockSymbol } from '../bank/types.js';
+import type { ClockSpeed } from './clock.js';
 import type { FactoryTypeId } from '../buildings/catalog.js';
 import type { RecipeId } from '../production/recipes.js';
 import type { ParcelId } from '../types/map.js';
@@ -24,4 +25,6 @@ export type WorldAction =
   | { type: 'STOP_PRODUCTION'; parcelId: ParcelId }
   | { type: 'ADVANCE_PRODUCTION_TICK' }
   | { type: 'SELL_TO_NPC'; offerId: string; quantity: number; shipFromParcelId: ParcelId }
-  | { type: 'ADVANCE_DAY' };
+  | { type: 'ADVANCE_DAY' }
+  | { type: 'SET_CLOCK'; paused?: boolean; speed?: ClockSpeed }
+  | { type: 'ADVANCE_SIM_TIME'; deltaMs: number };

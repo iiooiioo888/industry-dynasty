@@ -1,4 +1,5 @@
 import type { PlayerBank } from '../bank/types.js';
+import type { SimClock } from './clock.js';
 import type { ParcelSite } from '../buildings/site.js';
 import type { NpcBuyOffer } from '../sales/market.js';
 import type { PnLSummary } from '../sales/pnl.js';
@@ -35,6 +36,8 @@ export interface WorldState {
   readonly npcBuyOffers: readonly NpcBuyOffer[];
   readonly pnl: Readonly<Record<string, PnLSummary>>;
   readonly scenario: ScenarioState;
+  /** 自動模擬時鐘。工人位置與產線階段跟這份時間走。 */
+  readonly clock: SimClock;
 }
 
 export function findParcel(state: WorldState, parcelId: ParcelId): Parcel | undefined {

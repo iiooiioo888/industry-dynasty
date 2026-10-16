@@ -3,6 +3,7 @@ import {
   denseZoneAt,
   findOpenLotForParcel,
   getPlayerHoldings,
+  listMapActors,
   roadNamesAt,
   type Parcel,
   type ParcelId,
@@ -84,6 +85,9 @@ export function ParcelFocusCard({ state, selectedParcelId, onSelectParcel }: Par
     (a, b) => a.nearestCityDistance - b.nearestCityDistance || a.y - b.y || a.x - b.x,
   );
   const cityNames = state.map.cities.map((city) => city.name);
+  const selectedActor = selected
+    ? listMapActors(state).find((actor) => actor.parcelKey === selected.id.value)
+    : undefined;
 
   const centerX = (width - 1) / 2;
   const centerY = (height - 1) / 2;
@@ -174,6 +178,21 @@ export function ParcelFocusCard({ state, selectedParcelId, onSelectParcel }: Par
                 const point = mapPoint(selected.x, selected.y);
                 return <circle className="locator-parcel" cx={point.x} cy={point.y} r="5" />;
               })()}
+              {listMapActors(state).map((actor) => {
+                const point = mapPoint(actor.x, actor.y);
+                return (
+                  <circle
+                    key={actor.id}
+                    className={`locator-worker ${actor.activity}`}
+                    cx={point.x}
+                    cy={point.y}
+                    r="3.5"
+                    data-activity={actor.activity}
+                  >
+                    <title>{actor.label}</title>
+                  </circle>
+                );
+              })}
             </svg>
             <dl className="parcel-focus-facts">
               <div>
@@ -216,6 +235,12 @@ export function ParcelFocusCard({ state, selectedParcelId, onSelectParcel }: Par
                   {placeLabel(state, selected)} · {roadLabel(state, selected)}
                 </dd>
               </div>
+              {selectedActor ? (
+                <div>
+                  <dt>工人</dt>
+                  <dd>{selectedActor.label}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt>港區</dt>
                 <dd>

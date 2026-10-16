@@ -33,8 +33,9 @@ export function App() {
           數據報表
         </button>
         <span className="meta">
-          {SIM_PACKAGE_VERSION} · 第 {state.gameDay} 天 · 稅務 T{state.taxTick} · 生產 P
-          {state.productionTick} · 銀行 F{state.financeTick}
+          {SIM_PACKAGE_VERSION} · 第 {state.gameDay} 天 ·{' '}
+          {state.clock.paused ? '時間暫停' : `時間 ${state.clock.speed}×`} · 稅務 T{state.taxTick} ·
+          生產 P{state.productionTick} · 銀行 F{state.financeTick}
         </span>
       </header>
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
@@ -49,6 +50,8 @@ export function App() {
             state={state}
             selectedParcelId={selectedParcelId}
             onSelectParcel={setSelectedParcelId}
+            onTogglePause={() => dispatch({ type: 'SET_CLOCK', paused: !state.clock.paused })}
+            onSetSpeed={(speed) => dispatch({ type: 'SET_CLOCK', speed })}
           />
         </main>
         <aside className="shell-col shell-col-right">

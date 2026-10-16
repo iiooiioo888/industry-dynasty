@@ -23,11 +23,11 @@ import { applyBidToLot, settleLot, validateBid } from './auction-logic.js';
 import type { WorldAction } from './actions.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
 import {
-  applyProductionTick,
   applyStartProduction,
   applyStopProduction,
   clearProductionAtParcel,
 } from './production-reducer.js';
+import { advanceSimClock, setSimClock, stepOneSimTick } from './clock-advance.js';
 import { applyTaxTickWithPnl } from './day-reducer.js';
 import { bumpPlayerPnl } from './pnl-helpers.js';
 import { applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
@@ -102,7 +102,11 @@ export function applyWorldAction(
     case 'STOP_PRODUCTION':
       return applyStopProduction(state, action.parcelId);
     case 'ADVANCE_PRODUCTION_TICK':
-      return applyProductionTick(state);
+      return stepOneSimTick(state);
+    case 'SET_CLOCK':
+      return setSimClock(state, { paused: action.paused, speed: action.speed });
+    case 'ADVANCE_SIM_TIME':
+      return advanceSimClock(state, action.deltaMs);
     default:
       return state;
   }

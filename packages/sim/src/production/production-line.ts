@@ -7,9 +7,22 @@ import type { RecipeDef } from './recipes.js';
 
 export type ProductionStatus = 'stopped' | 'running' | 'waiting_inputs';
 
+/** 趕路結束前不會進入作業。路程刻數含在既有週期內，不額外加長產出。 */
+export type ProductionMotion = 'traveling' | 'working';
+
 export interface ProductionLine {
   readonly recipeId: RecipeDef['id'];
   readonly status: ProductionStatus;
+  readonly phase: ProductionMotion;
+  /** 本週期用於往返供應樞紐的刻數。0 表示人已在樞紐，直接作業。 */
+  readonly travelTicks: number;
+  /** 最近一次提交 progressTicks 時的模擬毫秒，用來在刻與刻之間插值。 */
+  readonly progressAnchorMs: number;
+  /**
+   * 待料時凍結的不足一格路程（0–1）。
+   * 保留進入閒置前已經走出的那一段，避免被拉回上一格。
+   */
+  readonly stallTicks: number;
   readonly progressTicks: number;
   readonly cycleTicks: number;
   readonly throughputFactor: number;
@@ -24,10 +37,27 @@ export interface ProductionLine {
   readonly localResourceNameZh: string;
 }
 
+export function motionPhase(
+  line: Pick<ProductionLine, 'status' | 'progressTicks' | 'travelTicks'>,
+): ProductionMotion {
+  if (line.status === 'stopped') {
+    return 'working';
+  }
+  if (line.travelTicks > 0 && line.progressTicks < line.travelTicks) {
+    return 'traveling';
+  }
+  return 'working';
+}
+
+function withMotion<T extends ProductionLine>(line: T): T {
+  return { ...line, phase: motionPhase(line) };
+}
+
 export function createProductionLine(
   recipe: RecipeDef,
   parcel: Parcel,
   logisticsEfficiency: number,
+  anchorMs = 0,
 ): ProductionLine {
   const timing = computeProductionTiming(
     recipe.baseCycleTicks,
@@ -43,10 +73,15 @@ export function createProductionLine(
       );
   const localBonus = resourceThroughputBonus(parcel.resource, usesLocal);
   const throughputFactor = Math.min(1.5, timing.throughputFactor * localBonus);
+  const travelTicks = Math.min(timing.workerTravelTicks, Math.max(0, timing.cycleTicks - 1));
 
-  return {
+  return withMotion({
     recipeId: recipe.id,
     status: 'running',
+    phase: 'working',
+    travelTicks,
+    progressAnchorMs: anchorMs,
+    stallTicks: 0,
     progressTicks: 0,
     cycleTicks: timing.cycleTicks,
     throughputFactor,
@@ -59,7 +94,7 @@ export function createProductionLine(
     totalIdleLossValue: 0,
     localResourceBonus: localBonus,
     localResourceNameZh: parcel.resource.nameZh,
-  };
+  });
 }
 
 export interface ProductionTickResult {
@@ -150,28 +185,28 @@ export function tickProductionLine(
   parcel: Parcel,
 ): ProductionTickResult {
   if (line.status === 'stopped') {
-    return { line, stock, parcel };
+    return { line: withMotion(line), stock, parcel };
   }
 
   if (!inputsAffordable(parcel, recipe, stock)) {
     const idleCost = line.idleLossPerTick;
     return {
-      line: {
+      line: withMotion({
         ...line,
         status: 'waiting_inputs',
         idleTicksAccumulated: line.idleTicksAccumulated + 1,
         totalIdleLossValue: line.totalIdleLossValue + idleCost,
-      },
+      }),
       stock,
       parcel,
     };
   }
 
-  let working: ProductionLine = {
+  let working: ProductionLine = withMotion({
     ...line,
     status: 'running',
     progressTicks: line.progressTicks + 1,
-  };
+  });
 
   if (working.progressTicks < working.cycleTicks) {
     return { line: working, stock, parcel };
@@ -181,13 +216,13 @@ export function tickProductionLine(
   if (!consumed.ok) {
     const idleCost = line.idleLossPerTick;
     return {
-      line: {
+      line: withMotion({
         ...line,
         status: 'waiting_inputs',
         idleTicksAccumulated: line.idleTicksAccumulated + 1,
         totalIdleLossValue: line.totalIdleLossValue + idleCost,
         progressTicks: 0,
-      },
+      }),
       stock,
       parcel,
     };
@@ -203,17 +238,17 @@ export function tickProductionLine(
     nextStock = addItem(nextStock, recipe.outputItemId, actual);
   }
 
-  working = {
+  working = withMotion({
     ...working,
     progressTicks: 0,
     completedRuns: working.completedRuns + 1,
     totalOutputValue: working.totalOutputValue + actual * unitVal,
     totalDistanceLossValue: working.totalDistanceLossValue + lostUnits * unitVal,
-  };
+  });
 
   return { line: working, stock: nextStock, parcel: consumed.parcel };
 }
 
 export function stopProductionLine(line: ProductionLine): ProductionLine {
-  return { ...line, status: 'stopped', progressTicks: 0 };
+  return withMotion({ ...line, status: 'stopped', progressTicks: 0, stallTicks: 0 });
 }

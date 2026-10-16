@@ -1,4 +1,15 @@
 export { type WorldAction } from './actions.js';
+export {
+  CLOCK_SPEEDS,
+  SIM_MS_PER_TICK,
+  initialSimClock,
+  isClockSpeed,
+  type ClockSpeed,
+  type SimClock,
+} from './clock.js';
+export { MAX_SIM_TICKS_PER_ADVANCE, advanceSimClock, stepOneSimTick } from './clock-advance.js';
+export { findPath, pointAlongPath, type TilePoint } from './pathfinding.js';
+export { listMapActors, supplyRoundTrip, type MapActor, type WorkerActivity } from './workers.js';
 export { applyBidToLot, minNextBid, settleLot, validateBid } from './auction-logic.js';
 export { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
 export { createInitialWorld } from './create-world.js';

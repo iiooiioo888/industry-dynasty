@@ -101,6 +101,24 @@
   stroke-width: 2;
 }
 
+.locator-worker.traveling {
+  fill: #ffb020;
+  stroke: #1a1208;
+  stroke-width: 1;
+}
+
+.locator-worker.working {
+  fill: #3dd68c;
+  stroke: #1a1208;
+  stroke-width: 1;
+}
+
+.locator-worker.idle {
+  fill: #e07070;
+  stroke: #1a1208;
+  stroke-width: 1;
+}
+
 .parcel-focus-facts {
   display: flex;
   flex-direction: column;

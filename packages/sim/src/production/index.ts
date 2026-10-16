@@ -18,7 +18,9 @@ export {
   createProductionLine,
   stopProductionLine,
   tickProductionLine,
+  motionPhase,
   type ProductionLine,
+  type ProductionMotion,
   type ProductionStatus,
 } from './production-line.js';
 export {

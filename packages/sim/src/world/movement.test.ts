@@ -1,0 +1,175 @@
+import { describe, expect, it } from 'vitest';
+import { FACTORY_TYPES } from '../buildings/catalog.js';
+import { parcelIdFromCoords } from '../types/map.js';
+import { SUPPLY_HUB } from '../production/logistics.js';
+import { SIM_MS_PER_TICK } from './clock.js';
+import { MAX_SIM_TICKS_PER_ADVANCE } from './clock-advance.js';
+import { createInitialWorld } from './create-world.js';
+import { findPath } from './pathfinding.js';
+import { applyWorldAction } from './reducer.js';
+import { findOpenLotForParcel, getProductionLine } from './state.js';
+import { listMapActors } from './workers.js';
+
+function ownAndCompleteFactory(state: ReturnType<typeof createInitialWorld>, x: number, y: number) {
+  const parcelId = parcelIdFromCoords(x, y);
+  const lot = findOpenLotForParcel(state, parcelId)!;
+  let next = applyWorldAction(state, { type: 'BID', parcelId, amount: lot.minPrice });
+  next = applyWorldAction(next, { type: 'SETTLE_AUCTION', parcelId });
+  next = applyWorldAction(next, {
+    type: 'START_BUILD',
+    parcelId,
+    factoryTypeId: 'workshop',
+  });
+  for (let i = 0; i < FACTORY_TYPES.workshop.buildTimeTicks; i++) {
+    next = applyWorldAction(next, { type: 'ADVANCE_BUILD_TICK' });
+  }
+  return { state: next, parcelId };
+}
+
+function startParts(x: number, y: number) {
+  let state = createInitialWorld({ startingCash: 500_000 });
+  const ready = ownAndCompleteFactory(state, x, y);
+  state = applyWorldAction(ready.state, {
+    type: 'START_PRODUCTION',
+    parcelId: ready.parcelId,
+    recipeId: 'make-basic-part',
+  });
+  return { state, parcelId: ready.parcelId };
+}
+
+describe('模擬時鐘', () => {
+  it('暫停時模擬時間與產線都不前進', () => {
+    const { state } = startParts(4, 4);
+    const paused = applyWorldAction(state, { type: 'SET_CLOCK', paused: true });
+    const frozen = applyWorldAction(paused, { type: 'ADVANCE_SIM_TIME', deltaMs: 5_000 });
+    expect(frozen).toBe(paused);
+    expect(frozen.clock.simMs).toBe(state.clock.simMs);
+    expect(getProductionLine(frozen, parcelIdFromCoords(4, 4))!.progressTicks).toBe(0);
+  });
+
+  it('倍率按比例消耗模擬時間', () => {
+    const slowStart = startParts(4, 4).state;
+    const slow = applyWorldAction(slowStart, {
+      type: 'ADVANCE_SIM_TIME',
+      deltaMs: SIM_MS_PER_TICK,
+    });
+    const fastStart = applyWorldAction(startParts(4, 4).state, { type: 'SET_CLOCK', speed: 2 });
+    const fast = applyWorldAction(fastStart, {
+      type: 'ADVANCE_SIM_TIME',
+      deltaMs: SIM_MS_PER_TICK,
+    });
+    expect(getProductionLine(slow, parcelIdFromCoords(4, 4))!.progressTicks).toBe(1);
+    expect(getProductionLine(fast, parcelIdFromCoords(4, 4))!.progressTicks).toBe(2);
+    expect(fast.clock.simMs - fastStart.clock.simMs).toBe(SIM_MS_PER_TICK * 2);
+  });
+
+  it('不足一格的時間只推進位置、不結算產線', () => {
+    const { state, parcelId } = startParts(4, 4);
+    const mid = applyWorldAction(state, { type: 'ADVANCE_SIM_TIME', deltaMs: SIM_MS_PER_TICK - 1 });
+    expect(getProductionLine(mid, parcelId)!.progressTicks).toBe(0);
+    expect(mid.clock.simMs).toBe(SIM_MS_PER_TICK - 1);
+  });
+
+  it('連續的小增量跨過刻度後才前進，位置不會卡在第一格', () => {
+    const started = startParts(4, 4);
+    const parcelId = started.parcelId;
+    let state = started.state;
+    for (let frame = 0; frame < 40; frame += 1) {
+      state = applyWorldAction(state, { type: 'ADVANCE_SIM_TIME', deltaMs: 16 });
+    }
+    const early = listMapActors(state).find((actor) => actor.parcelKey === parcelId.value)!;
+    expect(getProductionLine(state, parcelId)!.progressTicks).toBe(0);
+    expect(Math.abs(early.x - 4) + Math.abs(early.y - 4)).toBeGreaterThan(0.2);
+
+    for (let frame = 0; frame < 40; frame += 1) {
+      state = applyWorldAction(state, { type: 'ADVANCE_SIM_TIME', deltaMs: 16 });
+    }
+    const later = listMapActors(state).find((actor) => actor.parcelKey === parcelId.value)!;
+    expect(getProductionLine(state, parcelId)!.progressTicks).toBe(1);
+    expect(Math.abs(later.x - early.x) + Math.abs(later.y - early.y)).toBeGreaterThan(0.4);
+  });
+
+  it('一次補算不會超過上限', () => {
+    const { state, parcelId } = startParts(4, 4);
+    const burst = applyWorldAction(state, {
+      type: 'ADVANCE_SIM_TIME',
+      deltaMs: SIM_MS_PER_TICK * (MAX_SIM_TICKS_PER_ADVANCE + 25),
+    });
+    expect(burst.productionTick).toBe(MAX_SIM_TICKS_PER_ADVANCE);
+    expect(getProductionLine(burst, parcelId)!.progressTicks).toBeLessThanOrEqual(
+      MAX_SIM_TICKS_PER_ADVANCE,
+    );
+  });
+});
+
+describe('工人沿路徑移動', () => {
+  it('去供應樞紐的路線會走上道路', () => {
+    const state = createInitialWorld();
+    const path = findPath(state.map, { x: 4, y: 4 }, { x: SUPPLY_HUB.x, y: SUPPLY_HUB.y });
+    const roles = path.map(
+      (tile) =>
+        state.map.parcels.find((parcel) => parcel.x === tile.x && parcel.y === tile.y)?.role,
+    );
+    expect(roles).toContain('road');
+    expect(path[0]).toEqual({ x: 4, y: 4 });
+    expect(path[path.length - 1]).toEqual({ x: SUPPLY_HUB.x, y: SUPPLY_HUB.y });
+  });
+
+  it('時間走一半時人在路上，抵達後才進入作業並回到工廠', () => {
+    const { state, parcelId } = startParts(4, 4);
+    const line = getProductionLine(state, parcelId)!;
+    expect(line.travelTicks).toBeGreaterThan(0);
+    expect(line.phase).toBe('traveling');
+
+    const moving = applyWorldAction(state, {
+      type: 'ADVANCE_SIM_TIME',
+      deltaMs: SIM_MS_PER_TICK / 2,
+    });
+    const actor = listMapActors(moving).find((item) => item.parcelKey === parcelId.value)!;
+    expect(actor.activity).toBe('traveling');
+    const away = Math.abs(actor.x - 4) + Math.abs(actor.y - 4);
+    expect(away).toBeGreaterThan(0.2);
+
+    let stepped = state;
+    for (let i = 0; i < line.travelTicks; i += 1) {
+      stepped = applyWorldAction(stepped, { type: 'ADVANCE_PRODUCTION_TICK' });
+      const current = getProductionLine(stepped, parcelId)!;
+      if (i < line.travelTicks - 1) {
+        expect(current.phase).toBe('traveling');
+      }
+    }
+    const arrived = getProductionLine(stepped, parcelId)!;
+    expect(arrived.phase).toBe('working');
+    expect(arrived.progressTicks).toBe(line.travelTicks);
+    expect(arrived.completedRuns).toBe(0);
+    const home = listMapActors(stepped).find((item) => item.parcelKey === parcelId.value)!;
+    expect(home.activity).toBe('working');
+    expect(Math.abs(home.x - 4) + Math.abs(home.y - 4)).toBeLessThan(0.05);
+  });
+
+  it('待料時停在當下位置，不再跟著時間滑動', () => {
+    const { state: started, parcelId } = startParts(4, 4);
+    let state = started;
+    state = applyWorldAction(state, { type: 'ADVANCE_SIM_TIME', deltaMs: SIM_MS_PER_TICK / 2 });
+    const moving = listMapActors(state).find((item) => item.parcelKey === parcelId.value)!;
+    const moved = Math.abs(moving.x - 4) + Math.abs(moving.y - 4);
+    expect(moved).toBeGreaterThan(0.2);
+    state = {
+      ...state,
+      inventories: { [state.localPlayerId]: {} },
+    };
+    const waiting = applyWorldAction(state, { type: 'ADVANCE_SIM_TIME', deltaMs: SIM_MS_PER_TICK });
+    const before = listMapActors(waiting).find((item) => item.parcelKey === parcelId.value)!;
+    expect(Math.abs(before.x - 4) + Math.abs(before.y - 4)).toBeGreaterThanOrEqual(moved - 0.05);
+    expect(before.activity).toBe('idle');
+    expect(getProductionLine(waiting, parcelId)!.status).toBe('waiting_inputs');
+    const later = applyWorldAction(waiting, {
+      type: 'ADVANCE_SIM_TIME',
+      deltaMs: SIM_MS_PER_TICK / 2,
+    });
+    const after = listMapActors(later).find((item) => item.parcelKey === parcelId.value)!;
+    expect(after.x).toBe(before.x);
+    expect(after.y).toBe(before.y);
+    expect(after.activity).toBe('idle');
+  });
+});
