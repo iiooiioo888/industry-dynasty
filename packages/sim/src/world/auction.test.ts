@@ -4,6 +4,7 @@ import { minNextBid, settleLot, validateBid } from './auction-logic.js';
 import { createAuctionLot } from './auction-logic.js';
 import { applyWorldAction } from './reducer.js';
 import { createInitialWorld } from './create-world.js';
+import { generateParcelResource } from './parcel-resources.js';
 import { findOpenLotForParcel } from './state.js';
 
 describe('土地拍賣', () => {
@@ -40,6 +41,7 @@ describe('土地拍賣', () => {
       y: 1,
       state: 'empty' as const,
       ownerId: null,
+      resource: generateParcelResource(1, 1),
     };
     const player = { id: 'player-1', name: '測試', cash: 5000 };
     const withBid = { ...lot, highBid: 1200, highBidderId: 'player-1' };

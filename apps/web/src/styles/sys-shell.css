@@ -1,0 +1,81 @@
+:root {
+  --sys-bg: #0c0e12;
+  --sys-bg-deep: #06080b;
+  --sys-surface: #141820;
+  --sys-surface-2: #1a2030;
+  --sys-border: #2a3344;
+  --sys-text: #d8dee9;
+  --sys-muted: #7a8496;
+  --sys-accent: #5eb8ff;
+  --sys-warn: #e8b84a;
+  --sys-titlebar: #10141c;
+  --sys-font: 'Noto Sans TC', 'Segoe UI', system-ui, sans-serif;
+  --sys-mono: ui-monospace, 'Cascadia Code', monospace;
+}
+
+.sys-panel {
+  background: var(--sys-surface);
+  border: 1px solid var(--sys-border);
+  border-radius: 4px;
+  padding: 0.55rem 0.65rem;
+}
+
+.sys-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--sys-border);
+}
+
+.sys-panel-head h2 {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.sys-panel-tag {
+  font-family: var(--sys-mono);
+  font-size: 0.6rem;
+  padding: 0.1rem 0.35rem;
+  background: var(--sys-bg-deep);
+  border: 1px solid var(--sys-border);
+  color: var(--sys-accent);
+}
+
+.sys-muted {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--sys-muted);
+}
+
+.sys-btn {
+  font-size: 0.72rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 3px;
+  border: 1px solid #3d6ea8;
+  background: linear-gradient(180deg, #1e3a5f 0%, #152a45 100%);
+  color: var(--sys-text);
+  cursor: pointer;
+}
+
+.sys-btn.secondary {
+  border-color: var(--sys-border);
+  background: var(--sys-surface-2);
+}
+
+.sys-btn.block {
+  width: 100%;
+  text-align: left;
+}
+
+.sys-btn-row {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.sys-btn-row .sys-btn {
+  flex: 1;
+}

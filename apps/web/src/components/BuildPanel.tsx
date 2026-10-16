@@ -3,7 +3,6 @@ import {
   FACTORY_TYPES,
   findParcel,
   getSite,
-  getSiteLogisticsView,
   type FactoryTypeId,
   type ParcelId,
   type WorldState,
@@ -25,7 +24,6 @@ export function BuildPanel({
   onStartBuild,
   onAdvanceBuild,
   onCancelBuild,
-  onDemolish,
 }: BuildPanelProps) {
   const player = state.players[state.localPlayerId];
   const parcel = selectedParcelId ? findParcel(state, selectedParcelId) : undefined;
@@ -40,7 +38,7 @@ export function BuildPanel({
     const def = FACTORY_TYPES[site.factoryTypeId];
     const pct = Math.round((site.progressTicks / site.totalTicks) * 100);
     return (
-      <section className="panel build-panel">
+      <section className="sys-panel build-panel">
         <h2>建造中</h2>
         <p>{def.nameZh} · ({parcel.x}, {parcel.y})</p>
         <div className="progress-bar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
@@ -60,32 +58,7 @@ export function BuildPanel({
   }
 
   if (site?.phase === 'complete') {
-    const def = FACTORY_TYPES[site.factoryTypeId];
-    const logistics = getSiteLogisticsView(state.map, parcel, site, state.sites);
-    return (
-      <section className="panel build-panel">
-        <h2>運營中</h2>
-        <p>{def.nameZh} · ({parcel.x}, {parcel.y})</p>
-        <dl className="logistics-stats">
-          <div>
-            <dt>物流效率係數</dt>
-            <dd>{logistics.factor.toFixed(2)}×</dd>
-          </div>
-          <div>
-            <dt>基礎</dt>
-            <dd>{logistics.base.toFixed(2)}×</dd>
-          </div>
-          <div>
-            <dt>相鄰加成</dt>
-            <dd>+{logistics.adjacencyBonus.toFixed(2)}（{logistics.adjacentFactoryCount} 鄰）</dd>
-          </div>
-        </dl>
-        <p className="panel-hint">相鄰已完工工廠會提高此係數，為日後物流成本鋪路。</p>
-        <button type="button" className="danger" onClick={() => onDemolish(parcel.id)}>
-          拆除
-        </button>
-      </section>
-    );
+    return null;
   }
 
   if (parcel.state !== 'owned') {
@@ -93,9 +66,12 @@ export function BuildPanel({
   }
 
   return (
-    <section className="panel build-panel">
-      <h2>建造選單</h2>
-      <p className="panel-muted">土地 ({parcel.x}, {parcel.y}) · 現金 ${player.cash.toLocaleString()}</p>
+    <section className="sys-panel build-panel">
+      <header className="sys-panel-head">
+        <span className="sys-panel-tag">BLD</span>
+        <h2>建造選單</h2>
+      </header>
+      <p className="sys-muted">土地 ({parcel.x}, {parcel.y}) · 現金 ${player.cash.toLocaleString()}</p>
       <ul className="factory-list">
         {FACTORY_TYPE_LIST.map((def) => {
           const affordable = player.cash >= def.buildCost;

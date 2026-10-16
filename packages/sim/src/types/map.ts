@@ -12,6 +12,8 @@ export interface MapSize {
   readonly height: number;
 }
 
+import type { ParcelResource } from '../world/parcel-resources.js';
+
 /** 土地狀態：空地 / 已持有 / 建造中 / 已完工可運營 */
 export type ParcelState = 'empty' | 'owned' | 'building' | 'building-ready';
 
@@ -21,6 +23,8 @@ export interface Parcel {
   readonly y: number;
   readonly state: ParcelState;
   readonly ownerId: string | null;
+  /** 此地皮獨有資源（種類與儲量因座標而異） */
+  readonly resource: ParcelResource;
 }
 
 export interface GameMap {

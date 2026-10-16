@@ -1,0 +1,30 @@
+.parcel-resource-badge {
+  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+  background: hsl(var(--res-hue), 55%, 22%);
+  border: 1px solid hsl(var(--res-hue), 70%, 55%);
+  color: #f5f5f5;
+  font-size: 0.72rem;
+}
+
+.parcel-resource-badge.prominent {
+  padding: 0.5rem 0.65rem;
+  border-width: 2px;
+  box-shadow: 0 0 12px hsla(var(--res-hue), 80%, 50%, 0.35);
+}
+
+.parcel-resource-badge .res-name {
+  display: block;
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}
+
+.parcel-resource-badge .res-meta,
+.parcel-resource-badge .res-link {
+  display: block;
+  margin-top: 0.15rem;
+  font-family: var(--sys-mono);
+  font-size: 0.65rem;
+  opacity: 0.92;
+}

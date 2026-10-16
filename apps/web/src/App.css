@@ -1,65 +1,83 @@
-.app {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1.5rem 1rem 2rem;
-  gap: 1.25rem;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.app-header {
-  text-align: center;
-}
-
-.title {
-  margin: 0;
-  font-size: clamp(2rem, 5vw, 2.75rem);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.subtitle {
-  margin: 0.25rem 0 0;
-  font-size: 1rem;
-  color: #9aa3b2;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-}
-
-.tagline {
-  margin: 0.75rem 0 0;
-  font-size: 0.95rem;
-  color: #c4cad4;
-}
-
-.meta {
-  margin: 0.5rem 0 0;
-  font-size: 0.75rem;
-  color: #6b7280;
-}
-
-.app-layout {
+.shell {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-  width: 100%;
+  grid-template-rows: 36px auto 1fr;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--sys-bg);
 }
 
-@media (min-width: 900px) {
-  .app-layout {
-    grid-template-columns: 1fr 320px;
-    align-items: start;
-  }
+.shell-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.65rem;
+  background: var(--sys-titlebar);
+  border-bottom: 1px solid var(--sys-border);
+  font-size: 0.72rem;
+  flex-shrink: 0;
 }
 
-.app-sidebar {
+.shell-titlebar .brand {
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.shell-titlebar .meta {
+  font-family: var(--sys-mono);
+  color: var(--sys-muted);
+  font-size: 0.65rem;
+}
+
+.shell-body {
+  display: grid;
+  grid-template-columns: 220px 1fr 300px;
+  gap: 4px;
+  padding: 4px;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--sys-bg-deep);
+}
+
+.shell-col {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 4px;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.app-map {
-  width: 100%;
+.shell-col-left,
+.shell-col-right {
+  overflow-y: auto;
+}
+
+.shell-col-center {
   min-width: 0;
+}
+
+.shell-col-center .map-shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell-col-center .map-grid {
+  flex: 1;
+  max-height: none;
+  aspect-ratio: unset;
+  min-height: 0;
+}
+
+@media (max-width: 960px) {
+  .shell-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    overflow-y: auto;
+  }
+
+  .shell-col-left,
+  .shell-col-right {
+    max-height: 28vh;
+  }
 }

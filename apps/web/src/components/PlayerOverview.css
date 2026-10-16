@@ -9,19 +9,9 @@
   color: #8b949e;
 }
 
-.tax-btn {
-  margin-top: 0.75rem;
+.sys-btn.full {
   width: 100%;
-  padding: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid #4b5563;
-  background: #1f2937;
-  color: #e8e6e3;
-  cursor: pointer;
-}
-
-.tax-btn:hover {
-  background: #374151;
+  margin-top: 0.5rem;
 }
 
 .holdings-list {

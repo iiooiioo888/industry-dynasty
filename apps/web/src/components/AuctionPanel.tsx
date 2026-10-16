@@ -6,6 +6,7 @@ import {
   type WorldState,
 } from '@industry-dynasty/sim';
 import { useEffect, useState } from 'react';
+import { ParcelResourceBadge } from './ParcelResourceBadge';
 import './AuctionPanel.css';
 
 export interface AuctionPanelProps {
@@ -13,6 +14,15 @@ export interface AuctionPanelProps {
   selectedParcelId: ParcelId | null;
   onBid: (parcelId: ParcelId, amount: number) => void;
   onSettle: (parcelId: ParcelId) => void;
+}
+
+function AuctionHead() {
+  return (
+    <header className="sys-panel-head">
+      <span className="sys-panel-tag">AUC</span>
+      <h2>土地拍賣</h2>
+    </header>
+  );
 }
 
 export function AuctionPanel({ state, selectedParcelId, onBid, onSettle }: AuctionPanelProps) {
@@ -29,9 +39,9 @@ export function AuctionPanel({ state, selectedParcelId, onBid, onSettle }: Aucti
 
   if (!selectedParcelId || !parcel) {
     return (
-      <section className="panel auction-panel">
-        <h2>土地拍賣</h2>
-        <p className="panel-muted">請在地圖上選擇一塊土地。</p>
+      <section className="sys-panel auction-panel">
+        <AuctionHead />
+        <p className="sys-muted">請在地圖上選擇土地。</p>
       </section>
     );
   }
@@ -40,8 +50,8 @@ export function AuctionPanel({ state, selectedParcelId, onBid, onSettle }: Aucti
     const unpaid = state.unpaidLandTax[parcel.id.value] ?? 0;
     if (unpaid > 0) {
       return (
-        <section className="panel auction-panel">
-          <h2>土地稅</h2>
+        <section className="sys-panel auction-panel">
+          <AuctionHead />
           <p className="panel-warn">座標 ({parcel.x}, {parcel.y}) 累計欠稅：${unpaid.toLocaleString()}</p>
         </section>
       );
@@ -51,17 +61,19 @@ export function AuctionPanel({ state, selectedParcelId, onBid, onSettle }: Aucti
 
   if (!lot) {
     return (
-      <section className="panel auction-panel">
-        <h2>土地 ({parcel.x}, {parcel.y})</h2>
-        <p className="panel-muted">目前無進行中的拍賣。</p>
+      <section className="sys-panel auction-panel">
+        <AuctionHead />
+        <p className="sys-muted">土地 ({parcel.x}, {parcel.y}) — 無進行中拍賣。</p>
       </section>
     );
   }
 
   return (
-    <section className="panel auction-panel">
-      <h2>土地拍賣</h2>
-      <p>座標 ({parcel.x}, {parcel.y})</p>
+    <section className="sys-panel auction-panel auction-panel-active">
+      <div className="auction-panel-live-badge">● 拍賣進行中 — 請出價</div>
+      <AuctionHead />
+      <ParcelResourceBadge resource={parcel.resource} variant="prominent" />
+      <p className="sys-muted">座標 ({parcel.x}, {parcel.y}) · 此地皮資源獨一無二</p>
       <dl className="auction-stats">
         <div>
           <dt>底價</dt>
@@ -69,9 +81,7 @@ export function AuctionPanel({ state, selectedParcelId, onBid, onSettle }: Aucti
         </div>
         <div>
           <dt>目前最高價</dt>
-          <dd>
-            {lot.highBidderId ? `$${lot.highBid.toLocaleString()}` : '尚無出價'}
-          </dd>
+          <dd>{lot.highBidderId ? `$${lot.highBid.toLocaleString()}` : '尚無出價'}</dd>
         </div>
         <div>
           <dt>建議出價</dt>
@@ -89,16 +99,14 @@ export function AuctionPanel({ state, selectedParcelId, onBid, onSettle }: Aucti
         />
       </label>
       <div className="panel-actions">
-        <button type="button" onClick={() => onBid(parcel.id, amount)}>
+        <button type="button" className="sys-btn" onClick={() => onBid(parcel.id, amount)}>
           出價
         </button>
-        <button type="button" className="secondary" onClick={() => onSettle(parcel.id)}>
+        <button type="button" className="sys-btn secondary" onClick={() => onSettle(parcel.id)}>
           結算拍賣
         </button>
       </div>
-      <p className="panel-hint">
-        結算後得標者扣款並取得土地。你的現金：${player.cash.toLocaleString()}
-      </p>
+      <p className="panel-hint">現金：${player.cash.toLocaleString()}</p>
     </section>
   );
 }

@@ -1,0 +1,81 @@
+.auction-alert-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0.65rem;
+  background: linear-gradient(90deg, #5c1a1a 0%, #8b2e2e 45%, #5c1a1a 100%);
+  border-bottom: 2px solid #ff6b4a;
+  color: #fff5f0;
+  font-size: 0.78rem;
+  animation: auction-banner-glow 1.8s ease-in-out infinite;
+}
+
+.auction-alert-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff3b30;
+  box-shadow: 0 0 12px #ff3b30;
+  animation: auction-dot-pulse 0.9s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.auction-alert-main {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.auction-alert-main strong {
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+
+.auction-alert-count,
+.auction-alert-contested {
+  padding: 0.1rem 0.45rem;
+  border-radius: 3px;
+  font-family: var(--sys-mono);
+  font-size: 0.7rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 200, 150, 0.45);
+}
+
+.auction-alert-contested {
+  border-color: #ffd166;
+  color: #ffe8a3;
+}
+
+.auction-alert-focus {
+  font-weight: 600;
+  color: #ffe0c2;
+  text-align: right;
+  flex: 1;
+  min-width: 12rem;
+}
+
+@keyframes auction-banner-glow {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.12);
+  }
+}
+
+@keyframes auction-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.75;
+  }
+}

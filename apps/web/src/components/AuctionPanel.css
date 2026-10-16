@@ -1,3 +1,29 @@
+.auction-panel-active {
+  border: 2px solid #ff6b4a;
+  box-shadow: 0 0 16px rgba(255, 107, 74, 0.35);
+}
+
+.auction-panel-live-badge {
+  margin: -0.55rem -0.65rem 0.45rem;
+  padding: 0.35rem 0.65rem;
+  background: linear-gradient(90deg, #8b2e2e, #c44a32);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  animation: auction-banner-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes auction-banner-glow {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.1);
+  }
+}
+
 .panel {
   border: 1px solid #2f3640;
   border-radius: 8px;

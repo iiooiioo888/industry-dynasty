@@ -1,9 +1,17 @@
-import { SIM_PACKAGE_VERSION, type FactoryTypeId, type ParcelId } from '@industry-dynasty/sim';
+import {
+  SIM_PACKAGE_VERSION,
+  type FactoryTypeId,
+  type ParcelId,
+  type RecipeId,
+} from '@industry-dynasty/sim';
 import { useState } from 'react';
+import { AuctionAlertBanner } from './components/AuctionAlertBanner';
 import { AuctionPanel } from './components/AuctionPanel';
 import { BuildPanel } from './components/BuildPanel';
 import { GameMap } from './components/GameMap';
+import { InventoryPanel } from './components/InventoryPanel';
 import { PlayerOverview } from './components/PlayerOverview';
+import { ProductionPanel } from './components/ProductionPanel';
 import { useWorldState } from './game/useWorldState';
 import './App.css';
 
@@ -12,25 +20,40 @@ export function App() {
   const [selectedParcelId, setSelectedParcelId] = useState<ParcelId | null>(null);
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1 className="title">產業霸權</h1>
-        <p className="subtitle">Industry Dynasty</p>
-        <p className="tagline">空間效率 × 時間規劃 = 利潤</p>
-        <p className="meta">sim {SIM_PACKAGE_VERSION} · Sprint 2｜建廠</p>
+    <div className="shell">
+      <header className="shell-titlebar">
+        <span className="brand">產業霸權 · 產業控制台</span>
+        <span className="meta">
+          {SIM_PACKAGE_VERSION} · 稅務 T{state.taxTick} · 建設 B{state.buildTick} · 生產 P
+          {state.productionTick}
+        </span>
       </header>
-      <main className="app-layout">
-        <div className="app-map">
+      <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
+      <div className="shell-body">
+        <aside className="shell-col shell-col-left">
+          <PlayerOverview
+            state={state}
+            onAdvanceTax={() => dispatch({ type: 'ADVANCE_TAX_TICK' })}
+          />
+          <InventoryPanel state={state} />
+        </aside>
+        <main className="shell-col shell-col-center">
           <GameMap
             state={state}
             selectedParcelId={selectedParcelId}
             onSelectParcel={setSelectedParcelId}
           />
-        </div>
-        <aside className="app-sidebar">
-          <PlayerOverview
+        </main>
+        <aside className="shell-col shell-col-right">
+          <ProductionPanel
             state={state}
-            onAdvanceTax={() => dispatch({ type: 'ADVANCE_TAX_TICK' })}
+            selectedParcelId={selectedParcelId}
+            onStart={(parcelId, recipeId: RecipeId) =>
+              dispatch({ type: 'START_PRODUCTION', parcelId, recipeId })
+            }
+            onStop={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
+            onAdvanceProduction={() => dispatch({ type: 'ADVANCE_PRODUCTION_TICK' })}
+            onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
           />
           <BuildPanel
             state={state}
@@ -49,7 +72,7 @@ export function App() {
             onSettle={(parcelId) => dispatch({ type: 'SETTLE_AUCTION', parcelId })}
           />
         </aside>
-      </main>
+      </div>
     </div>
   );
 }

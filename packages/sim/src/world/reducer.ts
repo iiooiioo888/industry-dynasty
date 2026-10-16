@@ -11,6 +11,12 @@ import type { Parcel, ParcelId } from '../types/map.js';
 import { applyBidToLot, settleLot, validateBid } from './auction-logic.js';
 import type { WorldAction } from './actions.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
+import {
+  applyProductionTick,
+  applyStartProduction,
+  applyStopProduction,
+  clearProductionAtParcel,
+} from './production-reducer.js';
 import { processParcelTax } from './tax-logic.js';
 import {
   findOpenLotForParcel,
@@ -67,6 +73,12 @@ export function applyWorldAction(
       return applyCancel(state, action.parcelId);
     case 'DEMOLISH':
       return applyDemolishAction(state, action.parcelId);
+    case 'START_PRODUCTION':
+      return applyStartProduction(state, action.parcelId, action.recipeId);
+    case 'STOP_PRODUCTION':
+      return applyStopProduction(state, action.parcelId);
+    case 'ADVANCE_PRODUCTION_TICK':
+      return applyProductionTick(state);
     default:
       return state;
   }
@@ -135,6 +147,7 @@ function applyTaxTick(state: WorldState, config: WorldConfig): WorldState {
   let players = state.players;
   const unpaidLandTax = { ...state.unpaidLandTax };
   const sites = { ...state.sites };
+  let productionLines = { ...state.productionLines };
   const auctionLots = [...state.auctionLots];
   const owned = map.parcels.filter((p) => p.ownerId !== null);
 
@@ -156,6 +169,7 @@ function applyTaxTick(state: WorldState, config: WorldConfig): WorldState {
     if (outcome.reauctioned) {
       delete unpaidLandTax[key];
       delete sites[key];
+      productionLines = clearProductionAtParcel(productionLines, key);
       if (outcome.newLot) {
         auctionLots.push(outcome.newLot);
       }
@@ -170,6 +184,7 @@ function applyTaxTick(state: WorldState, config: WorldConfig): WorldState {
     players,
     unpaidLandTax,
     sites,
+    productionLines,
     auctionLots,
     taxTick: state.taxTick + 1,
   };
@@ -255,10 +270,12 @@ function applyDemolishAction(state: WorldState, parcelId: ParcelId): WorldState 
 
   const sites = { ...state.sites };
   delete sites[parcelId.value];
+  const productionLines = clearProductionAtParcel(state.productionLines, parcelId.value);
 
   return {
     ...state,
     map: updateParcelInMap(state.map, applyDemolish(parcel)),
     sites,
+    productionLines,
   };
 }

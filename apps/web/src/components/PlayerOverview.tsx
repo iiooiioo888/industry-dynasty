@@ -11,15 +11,16 @@ export function PlayerOverview({ state, onAdvanceTax }: PlayerOverviewProps) {
   const holdings = getPlayerHoldings(state, player.id);
 
   return (
-    <section className="panel overview-panel">
-      <h2>資產總覽</h2>
+    <section className="sys-panel overview-panel">
+      <header className="sys-panel-head">
+        <span className="sys-panel-tag">AST</span>
+        <h2>資產總覽</h2>
+      </header>
       <p className="cash-line">
         現金 <strong>${player.cash.toLocaleString()}</strong>
       </p>
-      <p className="meta-line">
-        稅務週期：第 {state.taxTick} 期 · 建設週期：第 {state.buildTick} 期
-      </p>
-      <button type="button" className="tax-btn" onClick={onAdvanceTax}>
+      <p className="meta-line">生產週期：第 {state.productionTick} 期</p>
+      <button type="button" className="sys-btn full" onClick={onAdvanceTax}>
         推進稅務週期
       </button>
       <h3>持有土地 ({holdings.length})</h3>
