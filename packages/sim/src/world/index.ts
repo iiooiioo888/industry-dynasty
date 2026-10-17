@@ -2,14 +2,39 @@ export { type WorldAction } from './actions.js';
 export {
   CLOCK_SPEEDS,
   SIM_MS_PER_TICK,
+  SIM_TICKS_PER_DAY,
+  dayIndexAt,
+  dayLengthMs,
   initialSimClock,
   isClockSpeed,
+  msUntilDayClose,
+  ticksUntilDayClose,
   type ClockSpeed,
   type SimClock,
 } from './clock.js';
-export { MAX_SIM_TICKS_PER_ADVANCE, advanceSimClock, stepOneSimTick } from './clock-advance.js';
+export {
+  MAX_SIM_TICKS_PER_ADVANCE,
+  advanceSimClock,
+  applyOneSimTick,
+  catchUpDays,
+  stepOneSimTick,
+} from './clock-advance.js';
 export { findPath, pointAlongPath, type TilePoint } from './pathfinding.js';
-export { listMapActors, supplyRoundTrip, type MapActor, type WorkerActivity } from './workers.js';
+export {
+  listMapActors,
+  supplyRoundTrip,
+  type MapActor,
+  type WorkerActivity,
+  type WorkerLeg,
+} from './workers.js';
+export { quoteParcelPlan, type ParcelPlanQuote } from './parcel-plan.js';
+export {
+  listShipmentViews,
+  listShipments,
+  shipmentTravelTicks,
+  type ShipmentView,
+} from './shipments.js';
+export type { Shipment } from '../sales/shipment.js';
 export { applyBidToLot, minNextBid, settleLot, validateBid } from './auction-logic.js';
 export { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
 export { createInitialWorld } from './create-world.js';
@@ -49,7 +74,7 @@ export {
   type WorldState,
 } from './state.js';
 export { processParcelTax } from './tax-logic.js';
-export { applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
+export { MAINTENANCE_PER_FACTORY, applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
 export { netProfit, emptyPnL, type PnLSummary } from '../sales/pnl.js';
 export {
   generateParcelResource,

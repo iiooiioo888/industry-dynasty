@@ -2,9 +2,11 @@ import {
   COMMODITY_LIST,
   DEFAULT_BANK_CONFIG,
   LOAN_PRODUCT_LIST,
+  MAINTENANCE_PER_FACTORY,
   STOCK_LIST,
   formatBps,
   getPlayerBank,
+  interestOn,
   previewCoupledWeek,
   quoteCommodityAsk,
   quoteCommodityBid,
@@ -29,7 +31,6 @@ import './BankPanel.css';
 
 export interface BankPanelProps {
   state: WorldState;
-  onAdvanceWeek: () => void;
   onOpenSavings: (amount: number) => void;
   onWithdrawSavings: () => void;
   onDrawLoan: (productId: LoanProductId, amount: number) => void;
@@ -100,7 +101,6 @@ function StockSparkline({
 
 export function BankPanel({
   state,
-  onAdvanceWeek,
   onOpenSavings,
   onWithdrawSavings,
   onDrawLoan,
@@ -144,7 +144,7 @@ export function BankPanel({
       <header className="sys-panel-head bank-heading">
         <span className="sys-panel-tag">BNK</span>
         <h2>銀行</h2>
-        <p className="bank-kicker">金融中心 · 第 {state.financeTick} 期</p>
+        <p className="bank-kicker">銀行第 {state.financeTick} 期 · 隨日結前進</p>
       </header>
 
       <dl className="bank-ledger">
@@ -184,13 +184,16 @@ export function BankPanel({
         <div role="tabpanel">
           <p className="bank-rule">
             閒置現金每期自動計息 {formatBps(DEFAULT_BANK_CONFIG.idleInterestBps)}
-            ，不必先存入。推進週期時先扣土地稅與貸款，再入息。
+            ，不必先存入。日結時先扣土地稅與貸款，再入息。
           </p>
           <ul className="bank-breakdown">
             <li>定期本金 {money(snapshot.savingsPrincipal)}</li>
             <li>未入帳利息 {money(snapshot.savingsAccrued)}</li>
             <li>股票市值 {money(snapshot.stockValue)}</li>
             <li>大宗變現 {money(snapshot.commodityBidValue)}</li>
+            <li>土地 {money(snapshot.landValue)}</li>
+            <li>廠房 {money(snapshot.factoryValue)}</li>
+            <li>庫存 {money(snapshot.inventoryValue)}</li>
           </ul>
           {book.lastSettlement ? (
             <p className="panel-hint">
@@ -432,13 +435,24 @@ export function BankPanel({
                   </div>
                   <p className="panel-muted">
                     近 {series.length} 期 {money(low)}–{money(high)}
-                    {series.length < 2 ? ' · 推進銀行週期後才會走出第二點' : ''}
+                    {series.length < 2 ? ' · 日結後才會走出第二點' : ''}
                   </p>
                   <p className="panel-muted">
                     {stock.blurb}
                     {holding
                       ? ` 持股 ${holding.shares} · 成本 ${money(holding.avgCost)}`
                       : ' 未持有'}
+                  </p>
+                  <p className="panel-muted">
+                    本期機會成本{' '}
+                    {money(
+                      interestOn(
+                        (holding?.shares ?? 0) * quote.price,
+                        DEFAULT_BANK_CONFIG.idleInterestBps,
+                      ),
+                    )}
+                    （持股市值若改放閒置現金）。這筆 {shares} 股另計{' '}
+                    {money(interestOn(shares * quote.price, DEFAULT_BANK_CONFIG.idleInterestBps))}。
                   </p>
                   <label className="bid-field">
                     <span>股數</span>
@@ -570,19 +584,24 @@ export function BankPanel({
         </div>
       ) : null}
 
-      <div className="panel-actions bank-settle">
-        <button
-          type="button"
-          onClick={() => {
-            onAdvanceWeek();
-            const tax = preview.taxPaid > 0 ? `土地稅 −${money(preview.taxPaid)}，` : '';
-            setNotice(`已推進週期：${tax}閒置利息 ${signedMoney(preview.settlement.idleInterest)}`);
-          }}
-        >
-          推進週期
-        </button>
+      <div className="bank-day-preview">
+        <h3>下次日結</h3>
+        <ul className="bank-breakdown">
+          <li>土地稅 −{money(preview.taxPaid)}</li>
+          <li>閒置利息 {signedMoney(preview.settlement.idleInterest)}</li>
+          <li>
+            工廠維護 −
+            {money(
+              Math.min(
+                preview.cashAfter,
+                Object.values(state.sites).filter((site) => site.phase === 'complete').length *
+                  MAINTENANCE_PER_FACTORY,
+              ),
+            )}
+          </li>
+        </ul>
+        <p className="panel-hint">標題列倒數歸零時自動結算，稅、利息與維護只走這一次。</p>
       </div>
-      <p className="panel-hint">與土地稅同一週。建設週期不會計息，方便把趕工和資金週期分開。</p>
       {notice ? <p className="bank-notice">{notice}</p> : null}
     </section>
   );

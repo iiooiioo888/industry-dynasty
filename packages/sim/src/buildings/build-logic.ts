@@ -1,3 +1,4 @@
+import { SIM_MS_PER_TICK } from '../world/clock.js';
 import type { Parcel, ParcelId } from '../types/map.js';
 import type { FactoryTypeDef, FactoryTypeId } from './catalog.js';
 import { FACTORY_TYPES } from './catalog.js';
@@ -129,4 +130,19 @@ export function getSiteForParcel(
   parcelId: ParcelId,
 ): ParcelSite | undefined {
   return sites[parcelId.value];
+}
+
+/** 剩餘建設刻數。暫停時停在整數進度，進行中用模擬時鐘插值。 */
+export function constructionRemainingTicks(
+  site: ConstructingSite,
+  simMs: number,
+  paused: boolean,
+): number {
+  const left = Math.max(0, site.totalTicks - site.progressTicks);
+  if (paused || left <= 0) {
+    return left;
+  }
+  const anchor = site.progressAnchorMs ?? simMs;
+  const fraction = Math.min(0.999, Math.max(0, (simMs - anchor) / SIM_MS_PER_TICK));
+  return Math.max(0, left - fraction);
 }

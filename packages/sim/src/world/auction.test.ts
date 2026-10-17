@@ -24,6 +24,53 @@ describe('土地拍賣', () => {
     expect(findOpenLotForParcel(state, parcelId)).toBeUndefined();
   });
 
+  it('沒有有效出價或現金不足時，結算不會關掉礦點', () => {
+    const state = createInitialWorld();
+    const coal = state.map.parcels.find((parcel) => parcel.x === 5 && parcel.y === 4);
+    expect(coal?.role).toBe('land');
+    expect(coal?.resource.kind).toBe('coal-seam');
+
+    const untouched = applyWorldAction(state, { type: 'SETTLE_AUCTION', parcelId: coal!.id });
+    expect(untouched).toBe(state);
+    expect(findOpenLotForParcel(untouched, coal!.id)?.status).toBe('open');
+    expect(
+      untouched.map.parcels.find((parcel) => parcel.id.value === coal!.id.value)?.resource.kind,
+    ).toBe('coal-seam');
+
+    const lot = findOpenLotForParcel(state, coal!.id)!;
+    let short = applyWorldAction(state, {
+      type: 'BID',
+      parcelId: coal!.id,
+      amount: lot.minPrice,
+    });
+    short = {
+      ...short,
+      players: {
+        ...short.players,
+        'player-1': { ...short.players['player-1'], cash: 0 },
+      },
+    };
+    const kept = applyWorldAction(short, { type: 'SETTLE_AUCTION', parcelId: coal!.id });
+    expect(kept).toBe(short);
+    expect(findOpenLotForParcel(kept, coal!.id)?.status).toBe('open');
+    expect(kept.map.parcels.find((parcel) => parcel.id.value === coal!.id.value)?.state).not.toBe(
+      'owned',
+    );
+  });
+
+  it('出價低於底價不會送出', () => {
+    const parcelId = parcelIdFromCoords(5, 4);
+    const state = createInitialWorld();
+    const lot = findOpenLotForParcel(state, parcelId)!;
+    const result = validateBid(lot, state.players['player-1'], lot.minPrice - 1);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain('低於底價');
+    expect(result.reason).toContain('沒有送出');
+    expect(applyWorldAction(state, { type: 'BID', parcelId, amount: lot.minPrice - 1 })).toBe(
+      state,
+    );
+  });
+
   it('現金不足時無法出價', () => {
     const parcelId = parcelIdFromCoords(0, 0);
     const state = createInitialWorld({ startingCash: 100 });

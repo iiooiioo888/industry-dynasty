@@ -12,12 +12,12 @@ import {
 import type { AuctionLot } from '../types/auction.js';
 import { FACTORY_TYPES, type FactoryTypeId } from '../buildings/catalog.js';
 import {
-  advanceConstruction,
   applyCancelBuild,
   applyDemolish,
   applyStartBuild,
   getSiteForParcel,
 } from '../buildings/build-logic.js';
+import { applyBuildTick } from './build-reducer.js';
 import type { Parcel, ParcelId } from '../types/map.js';
 import { applyBidToLot, settleLot, validateBid } from './auction-logic.js';
 import type { WorldAction } from './actions.js';
@@ -32,13 +32,6 @@ import { applyTaxTickWithPnl } from './day-reducer.js';
 import { bumpPlayerPnl } from './pnl-helpers.js';
 import { applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
 import { findOpenLotForParcel, findParcel, type Player, type WorldState } from './state.js';
-
-let buildingIdCounter = 20_000;
-
-function nextBuildingId(): string {
-  buildingIdCounter += 1;
-  return `bld-${buildingIdCounter}`;
-}
 
 function updateParcelInMap(map: WorldState['map'], parcel: Parcel): WorldState['map'] {
   return {
@@ -102,11 +95,11 @@ export function applyWorldAction(
     case 'STOP_PRODUCTION':
       return applyStopProduction(state, action.parcelId);
     case 'ADVANCE_PRODUCTION_TICK':
-      return stepOneSimTick(state);
+      return stepOneSimTick(state, config);
     case 'SET_CLOCK':
       return setSimClock(state, { paused: action.paused, speed: action.speed });
     case 'ADVANCE_SIM_TIME':
-      return advanceSimClock(state, action.deltaMs);
+      return advanceSimClock(state, action.deltaMs, config);
     default:
       return state;
   }
@@ -145,6 +138,9 @@ function applySettle(state: WorldState, parcelId: ParcelId): WorldState {
   const bidderId = lot.highBidderId;
   const bidder = bidderId ? state.players[bidderId] : undefined;
   const result = settleLot(lot, parcel, bidder);
+  if (!result.sold) {
+    return state;
+  }
 
   let nextState: WorldState = {
     ...state,
@@ -194,33 +190,11 @@ function applyStart(
     ...state,
     map: updateParcelInMap(state.map, result.parcel),
     players: updatePlayer(state.players, result.player),
-    sites: { ...state.sites, [parcelId.value]: result.site },
+    sites: {
+      ...state.sites,
+      [parcelId.value]: { ...result.site, progressAnchorMs: state.clock.simMs },
+    },
     pnl: bumpPlayerPnl(state, player.id, { buildSpend: factoryType.buildCost }),
-  };
-}
-
-function applyBuildTick(state: WorldState): WorldState {
-  let map = state.map;
-  const sites = { ...state.sites };
-
-  for (const [key, site] of Object.entries(sites)) {
-    if (site.phase !== 'constructing') {
-      continue;
-    }
-    const parcel = map.parcels.find((p) => p.id.value === key);
-    if (!parcel) {
-      continue;
-    }
-    const outcome = advanceConstruction(parcel, site, nextBuildingId());
-    map = updateParcelInMap(map, outcome.parcel);
-    sites[key] = outcome.site;
-  }
-
-  return {
-    ...state,
-    map,
-    sites,
-    buildTick: state.buildTick + 1,
   };
 }
 

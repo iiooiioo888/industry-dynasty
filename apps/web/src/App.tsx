@@ -1,18 +1,18 @@
 import {
-  SIM_PACKAGE_VERSION,
+  DEFAULT_WORLD_CONFIG,
+  ticksUntilDayClose,
   type FactoryTypeId,
   type ParcelId,
   type RecipeId,
 } from '@industry-dynasty/sim';
 import { useState } from 'react';
 import { AuctionAlertBanner } from './components/AuctionAlertBanner';
-import { AuctionPanel } from './components/AuctionPanel';
 import { BankPanel } from './components/BankPanel';
-import { BuildPanel } from './components/BuildPanel';
 import { DataReportPanel } from './components/DataReportPanel';
 import { GameMap } from './components/GameMap';
 import { InventoryPanel } from './components/InventoryPanel';
 import { MarketPanel } from './components/MarketPanel';
+import { ParcelPlanCard } from './components/ParcelPlanCard';
 import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
 import { ProductionPanel } from './components/ProductionPanel';
@@ -23,7 +23,18 @@ import './App.css';
 export function App() {
   const { state, dispatch } = useWorldState();
   const [selectedParcelId, setSelectedParcelId] = useState<ParcelId | null>(null);
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
+  const clockLabel = state.clock.paused ? '暫停' : `${state.clock.speed}×`;
+
+  function togglePin(parcelId: ParcelId) {
+    setPinnedIds((current) => {
+      if (current.includes(parcelId.value)) {
+        return current.filter((id) => id !== parcelId.value);
+      }
+      return [...current, parcelId.value].slice(-3);
+    });
+  }
 
   return (
     <div className="shell">
@@ -32,17 +43,15 @@ export function App() {
         <button type="button" className="report-launch" onClick={() => setReportOpen(true)}>
           數據報表
         </button>
-        <span className="meta">
-          {SIM_PACKAGE_VERSION} · 第 {state.gameDay} 天 ·{' '}
-          {state.clock.paused ? '時間暫停' : `時間 ${state.clock.speed}×`} · 稅務 T{state.taxTick} ·
-          生產 P{state.productionTick} · 銀行 F{state.financeTick}
+        <span className="meta" data-clock-readout="true">
+          第 {state.gameDay} 天 · {clockLabel} · 距日結 {ticksUntilDayClose(state.clock.simMs)} 刻
         </span>
       </header>
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
       <div className="shell-body">
         <aside className="shell-col shell-col-left">
           <PnLPanel state={state} />
-          <PlayerOverview state={state} onAdvanceTax={() => dispatch({ type: 'ADVANCE_DAY' })} />
+          <PlayerOverview state={state} />
           <InventoryPanel state={state} />
         </aside>
         <main className="shell-col shell-col-center">
@@ -51,16 +60,29 @@ export function App() {
             selectedParcelId={selectedParcelId}
             onSelectParcel={setSelectedParcelId}
             onTogglePause={() => dispatch({ type: 'SET_CLOCK', paused: !state.clock.paused })}
-            onSetSpeed={(speed) => dispatch({ type: 'SET_CLOCK', speed })}
+            onSetSpeed={(speed) => dispatch({ type: 'SET_CLOCK', paused: false, speed })}
+          />
+          <ParcelPlanCard
+            state={state}
+            selectedParcelId={selectedParcelId}
+            pinnedIds={pinnedIds}
+            onTogglePin={togglePin}
+            onBid={(parcelId, amount) => dispatch({ type: 'BID', parcelId, amount })}
+            onSettle={(parcelId) => dispatch({ type: 'SETTLE_AUCTION', parcelId })}
+            onStartBuild={(parcelId, factoryTypeId: FactoryTypeId) =>
+              dispatch({ type: 'START_BUILD', parcelId, factoryTypeId })
+            }
+            onCancelBuild={(parcelId) => dispatch({ type: 'CANCEL_BUILD', parcelId })}
+            onStartProduction={(parcelId, recipeId: RecipeId) =>
+              dispatch({ type: 'START_PRODUCTION', parcelId, recipeId })
+            }
+            onStopProduction={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
           />
         </main>
         <aside className="shell-col shell-col-right">
           <ProductionPanel
             state={state}
             selectedParcelId={selectedParcelId}
-            onStart={(parcelId, recipeId: RecipeId) =>
-              dispatch({ type: 'START_PRODUCTION', parcelId, recipeId })
-            }
             onStop={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
             onAdvanceProduction={() => dispatch({ type: 'ADVANCE_PRODUCTION_TICK' })}
             onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
@@ -68,7 +90,6 @@ export function App() {
           <MarketPanel state={state} selectedParcelId={selectedParcelId} />
           <BankPanel
             state={state}
-            onAdvanceWeek={() => dispatch({ type: 'ADVANCE_TAX_TICK' })}
             onOpenSavings={(amount) => dispatch({ type: 'OPEN_SAVINGS', amount })}
             onWithdrawSavings={() => dispatch({ type: 'WITHDRAW_SAVINGS' })}
             onDrawLoan={(productId, amount) => dispatch({ type: 'DRAW_LOAN', productId, amount })}
@@ -82,16 +103,6 @@ export function App() {
               dispatch({ type: 'SELL_COMMODITY', commodityId, lots })
             }
           />
-          <BuildPanel
-            state={state}
-            selectedParcelId={selectedParcelId}
-            onStartBuild={(parcelId, factoryTypeId: FactoryTypeId) =>
-              dispatch({ type: 'START_BUILD', parcelId, factoryTypeId })
-            }
-            onAdvanceBuild={() => dispatch({ type: 'ADVANCE_BUILD_TICK' })}
-            onCancelBuild={(parcelId) => dispatch({ type: 'CANCEL_BUILD', parcelId })}
-            onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
-          />
           <SalesPanel
             state={state}
             selectedParcelId={selectedParcelId}
@@ -99,15 +110,16 @@ export function App() {
               dispatch({ type: 'SELL_TO_NPC', offerId, quantity, shipFromParcelId })
             }
           />
-          <AuctionPanel
-            state={state}
-            selectedParcelId={selectedParcelId}
-            onBid={(parcelId, amount) => dispatch({ type: 'BID', parcelId, amount })}
-            onSettle={(parcelId) => dispatch({ type: 'SETTLE_AUCTION', parcelId })}
-          />
         </aside>
       </div>
-      {reportOpen ? <DataReportPanel onClose={() => setReportOpen(false)} /> : null}
+      {reportOpen ? (
+        <DataReportPanel
+          onClose={() => setReportOpen(false)}
+          mapWidth={state.map.size.width}
+          mapHeight={state.map.size.height}
+          startingCash={DEFAULT_WORLD_CONFIG.startingCash}
+        />
+      ) : null}
     </div>
   );
 }

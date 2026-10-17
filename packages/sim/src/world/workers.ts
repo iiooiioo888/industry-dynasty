@@ -7,14 +7,27 @@ import type { WorldState } from './state.js';
 
 export type WorkerActivity = 'traveling' | 'working' | 'idle';
 
+/** 去程、在樞紐、回程、進廠作業。閒置是停在當下那一段。 */
+export type WorkerLeg = 'outbound' | 'hub' | 'return' | 'working' | 'idle';
+
 export interface MapActor {
   readonly id: string;
   readonly parcelKey: string;
   readonly x: number;
   readonly y: number;
   readonly activity: WorkerActivity;
+  readonly leg: WorkerLeg;
+  /** 地圖上的短狀態：去程、樞紐、回程、作業、閒置。 */
+  readonly status: string;
   readonly label: string;
 }
+
+const LEG_STATUS: Record<Exclude<WorkerLeg, 'idle'>, string> = {
+  outbound: '去程',
+  hub: '樞紐',
+  return: '回程',
+  working: '作業',
+};
 
 function homeOf(parcelKey: string): TilePoint | undefined {
   const [xText, yText] = parcelKey.split(',');
@@ -62,6 +75,51 @@ function activityOf(line: ProductionLine): WorkerActivity {
   return 'working';
 }
 
+function placeOnTrip(
+  state: WorldState,
+  home: TilePoint,
+  fraction: number,
+): { point: TilePoint; leg: Exclude<WorkerLeg, 'idle'> } {
+  if (fraction >= 1) {
+    return { point: home, leg: 'working' };
+  }
+  const hub = { x: SUPPLY_HUB.x, y: SUPPLY_HUB.y };
+  const outbound = findPath(state.map, home, hub);
+  const inbound = findPath(state.map, hub, home);
+  if (fraction < 0.4) {
+    return { point: pointAlongPath(outbound, fraction / 0.4), leg: 'outbound' };
+  }
+  if (fraction < 0.6) {
+    return { point: hub, leg: 'hub' };
+  }
+  return { point: pointAlongPath(inbound, (fraction - 0.6) / 0.4), leg: 'return' };
+}
+
+function stagger(actors: MapActor[]): MapActor[] {
+  const groups = new Map<string, number[]>();
+  actors.forEach((actor, index) => {
+    const key = `${Math.round(actor.x)},${Math.round(actor.y)}`;
+    const list = groups.get(key) ?? [];
+    list.push(index);
+    groups.set(key, list);
+  });
+  return actors.map((actor, index) => {
+    const key = `${Math.round(actor.x)},${Math.round(actor.y)}`;
+    const group = groups.get(key) ?? [index];
+    if (group.length < 2) {
+      return actor;
+    }
+    const slot = Math.max(0, group.indexOf(index));
+    const angle = (slot / group.length) * Math.PI * 2;
+    const radius = 0.28;
+    return {
+      ...actor,
+      x: actor.x + Math.cos(angle) * radius,
+      y: actor.y + Math.sin(angle) * radius,
+    };
+  });
+}
+
 export function listMapActors(state: WorldState): MapActor[] {
   const actors: MapActor[] = [];
   for (const [parcelKey, line] of Object.entries(state.productionLines)) {
@@ -72,22 +130,24 @@ export function listMapActors(state: WorldState): MapActor[] {
     if (!home) {
       continue;
     }
-    const path = supplyRoundTrip(state, home);
     const activity = activityOf(line);
-    const point =
-      activity === 'working'
-        ? (path[0] ?? home)
-        : pointAlongPath(path, travelProgress(line, state.clock.simMs));
+    const placed = placeOnTrip(state, home, travelProgress(line, state.clock.simMs));
+    const leg: WorkerLeg = activity === 'idle' ? 'idle' : placed.leg;
+    const workingAtFactory =
+      leg === 'working' || (activity === 'working' && line.progressTicks >= line.travelTicks);
+    const point = workingAtFactory ? home : placed.point;
     const recipeName = RECIPES[line.recipeId]?.nameZh ?? '產線';
-    const verb = activity === 'traveling' ? '趕路' : activity === 'working' ? '作業' : '閒置';
+    const status = activity === 'idle' ? '閒置' : LEG_STATUS[placed.leg];
     actors.push({
       id: `worker:${parcelKey}`,
       parcelKey,
       x: point.x,
       y: point.y,
       activity,
-      label: `工人${verb} · ${recipeName}`,
+      leg: activity === 'idle' ? 'idle' : placed.leg,
+      status,
+      label: `${status} · ${recipeName}`,
     });
   }
-  return actors;
+  return stagger(actors);
 }

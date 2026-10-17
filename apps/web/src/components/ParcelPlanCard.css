@@ -1,0 +1,95 @@
+.parcel-plan {
+  flex: none;
+  max-height: min(38vh, 18rem);
+  overflow: auto;
+}
+
+.plan-focus-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.plan-focus-row p {
+  margin: 0.35rem 0;
+}
+
+.plan-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  margin: 0.2rem 0 0.35rem;
+}
+
+.plan-table th,
+.plan-table td {
+  padding: 0.18rem 0.35rem;
+  text-align: right;
+  border-bottom: 1px solid var(--sys-border, #2f3640);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-table th:first-child,
+.plan-table td:first-child {
+  text-align: left;
+  color: var(--sys-muted, #8b949e);
+  font-weight: 600;
+}
+
+.plan-col-focus {
+  background: rgba(142, 197, 255, 0.12);
+}
+
+.plan-build h3,
+.plan-schedule h3 {
+  margin: 0.55rem 0 0.3rem;
+  font-size: 0.82rem;
+}
+
+.plan-bid-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.plan-bid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.35rem;
+}
+
+.plan-bid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.75rem;
+  flex: 1 1 6rem;
+}
+
+.plan-bid input {
+  width: 100%;
+}
+
+.plan-alert {
+  margin: 0;
+  color: #ffb4a8;
+  font-size: 0.78rem;
+}
+
+.plan-recipes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+@media (max-width: 960px) {
+  .parcel-plan {
+    max-height: none;
+  }
+}

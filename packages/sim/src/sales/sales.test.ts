@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { parcelIdFromCoords } from '../types/map.js';
+import { SIM_MS_PER_TICK } from '../world/clock.js';
 import { generateParcelResource } from '../world/parcel-resources.js';
 import { applyWorldAction } from '../world/reducer.js';
 import { createInitialWorld } from '../world/create-world.js';
+import { listShipments } from '../world/shipments.js';
 import { netProfit } from './pnl.js';
 import { quoteSale, TRANSPORT_RATE_PER_TILE } from './sell-logic.js';
 import { generateNpcBuyOffers, manhattanToMarket } from './market.js';
@@ -49,17 +51,37 @@ describe('銷售與運輸', () => {
     state = applyWorldAction(state, { type: 'SETTLE_AUCTION', parcelId });
 
     const offer = state.npcBuyOffers.find((o) => o.itemId === 'raw-ore')!;
+    const parcel = state.map.parcels.find((item) => item.id.value === parcelId.value)!;
+    const quote = quoteSale(offer, parcel);
     const cashBefore = state.players['player-1'].cash;
 
-    state = applyWorldAction(state, {
+    const departed = applyWorldAction(state, {
       type: 'SELL_TO_NPC',
       offerId: offer.id,
       quantity: 2,
       shipFromParcelId: parcelId,
     });
 
-    expect(getItemQty(state.inventories['player-1'], 'raw-ore')).toBe(22);
-    expect(state.players['player-1'].cash).toBeGreaterThan(cashBefore);
+    expect(getItemQty(departed.inventories['player-1'], 'raw-ore')).toBe(22);
+    expect(departed.players['player-1'].cash).toBe(cashBefore);
+    expect(departed.pnl['player-1'].revenue).toBe(0);
+    expect(listShipments(departed)).toHaveLength(1);
+
+    const notOwned = applyWorldAction(departed, {
+      type: 'SELL_TO_NPC',
+      offerId: offer.id,
+      quantity: 1,
+      shipFromParcelId: parcelIdFromCoords(3, 3),
+    });
+    expect(notOwned).toBe(departed);
+
+    state = departed;
+    for (let step = 0; step < 80 && listShipments(state).length > 0; step += 1) {
+      state = applyWorldAction(state, { type: 'ADVANCE_SIM_TIME', deltaMs: SIM_MS_PER_TICK });
+    }
+    expect(listShipments(state)).toHaveLength(0);
+    expect(state.pnl['player-1'].revenue).toBe(quote.hubUnitPrice * 2);
+    expect(state.pnl['player-1'].transportCost).toBe(quote.transportPerUnit * 2);
   });
 
   it('賣給 NPC 會扣庫存並記帳收入與運輸', () => {
@@ -73,6 +95,9 @@ describe('銷售與運輸', () => {
     const stock = { ...state.inventories['player-1'], 'basic-part': 5 };
     state = { ...state, inventories: { 'player-1': stock } };
 
+    const parcel = state.map.parcels.find((item) => item.id.value === parcelId.value)!;
+    const quote = quoteSale(offer, parcel);
+    const cashAtDepart = state.players['player-1'].cash;
     state = applyWorldAction(state, {
       type: 'SELL_TO_NPC',
       offerId: offer.id,
@@ -81,9 +106,17 @@ describe('銷售與運輸', () => {
     });
 
     expect(getItemQty(state.inventories['player-1'], 'basic-part')).toBe(3);
-    expect(state.pnl['player-1'].revenue).toBeGreaterThan(0);
-    expect(state.pnl['player-1'].transportCost).toBeGreaterThanOrEqual(0);
-    expect(state.players['player-1'].cash).toBeGreaterThan(100_000 - lot.minPrice);
+    expect(state.players['player-1'].cash).toBe(cashAtDepart);
+    expect(listShipments(state)[0]?.travelTicks).toBeGreaterThan(0);
+
+    for (let step = 0; step < 8 && listShipments(state).length > 0; step += 1) {
+      state = applyWorldAction(state, { type: 'ADVANCE_SIM_TIME', deltaMs: SIM_MS_PER_TICK });
+    }
+
+    expect(listShipments(state)).toHaveLength(0);
+    expect(state.pnl['player-1'].revenue).toBe(quote.hubUnitPrice * 2);
+    expect(state.pnl['player-1'].transportCost).toBe(quote.transportPerUnit * 2);
+    expect(state.players['player-1'].cash).toBe(cashAtDepart + quote.netPerUnit * 2);
   });
 });
 

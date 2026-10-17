@@ -114,7 +114,11 @@ describe('貸款與建設融資', () => {
       productId: 'construction',
       amount: 20_000,
     });
-    expect(summarizeBank(leveraged).netWorth).toBe(100_000);
+    const fresh = summarizeBank(createInitialWorld({ startingCash: 100_000 }));
+    expect(fresh.inventoryValue).toBe(24 * 50 + 18 * 40);
+    expect(fresh.landValue).toBe(0);
+    expect(fresh.factoryValue).toBe(0);
+    expect(summarizeBank(leveraged).netWorth).toBe(fresh.netWorth);
     leveraged = applyWorldAction(leveraged, { type: 'ADVANCE_FINANCE_TICK' });
     expect(summarizeBank(leveraged).netWorth).toBeLessThan(summarizeBank(idle).netWorth);
     expect(leveraged.players['player-1'].cash).toBe(117_645);

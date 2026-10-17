@@ -101,6 +101,13 @@
   stroke-width: 2;
 }
 
+.locator-route {
+  fill: none;
+  stroke: #7ec8ff;
+  stroke-width: 1.25;
+  stroke-dasharray: 2 1.5;
+}
+
 .locator-worker.traveling {
   fill: #ffb020;
   stroke: #1a1208;

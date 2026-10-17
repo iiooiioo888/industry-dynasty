@@ -3,21 +3,18 @@ import {
   FACTORY_TYPES,
   RECIPE_LIST,
   RECIPES,
-  computeProductionTiming,
   findParcel,
   getProductionLine,
   getSite,
   getSiteLogisticsView,
   planProfitPerTick,
   quoteLocalDemand,
-  recipeBlockReason,
   recipeOutputLabel,
   recipeSourceLabel,
   techStage,
   unitsUntilNextStage,
   type ParcelId,
   type ProductionStatus,
-  type RecipeId,
   type WorldState,
 } from '@industry-dynasty/sim';
 import { useEffect, useId, useState } from 'react';
@@ -57,7 +54,6 @@ function useProductionPanelCollapsed(narrow: boolean): readonly [boolean, () => 
 export interface ProductionPanelProps {
   state: WorldState;
   selectedParcelId: ParcelId | null;
-  onStart: (parcelId: ParcelId, recipeId: RecipeId) => void;
   onStop: (parcelId: ParcelId) => void;
   onAdvanceProduction: () => void;
   onDemolish: (parcelId: ParcelId) => void;
@@ -85,7 +81,6 @@ function lineStatusZh(status: ProductionStatus): string {
 export function ProductionPanel({
   state,
   selectedParcelId,
-  onStart,
   onStop,
   onAdvanceProduction,
   onDemolish,
@@ -140,43 +135,44 @@ export function ProductionPanel({
         </h2>
       </header>
       <div id={bodyId} className="production-panel-body" hidden={collapsed}>
-        <ol className="stage-pills">
-          {CHAIN_STAGES.map((entry) => (
-            <li key={entry.id} className={stage >= entry.stage ? 'on' : 'off'}>
-              {entry.stage + 1} {entry.nameZh}
-            </li>
-          ))}
-        </ol>
-        <p className="sys-muted chain-note">{unitsUntilNextStage(crafted)}</p>
-        <div className="chain-scroll">
-          {CHAIN_STAGES.map((entry) => (
-            <section key={entry.id}>
-              <h3>{entry.nameZh}</h3>
-              <ul className="chain-list">
-                {RECIPE_LIST.filter((recipe) => recipe.stage === entry.id).map((recipe) => (
-                  <li key={recipe.id}>
-                    <span>
-                      {recipeSourceLabel(recipe)} → {recipe.nameZh} → {recipeOutputLabel(recipe)}
-                    </span>
-                    <span className="chain-meta">
-                      {recipe.buildings.map((id) => FACTORY_TYPES[id].nameZh).join('/')}
-                      {recipe.minTechStage === 0 && recipe.stage === 'finish' ? ' · 捷徑' : ''}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-        <p className="sys-muted chain-note">
-          規劃利潤／週期＝（產出名目 − 投入名目）÷ 週期。離供應樞紐 (0,0)
-          越遠，週期越長、係數越低。煤炭、銅礦、石英砂粒要煉進合金板才收購。
-        </p>
+        <details className="unlock-chain">
+          <summary>可解鎖 · {stageName}</summary>
+          <ol className="stage-pills">
+            {CHAIN_STAGES.map((entry) => (
+              <li key={entry.id} className={stage >= entry.stage ? 'on' : 'off'}>
+                {entry.stage + 1} {entry.nameZh}
+              </li>
+            ))}
+          </ol>
+          <p className="sys-muted chain-note">{unitsUntilNextStage(crafted)}</p>
+          <div className="chain-scroll">
+            {CHAIN_STAGES.map((entry) => (
+              <section key={entry.id}>
+                <h3>{entry.nameZh}</h3>
+                <ul className="chain-list">
+                  {RECIPE_LIST.filter((recipe) => recipe.stage === entry.id).map((recipe) => (
+                    <li key={recipe.id}>
+                      <span>
+                        {recipeSourceLabel(recipe)} → {recipe.nameZh} → {recipeOutputLabel(recipe)}
+                      </span>
+                      <span className="chain-meta">
+                        {recipe.buildings.map((id) => FACTORY_TYPES[id].nameZh).join('/')}
+                        {recipe.minTechStage === 0 && recipe.stage === 'finish' ? ' · 捷徑' : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+          <p className="sys-muted chain-note">
+            規劃利潤／週期＝（產出名目 − 投入名目）÷ 週期。離供應樞紐 (0,0)
+            越遠，週期越長、係數越低。煤炭、銅礦、石英砂粒可直接賣給港區。鐵錠、銅錠、矽片要再加工；合金板要組裝廠，工坊做不到。
+          </p>
+        </details>
 
         {!isFactory || !parcel || !site || site.phase !== 'complete' || !demand ? (
-          <p className="sys-muted">
-            點藍框工廠排配方。產線跟著地圖上的模擬時間走，暫停會停住工人；「單步推進」只對照一格。
-          </p>
+          <p className="sys-muted">點完工工廠。可做的配方在地圖旁的規劃卡，一鍵開工。</p>
         ) : (
           <>
             <ParcelResourceBadge resource={parcel.resource} variant="prominent" />
@@ -219,7 +215,7 @@ export function ProductionPanel({
                     <dd>{(line.throughputFactor * 100).toFixed(0)}%</dd>
                   </div>
                   <div>
-                    <dt>規劃利潤</dt>
+                    <dt>規劃利潤（含路程）</dt>
                     <dd>
                       {formatProfit(
                         planProfitPerTick(activeRecipe, line.cycleTicks, line.throughputFactor),
@@ -240,12 +236,14 @@ export function ProductionPanel({
                   <div className="progress-fill" style={{ width: `${pct}%` }} />
                 </div>
                 <p className="sys-muted">
-                  模擬時間會自動推進這條產線。單步用來對照規劃利潤，不必連按。
+                  模擬時間會自動推進這條產線。換配方要先停止，再從規劃卡開工。
                 </p>
                 <div className="sys-btn-row">
-                  <button type="button" className="sys-btn" onClick={onAdvanceProduction}>
-                    單步推進
-                  </button>
+                  {state.clock.paused ? (
+                    <button type="button" className="sys-btn" onClick={onAdvanceProduction}>
+                      暫停中前進一步
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="sys-btn secondary"
@@ -256,56 +254,9 @@ export function ProductionPanel({
                 </div>
               </>
             ) : (
-              <>
-                <p className="sys-muted">依地皮與技術排入配方。開採會消耗這塊地的儲量。</p>
-                <ul className="recipe-list">
-                  {RECIPE_LIST.filter((recipe) => {
-                    if (!(recipe.buildings as readonly string[]).includes(site.factoryTypeId)) {
-                      return false;
-                    }
-                    if (recipe.sourceKind && recipe.sourceKind !== parcel.resource.kind) {
-                      return false;
-                    }
-                    return true;
-                  }).map((recipe) => {
-                    const blocked = recipeBlockReason({
-                      recipe,
-                      resourceKind: parcel.resource.kind,
-                      factoryTypeId: site.factoryTypeId,
-                      crafted,
-                    });
-                    const logistics = getSiteLogisticsView(state.map, parcel, site, state.sites);
-                    const timing = computeProductionTiming(
-                      recipe.baseCycleTicks,
-                      recipe.travelTickPerDistance,
-                      parcel,
-                      logistics.factor,
-                    );
-                    const profit = planProfitPerTick(
-                      recipe,
-                      timing.cycleTicks,
-                      timing.throughputFactor,
-                    );
-                    return (
-                      <li key={recipe.id}>
-                        <button
-                          type="button"
-                          className="sys-btn block"
-                          disabled={Boolean(blocked)}
-                          onClick={() => onStart(parcel.id, recipe.id)}
-                        >
-                          {recipe.nameZh}
-                          <span className="recipe-io">
-                            {recipeSourceLabel(recipe)} → {recipeOutputLabel(recipe)} ·{' '}
-                            {timing.cycleTicks} 週期 · {formatProfit(profit)}/週期
-                          </span>
-                        </button>
-                        {blocked ? <span className="recipe-block">{blocked}</span> : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
+              <p className="sys-muted">
+                配方在地圖旁的規劃卡：趕路刻、作業刻、規劃利潤，點一下就開工。
+              </p>
             )}
             <button
               type="button"
@@ -316,9 +267,9 @@ export function ProductionPanel({
             </button>
           </>
         )}
-        {!line ? (
+        {!line && state.clock.paused ? (
           <button type="button" className="sys-btn chain-advance" onClick={onAdvanceProduction}>
-            單步推進
+            暫停中前進一步
           </button>
         ) : null}
       </div>

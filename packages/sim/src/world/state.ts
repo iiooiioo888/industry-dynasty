@@ -4,6 +4,7 @@ import type { ParcelSite } from '../buildings/site.js';
 import type { NpcBuyOffer } from '../sales/market.js';
 import type { PnLSummary } from '../sales/pnl.js';
 import type { ScenarioState } from '../sales/scenario.js';
+import type { Shipment } from '../sales/shipment.js';
 import type { ProductionLine } from '../production/production-line.js';
 import type { PlayerStock } from '../production/items.js';
 import type { AuctionLot } from '../types/auction.js';
@@ -36,8 +37,10 @@ export interface WorldState {
   readonly npcBuyOffers: readonly NpcBuyOffer[];
   readonly pnl: Readonly<Record<string, PnLSummary>>;
   readonly scenario: ScenarioState;
-  /** 自動模擬時鐘。工人位置與產線階段跟這份時間走。 */
+  /** 自動模擬時鐘。工人、建造、出貨與日結跟這份時間走。 */
   readonly clock: SimClock;
+  /** 在途出貨。缺省視為沒有，舊狀態仍可開局。到貨才入帳。 */
+  readonly shipments?: readonly Shipment[];
 }
 
 export function findParcel(state: WorldState, parcelId: ParcelId): Parcel | undefined {

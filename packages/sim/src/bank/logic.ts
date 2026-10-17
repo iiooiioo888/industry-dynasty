@@ -1,6 +1,9 @@
+import { FACTORY_TYPES } from '../buildings/catalog.js';
+import { ITEMS } from '../production/items.js';
 import type { Player, WorldState } from '../world/state.js';
 import type { WorldConfig } from '../world/config.js';
 import { DEFAULT_WORLD_CONFIG } from '../world/config.js';
+import { quoteAuctionMinPrice } from '../world/demand.js';
 import { COMMODITIES, LOAN_PRODUCTS, STOCKS } from './catalog.js';
 import { DEFAULT_BANK_CONFIG, type BankConfig } from './config.js';
 import { interestOn, quoteCommodityAsk, quoteCommodityBid, quoteStock } from './quotes.js';
@@ -50,6 +53,9 @@ export interface BankSnapshot {
   readonly creditFrozen: boolean;
   readonly stockValue: number;
   readonly commodityBidValue: number;
+  readonly landValue: number;
+  readonly factoryValue: number;
+  readonly inventoryValue: number;
   readonly netWorth: number;
 }
 
@@ -116,6 +122,20 @@ export function summarizeBank(
   }, 0);
   const periodsLeft =
     book.savingsPrincipal > 0 ? Math.max(0, book.savingsUnlockTick - state.financeTick) : 0;
+  const playerId = state.localPlayerId;
+  const landValue = state.map.parcels.reduce((sum, parcel) => {
+    if (parcel.ownerId !== playerId || parcel.role !== 'land') {
+      return sum;
+    }
+    return sum + quoteAuctionMinPrice(parcel, config);
+  }, 0);
+  const factoryValue = Object.values(state.sites).reduce((sum, site) => {
+    if (site.ownerId !== playerId) {
+      return sum;
+    }
+    return sum + FACTORY_TYPES[site.factoryTypeId].buildCost;
+  }, 0);
+  const inventoryValue = inventoryBookValue(state.inventories[playerId]);
 
   return {
     financeTick: state.financeTick,
@@ -134,14 +154,37 @@ export function summarizeBank(
     creditFrozen,
     stockValue,
     commodityBidValue,
+    landValue,
+    factoryValue,
+    inventoryValue,
     netWorth:
       cash +
       book.savingsPrincipal +
       book.savingsAccrued +
       stockValue +
-      commodityBidValue -
+      commodityBidValue +
+      landValue +
+      factoryValue +
+      inventoryValue -
       creditUsed,
   };
+}
+
+function inventoryBookValue(stock: Readonly<Record<string, number>> | undefined): number {
+  if (!stock) {
+    return 0;
+  }
+  let total = 0;
+  for (const [itemId, qty] of Object.entries(stock)) {
+    if (qty <= 0) {
+      continue;
+    }
+    const item = ITEMS[itemId as keyof typeof ITEMS];
+    if (item) {
+      total += item.unitValue * qty;
+    }
+  }
+  return total;
 }
 
 function cashAfterLandTax(state: WorldState, config: WorldConfig): number {
