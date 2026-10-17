@@ -15,6 +15,19 @@ export {
   type ProductionTimingView,
 } from './logistics.js';
 export {
+  DEFAULT_DISTANCE_COST,
+  LEGACY_DISTANCE_COST,
+  idleLossCurve,
+  idleSaturationDistance,
+  saturationDistance,
+  shareOfMapBeyond,
+  throughputCurve,
+  type DistanceCostConfig,
+  type DistanceCurveShape,
+  type IdleLossCurveConfig,
+  type ThroughputCurveConfig,
+} from './distance-cost.js';
+export {
   createProductionLine,
   stopProductionLine,
   tickProductionLine,

@@ -6,13 +6,14 @@ import {
   findOfferById,
   generateNpcBuyOffers,
 } from '../sales/index.js';
+import { HOLDING } from '../balance/targets.js';
 import type { ParcelId } from '../types/map.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
 import { createShipment, listShipments } from './shipments.js';
 import { findParcel, type Player, type WorldState } from './state.js';
 import { applyTaxTickWithPnl } from './day-reducer.js';
 
-export const MAINTENANCE_PER_FACTORY = 250;
+export const MAINTENANCE_PER_FACTORY = HOLDING.maintenancePerFactoryPerDay;
 
 export function applySellToNpc(
   state: WorldState,

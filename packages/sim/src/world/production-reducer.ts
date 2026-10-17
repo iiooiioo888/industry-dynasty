@@ -90,6 +90,9 @@ export function applyProductionTick(state: WorldState): WorldState {
 
     const ownerId = site.ownerId;
     const recipe = RECIPES[line.recipeId];
+    // 逐條線依序讀寫 inventories：每條線都看到前一條線寫回後的最新庫存，
+    // 因此多座工廠共用同一份玩家庫存時，消耗與產出都會累加。
+    // （`inventories` 在迴圈內被重新賦值，這裡讀到的一定是累積結果。）
     const stock = inventories[ownerId] ?? {};
     const beforeQty = getItemQty(stock, recipe.outputItemId);
     const result = tickProductionLine(line, recipe, stock, parcel);

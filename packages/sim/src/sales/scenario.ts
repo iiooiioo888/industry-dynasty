@@ -1,4 +1,5 @@
 import { netProfit, type PnLSummary } from './pnl.js';
+import { BALANCE } from '../balance/targets.js';
 
 export interface ScenarioConfig {
   readonly targetNetProfit: number;
@@ -6,8 +7,8 @@ export interface ScenarioConfig {
 }
 
 export const DEFAULT_SCENARIO: ScenarioConfig = {
-  targetNetProfit: 60_000,
-  maxDays: 25,
+  targetNetProfit: BALANCE.targetNetProfit,
+  maxDays: BALANCE.maxDays,
 };
 
 export type ScenarioStatus = 'playing' | 'won' | 'lost';

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { FACTORY_TYPES } from '../buildings/catalog.js';
+import { ITEMS } from '../production/items.js';
 import { parcelIdFromCoords } from '../types/map.js';
 import { applyWorldAction } from '../world/reducer.js';
 import { createInitialWorld } from '../world/create-world.js';
+import { DEFAULT_WORLD_CONFIG } from '../world/config.js';
 import { findOpenLotForParcel, getSite } from '../world/state.js';
 import {
   formatBps,
@@ -44,7 +46,7 @@ describe('銀行週期與閒置利息', () => {
   it('持有土地時先扣稅，再對剩餘閒置現金計息', () => {
     const { state, price } = ownParcel(createInitialWorld({ startingCash: 100_000 }), 0, 0);
     const next = applyWorldAction(state, { type: 'ADVANCE_TAX_TICK' });
-    const afterTax = 100_000 - price - 500;
+    const afterTax = 100_000 - price - DEFAULT_WORLD_CONFIG.landTaxPerTick;
     const interest = Math.floor((afterTax * 50) / 10_000);
     expect(next.players['player-1'].cash).toBe(afterTax + interest);
     expect(previewCoupledWeek(state).cashAfter).toBe(next.players['player-1'].cash);
@@ -115,7 +117,7 @@ describe('貸款與建設融資', () => {
       amount: 20_000,
     });
     const fresh = summarizeBank(createInitialWorld({ startingCash: 100_000 }));
-    expect(fresh.inventoryValue).toBe(24 * 50 + 18 * 40);
+    expect(fresh.inventoryValue).toBe(24 * ITEMS['raw-ore'].unitValue + 18 * ITEMS.resin.unitValue);
     expect(fresh.landValue).toBe(0);
     expect(fresh.factoryValue).toBe(0);
     expect(summarizeBank(leveraged).netWorth).toBe(fresh.netWorth);

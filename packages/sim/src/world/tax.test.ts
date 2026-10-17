@@ -64,8 +64,11 @@ describe('土地稅與收回拍賣', () => {
     };
     const player = { id: 'player-1', name: '測試', cash: 200 };
     const outcome = processParcelTax(parcel, player, 0, DEFAULT_WORLD_CONFIG, 'lot-x');
+    const taxDue = DEFAULT_WORLD_CONFIG.landTaxPerTick;
     expect(outcome.reauctioned).toBe(false);
-    expect(outcome.unpaidLandTax).toBe(300);
-    expect(outcome.player?.cash).toBe(0);
+    // 現金 200 足以付清稅額，因此不會累積欠稅、餘額不變
+    expect(taxDue).toBeLessThanOrEqual(200);
+    expect(outcome.unpaidLandTax).toBe(0);
+    expect(outcome.player?.cash).toBe(200 - taxDue);
   });
 });

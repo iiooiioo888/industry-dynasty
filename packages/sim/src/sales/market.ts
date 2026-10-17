@@ -34,12 +34,20 @@ export function transportCostPerUnit(parcel: Parcel, ratePerTile: number): numbe
   return manhattanToMarket(parcel) * ratePerTile;
 }
 
+/**
+ * 港區收購報價。
+ *
+ * `unitValue` 是「價值鏈推導出的合理價值」，所以這裡必須**全額收購**：
+ * 若像原版一樣只付 92%，價值鏈末端（合金板）的毛利會被吃掉 8%，
+ * 而高階品項的絕對金額大，8% 足以讓整條加工鏈由盈轉虧。
+ * 波動改由 `wave` 疊加，因此仍保留「哪天賣」的時機決策。
+ */
 export function generateNpcBuyOffers(gameDay: number): NpcBuyOffer[] {
   const wave = gameDay % 5;
   return SELLABLE_ITEMS.map((itemId) => {
     const base = ITEMS[itemId].unitValue;
     const floorPrice = Math.floor(base * 0.75);
-    const unitPrice = Math.floor(base * (0.92 + wave * 0.02));
+    const unitPrice = Math.floor(base * (1 + (wave - 2) * 0.03));
     return {
       id: `npc-offer-${itemId}-d${gameDay}`,
       npcNameZh: '港區 NPC 收購',

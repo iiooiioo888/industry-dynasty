@@ -15,7 +15,8 @@ export type RecipeStage = 'extract' | 'process' | 'finish';
  * 原礦 ─────────┴→ 基礎零件 → 合金板（起始庫存就能走的捷徑，不鎖技術）
  *
  * 煤炭、銅礦、石英砂粒可直接賣給港區。鐵錠、銅錠、矽片要再加工；合金板要組裝廠。
- * 距離供應樞紐拉長週期並降低產出係數；物流效率縮短週期。
+ * 距離只降低產出係數，不拉長生產週期；物流效率仍縮短週期。
+ * 出貨路程佔模擬時間，與生產週期分開計算。
  */
 export type RecipeId =
   | 'extract-iron'
@@ -36,6 +37,8 @@ export interface RecipeDef {
   readonly inputs: readonly { readonly itemId: ItemId; readonly quantity: number }[];
   readonly outputItemId: ItemId;
   readonly outputQuantity: number;
+  /** 每週期產出倍率；開採類用 EXTRACT_OUTPUT_MULTIPLIER，加工類為 1。 */
+  readonly outputMultiplier: number;
   readonly baseCycleTicks: number;
   readonly travelTickPerDistance: number;
   readonly stage: RecipeStage;
@@ -52,6 +55,19 @@ export const TECH_GATES = {
   finishCraftedIntermediate: 2,
 } as const;
 
+/**
+ * 開採配方的每週期產出倍率。
+ *
+ * 週期長度含「往返供應樞紐」的距離（`baseCycleTicks + 距離`），
+ * 因此距離 8 的地塊每週期要 10 刻。若每週期只產 2 單位，
+ * 25 天只有 2.5 單位、約 1,250 價值，連建廠成本 3,000 都收不回來 ——
+ * 於是「多蓋工廠」永遠是虧的，數量槓桿完全失效。
+ *
+ * 開採是**大量低價**的活動，所以提高每週期產出而非單價；
+ * 加工配方維持 1～2 單位的高價產出，兩者才有真正的取捨。
+ */
+export const EXTRACT_OUTPUT_MULTIPLIER = 6;
+
 export const RECIPES = {
   'extract-iron': {
     id: 'extract-iron',
@@ -59,6 +75,7 @@ export const RECIPES = {
     inputs: [],
     outputItemId: 'raw-ore',
     outputQuantity: 2,
+    outputMultiplier: EXTRACT_OUTPUT_MULTIPLIER,
     baseCycleTicks: 2,
     travelTickPerDistance: 1,
     stage: 'extract',
@@ -73,6 +90,7 @@ export const RECIPES = {
     inputs: [],
     outputItemId: 'resin',
     outputQuantity: 2,
+    outputMultiplier: EXTRACT_OUTPUT_MULTIPLIER,
     baseCycleTicks: 2,
     travelTickPerDistance: 1,
     stage: 'extract',
@@ -87,6 +105,7 @@ export const RECIPES = {
     inputs: [],
     outputItemId: 'quartz-grit',
     outputQuantity: 2,
+    outputMultiplier: EXTRACT_OUTPUT_MULTIPLIER,
     baseCycleTicks: 2,
     travelTickPerDistance: 1,
     stage: 'extract',
@@ -101,6 +120,7 @@ export const RECIPES = {
     inputs: [],
     outputItemId: 'coal',
     outputQuantity: 2,
+    outputMultiplier: EXTRACT_OUTPUT_MULTIPLIER,
     baseCycleTicks: 2,
     travelTickPerDistance: 1,
     stage: 'extract',
@@ -115,6 +135,7 @@ export const RECIPES = {
     inputs: [],
     outputItemId: 'copper-ore',
     outputQuantity: 2,
+    outputMultiplier: EXTRACT_OUTPUT_MULTIPLIER,
     baseCycleTicks: 2,
     travelTickPerDistance: 1,
     stage: 'extract',
@@ -132,6 +153,7 @@ export const RECIPES = {
     ],
     outputItemId: 'basic-part',
     outputQuantity: 1,
+    outputMultiplier: 1,
     baseCycleTicks: 3,
     travelTickPerDistance: 1,
     stage: 'process',
@@ -149,6 +171,7 @@ export const RECIPES = {
     ],
     outputItemId: 'iron-ingot',
     outputQuantity: 1,
+    outputMultiplier: 1,
     baseCycleTicks: 4,
     travelTickPerDistance: 1,
     stage: 'process',
@@ -166,6 +189,7 @@ export const RECIPES = {
     ],
     outputItemId: 'copper-ingot',
     outputQuantity: 1,
+    outputMultiplier: 1,
     baseCycleTicks: 4,
     travelTickPerDistance: 1,
     stage: 'process',
@@ -183,6 +207,7 @@ export const RECIPES = {
     ],
     outputItemId: 'silica',
     outputQuantity: 1,
+    outputMultiplier: 1,
     baseCycleTicks: 3,
     travelTickPerDistance: 1,
     stage: 'process',
@@ -200,6 +225,7 @@ export const RECIPES = {
     ],
     outputItemId: 'alloy-plate',
     outputQuantity: 1,
+    outputMultiplier: 1,
     baseCycleTicks: 5,
     travelTickPerDistance: 1,
     stage: 'finish',
@@ -217,7 +243,8 @@ export const RECIPES = {
       { itemId: 'silica', quantity: 1 },
     ],
     outputItemId: 'alloy-plate',
-    outputQuantity: 1,
+    outputQuantity: 2,
+    outputMultiplier: 1,
     baseCycleTicks: 6,
     travelTickPerDistance: 1,
     stage: 'finish',

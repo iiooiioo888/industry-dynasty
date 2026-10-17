@@ -21,9 +21,10 @@ export function processParcelTax(
   nextLotId: string,
 ): TaxTickParcelOutcome {
   const taxDue = config.landTaxPerTick;
-  const paid = Math.min(taxDue, player.cash);
+  const paid = Math.min(taxDue, Math.max(0, player.cash));
   const nextCash = player.cash - paid;
-  let unpaid = currentUnpaid + (taxDue - paid);
+  // 欠稅只能是非負的未繳餘額；現金足夠時 paid === taxDue，不會產生負欠稅。
+  let unpaid = currentUnpaid + Math.max(0, taxDue - paid);
 
   const nextPlayer: Player = { ...player, cash: nextCash };
   let nextParcel = parcel;

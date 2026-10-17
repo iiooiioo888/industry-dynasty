@@ -5,7 +5,7 @@ import { generateParcelResource } from '../world/parcel-resources.js';
 import { applyWorldAction } from '../world/reducer.js';
 import { createInitialWorld } from '../world/create-world.js';
 import { listShipments } from '../world/shipments.js';
-import { netProfit } from './pnl.js';
+import { emptyPnL, netProfit } from './pnl.js';
 import { quoteSale, TRANSPORT_RATE_PER_TILE } from './sell-logic.js';
 import { generateNpcBuyOffers, manhattanToMarket } from './market.js';
 import { getItemQty } from '../production/items.js';
@@ -124,6 +124,7 @@ describe('損益與通關', () => {
   it('淨利計算包含稅收與運輸', () => {
     const pnl = {
       revenue: 10_000,
+      landSaleProceeds: 0,
       taxPaid: 1_500,
       maintenance: 400,
       transportCost: 800,
@@ -132,6 +133,11 @@ describe('損益與通關', () => {
       productionIdleLoss: 200,
     };
     expect(netProfit(pnl)).toBe(100);
+  });
+
+  it('土地轉手收入計入淨利', () => {
+    const pnl = { ...emptyPnL(), landSaleProceeds: 2_500 };
+    expect(netProfit(pnl)).toBe(2_500);
   });
 
   it('推進日數會刷新 NPC 收購價', () => {
