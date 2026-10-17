@@ -127,6 +127,16 @@ function ariaLabel(state: WorldState, parcel: Parcel): string {
 
 const CLOCK_SPEED_OPTIONS = [1, 2, 4] as const satisfies readonly ClockSpeed[];
 
+function workerVerb(activity: string): string {
+  if (activity === 'traveling') {
+    return '趕路';
+  }
+  if (activity === 'working') {
+    return '作業';
+  }
+  return '閒置';
+}
+
 export function GameMap({
   state,
   selectedParcelId,
@@ -186,7 +196,8 @@ export function GameMap({
             </button>
           ))}
           <span className="clock-readout">
-            {state.clock.paused ? '已暫停' : `${state.clock.speed}×`} · 時刻 {simTick}
+            {state.clock.paused ? '已暫停 · 工人停在原地' : `${state.clock.speed}× 進行中`} · 時刻{' '}
+            {simTick}
           </span>
         </div>
       </div>
@@ -266,20 +277,31 @@ export function GameMap({
               })}
             </div>
             <div className="map-actors">
-              {actors.map((actor) => (
-                <span
-                  key={actor.id}
-                  className={`map-worker ${actor.activity}`}
-                  style={{
-                    left: `${((actor.x + 0.5) / width) * 100}%`,
-                    top: `${((actor.y + 0.5) / height) * 100}%`,
-                  }}
-                  role="img"
-                  title={actor.label}
-                  aria-label={actor.label}
-                  data-activity={actor.activity}
-                />
-              ))}
+              {actors.map((actor) => {
+                const pausedLabel = `暫停 · ${workerVerb(actor.activity)}`;
+                const label = state.clock.paused ? `${pausedLabel} · ${actor.label}` : actor.label;
+                return (
+                  <span
+                    key={actor.id}
+                    className={`map-worker ${actor.activity}${state.clock.paused ? ' is-paused' : ''}`}
+                    style={{
+                      left: `${((actor.x + 0.5) / width) * 100}%`,
+                      top: `${((actor.y + 0.5) / height) * 100}%`,
+                    }}
+                    role="img"
+                    title={label}
+                    aria-label={label}
+                    data-activity={actor.activity}
+                    data-paused={state.clock.paused ? 'true' : 'false'}
+                  >
+                    {state.clock.paused ? (
+                      <span className={`map-worker-label${actor.x > width * 0.65 ? ' flip' : ''}`}>
+                        {pausedLabel}
+                      </span>
+                    ) : null}
+                  </span>
+                );
+              })}
             </div>
           </div>
           <p className="map-strategy">

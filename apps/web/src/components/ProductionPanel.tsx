@@ -174,7 +174,9 @@ export function ProductionPanel({
         </p>
 
         {!isFactory || !parcel || !site || site.phase !== 'complete' || !demand ? (
-          <p className="sys-muted">選擇已完工工廠（藍格）以排入配方。</p>
+          <p className="sys-muted">
+            點藍框工廠排配方。產線跟著地圖上的模擬時間走，暫停會停住工人；「單步推進」只對照一格。
+          </p>
         ) : (
           <>
             <ParcelResourceBadge resource={parcel.resource} variant="prominent" />
@@ -237,9 +239,12 @@ export function ProductionPanel({
                 <div className="progress-bar">
                   <div className="progress-fill" style={{ width: `${pct}%` }} />
                 </div>
+                <p className="sys-muted">
+                  模擬時間會自動推進這條產線。單步用來對照規劃利潤，不必連按。
+                </p>
                 <div className="sys-btn-row">
                   <button type="button" className="sys-btn" onClick={onAdvanceProduction}>
-                    推進生產週期
+                    單步推進
                   </button>
                   <button
                     type="button"
@@ -313,7 +318,7 @@ export function ProductionPanel({
         )}
         {!line ? (
           <button type="button" className="sys-btn chain-advance" onClick={onAdvanceProduction}>
-            推進生產週期
+            單步推進
           </button>
         ) : null}
       </div>

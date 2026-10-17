@@ -109,6 +109,9 @@ export function ParcelFocusCard({ state, selectedParcelId, onSelectParcel }: Par
   return (
     <div className="parcel-focus">
       <p className="parcel-focus-note">手機不展開 16×12 全圖，改看這一格的方位與相對位置。</p>
+      {state.clock.paused ? (
+        <p className="parcel-focus-note">時間已暫停，工人停在原地，標籤是暫停當下的狀態。</p>
+      ) : null}
       {selected ? (
         <article className="parcel-focus-card" aria-label={`地塊 ${selected.x},${selected.y} 方位`}>
           <header className="parcel-focus-head">
@@ -180,16 +183,18 @@ export function ParcelFocusCard({ state, selectedParcelId, onSelectParcel }: Par
               })()}
               {listMapActors(state).map((actor) => {
                 const point = mapPoint(actor.x, actor.y);
+                const label = state.clock.paused ? `已暫停 · ${actor.label}` : actor.label;
                 return (
                   <circle
                     key={actor.id}
-                    className={`locator-worker ${actor.activity}`}
+                    className={`locator-worker ${actor.activity}${state.clock.paused ? ' is-paused' : ''}`}
                     cx={point.x}
                     cy={point.y}
                     r="3.5"
                     data-activity={actor.activity}
+                    data-paused={state.clock.paused ? 'true' : 'false'}
                   >
-                    <title>{actor.label}</title>
+                    <title>{label}</title>
                   </circle>
                 );
               })}
@@ -238,7 +243,9 @@ export function ParcelFocusCard({ state, selectedParcelId, onSelectParcel }: Par
               {selectedActor ? (
                 <div>
                   <dt>工人</dt>
-                  <dd>{selectedActor.label}</dd>
+                  <dd>
+                    {state.clock.paused ? `已暫停 · ${selectedActor.label}` : selectedActor.label}
+                  </dd>
                 </div>
               ) : null}
               <div>

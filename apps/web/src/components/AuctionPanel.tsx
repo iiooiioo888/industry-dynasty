@@ -42,7 +42,9 @@ export function AuctionPanel({ state, selectedParcelId, onBid, onSettle }: Aucti
     return (
       <section className="sys-panel auction-panel">
         <AuctionHead />
-        <p className="sys-muted">請在地圖上選擇土地。</p>
+        <p className="sys-muted">
+          先點一格標著「拍」的土地。道路與城市不能買。出價並結算後，往上找建造選單。
+        </p>
       </section>
     );
   }
@@ -141,7 +143,10 @@ export function AuctionPanel({ state, selectedParcelId, onBid, onSettle }: Aucti
           結算拍賣
         </button>
       </div>
-      <p className="panel-hint">現金：${player.cash.toLocaleString()}</p>
+      <p className="panel-hint">
+        現金：${player.cash.toLocaleString()}。下一步：出價 →
+        結算拍賣。得標後此面板收起，建造選單在上方。
+      </p>
     </section>
   );
 }

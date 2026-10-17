@@ -136,6 +136,25 @@
   color: #8b949e !important;
 }
 
+.stock-quote-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+
+.stock-quote-row p {
+  margin: 0;
+}
+
+.stock-spark {
+  width: 7.5rem;
+  height: 2.1rem;
+  flex: none;
+  overflow: visible;
+}
+
 .bank-holding p {
   margin: 0.35rem 0 0;
   font-variant-numeric: tabular-nums;
