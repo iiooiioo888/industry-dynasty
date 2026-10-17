@@ -1,0 +1,87 @@
+.machine-compare {
+  min-width: 0;
+  margin-top: 0.35rem;
+}
+
+.machine-note {
+  margin: 0 0 0.3rem;
+  font-size: 0.68rem;
+  color: var(--sys-accent);
+}
+
+.machine-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.machine-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.12rem;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--sys-border);
+  border-radius: 6px;
+  background: var(--sys-bg-deep);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+button.machine-card {
+  cursor: pointer;
+}
+
+button.machine-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.machine-card.is-selected {
+  border-color: var(--sys-accent);
+  background: rgba(94, 184, 255, 0.08);
+}
+
+.machine-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.machine-title strong {
+  font-size: 0.75rem;
+}
+
+.machine-tier {
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  color: var(--sys-muted);
+}
+
+.machine-spec,
+.machine-advantage {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.65rem;
+  line-height: 1.35;
+  color: var(--sys-muted);
+}
+
+.machine-compare.is-compact .machine-advantage {
+  display: none;
+}
+
+.machine-compare.is-compact .machine-card.is-selected .machine-advantage {
+  display: block;
+}

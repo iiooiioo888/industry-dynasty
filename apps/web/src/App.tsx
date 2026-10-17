@@ -2,6 +2,7 @@ import {
   DEFAULT_WORLD_CONFIG,
   ticksUntilDayClose,
   type FactoryTypeId,
+  type MachineGradeId,
   type ParcelId,
   type RecipeId,
 } from '@industry-dynasty/sim';
@@ -73,8 +74,11 @@ export function App() {
               dispatch({ type: 'START_BUILD', parcelId, factoryTypeId })
             }
             onCancelBuild={(parcelId) => dispatch({ type: 'CANCEL_BUILD', parcelId })}
-            onStartProduction={(parcelId, recipeId: RecipeId) =>
-              dispatch({ type: 'START_PRODUCTION', parcelId, recipeId })
+            onStartProduction={(parcelId, recipeId: RecipeId, machineGradeId?: MachineGradeId) =>
+              dispatch({ type: 'START_PRODUCTION', parcelId, recipeId, machineGradeId })
+            }
+            onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
+              dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
             }
             onStopProduction={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
           />
@@ -84,6 +88,9 @@ export function App() {
             state={state}
             selectedParcelId={selectedParcelId}
             onStop={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
+            onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
+              dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
+            }
             onAdvanceProduction={() => dispatch({ type: 'ADVANCE_PRODUCTION_TICK' })}
             onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
           />

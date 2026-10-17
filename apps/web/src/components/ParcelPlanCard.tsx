@@ -1,7 +1,9 @@
 import {
   FACTORY_TYPES,
+  MACHINE_GRADES,
   RECIPE_LIST,
   RECIPES,
+  chainMarginCue,
   createProductionLine,
   findOpenLotForParcel,
   findParcel,
@@ -10,9 +12,11 @@ import {
   getSiteLogisticsView,
   minNextBid,
   planProfitPerTick,
+  projectLine,
   quoteParcelPlan,
   recipeBlockReason,
   validateBid,
+  type MachineGradeId,
   type Parcel,
   type ParcelId,
   type ParcelResourceKind,
@@ -21,6 +25,7 @@ import {
 } from '@industry-dynasty/sim';
 import { useState } from 'react';
 import { BuildPanel } from './BuildPanel';
+import { MachineCompare } from './MachineCompare';
 import './ParcelPlanCard.css';
 
 const MAX_PINS = 3;
@@ -35,7 +40,12 @@ export interface ParcelPlanCardProps {
   onSettle: (parcelId: ParcelId) => void;
   onStartBuild: ParcelPlanBuildProps['onStartBuild'];
   onCancelBuild: (parcelId: ParcelId) => void;
-  onStartProduction: (parcelId: ParcelId, recipeId: RecipeId) => void;
+  onStartProduction: (
+    parcelId: ParcelId,
+    recipeId: RecipeId,
+    machineGradeId?: MachineGradeId,
+  ) => void;
+  onInstallMachine: (parcelId: ParcelId, machineGradeId: MachineGradeId) => void;
   onStopProduction: (parcelId: ParcelId) => void;
 }
 
@@ -74,6 +84,7 @@ export function ParcelPlanCard({
   onStartBuild,
   onCancelBuild,
   onStartProduction,
+  onInstallMachine,
   onStopProduction,
 }: ParcelPlanCardProps) {
   const player = state.players[state.localPlayerId];
@@ -231,7 +242,9 @@ export function ParcelPlanCard({
               parcel={selected}
               factoryTypeId={site.factoryTypeId}
               line={line}
+              cash={player?.cash ?? 0}
               onStart={onStartProduction}
+              onInstall={onInstallMachine}
               onStop={onStopProduction}
             />
           ) : null}
@@ -340,31 +353,59 @@ function FactorySchedule({
   parcel,
   factoryTypeId,
   line,
+  cash,
   onStart,
+  onInstall,
   onStop,
 }: {
   state: WorldState;
   parcel: Parcel;
   factoryTypeId: 'workshop' | 'assembly-plant';
   line: ReturnType<typeof getProductionLine>;
-  onStart: (parcelId: ParcelId, recipeId: RecipeId) => void;
+  cash: number;
+  onStart: (parcelId: ParcelId, recipeId: RecipeId, machineGradeId?: MachineGradeId) => void;
+  onInstall: (parcelId: ParcelId, machineGradeId: MachineGradeId) => void;
   onStop: (parcelId: ParcelId) => void;
 }) {
+  const [machine, setMachine] = useState<MachineGradeId>('balance-press');
   const site = getSite(state, parcel.id);
   const active = line && line.status !== 'stopped' ? RECIPES[line.recipeId] : undefined;
   if (!site || site.phase !== 'complete') {
     return null;
   }
+  const logistics = getSiteLogisticsView(state.map, parcel, site, state.sites);
+  const oreBenchmark = projectLine(
+    RECIPES['extract-iron'],
+    parcel,
+    logistics.factor,
+    null,
+    1,
+  ).profitPerTick;
   if (active && line) {
     const travelDone = line.progressTicks >= line.travelTicks;
+    const mounted = line.machineGradeId ? MACHINE_GRADES[line.machineGradeId] : null;
+    const here = planProfitPerTick(active, line.cycleTicks, line.throughputFactor);
+    const processing = active.stage !== 'extract';
     return (
       <div className="plan-schedule">
         <h3>排產 · {FACTORY_TYPES[factoryTypeId].nameZh}</h3>
         <p className="sys-muted">
-          {active.nameZh} ·{' '}
+          {active.nameZh} · {mounted ? mounted.nameZh : '未裝加工機'} ·{' '}
           {line.status === 'waiting_inputs' ? '待料' : travelDone ? '作業' : '趕路'}{' '}
           {line.progressTicks}/{line.cycleTicks}
+          {line.pathGated ? ' · 路程超過門檻' : ''}
         </p>
+        <p className="panel-hint">{chainMarginCue(active, here, oreBenchmark)}</p>
+        {processing ? (
+          <MachineCompare
+            compact
+            selected={line.machineGradeId}
+            cash={cash + (line.machinePaid ?? 0)}
+            onSelect={(grade) => onInstall(parcel.id, grade)}
+          />
+        ) : (
+          <p className="panel-hint">開採不裝加工機。產品沿用礦石，速度不因爐具改變。</p>
+        )}
         <button type="button" className="sys-btn secondary full" onClick={() => onStop(parcel.id)}>
           停止這條產線
         </button>
@@ -372,7 +413,6 @@ function FactorySchedule({
     );
   }
 
-  const logistics = getSiteLogisticsView(state.map, parcel, site, state.sites);
   const crafted = state.craftedTotals[state.localPlayerId];
   const options = RECIPE_LIST.filter((recipe) => {
     if (!(recipe.buildings as readonly string[]).includes(factoryTypeId)) {
@@ -389,7 +429,8 @@ function FactorySchedule({
     });
   })
     .map((recipe) => {
-      const preview = createProductionLine(recipe, parcel, logistics.factor);
+      const mounted = recipe.stage === 'extract' ? null : machine;
+      const preview = createProductionLine(recipe, parcel, logistics.factor, 0, mounted);
       const travel = preview.travelTicks;
       return {
         recipe,
@@ -397,35 +438,64 @@ function FactorySchedule({
         work: Math.max(0, preview.cycleTicks - travel),
         factor: preview.throughputFactor,
         profit: planProfitPerTick(recipe, preview.cycleTicks, preview.throughputFactor),
+        mounted,
       };
     })
     .sort((a, b) => b.profit - a.profit || a.recipe.id.localeCompare(b.recipe.id))
     .slice(0, MAX_RECIPES);
+  const profitByGrade = Object.fromEntries(
+    (['anvil-bench', 'balance-press', 'neighbor-kiln'] as const).map((grade) => [
+      grade,
+      projectLine(
+        options.find((option) => option.recipe.stage !== 'extract')?.recipe ??
+          RECIPES['make-basic-part'],
+        parcel,
+        logistics.factor,
+        grade,
+        1,
+      ).profitPerTick,
+    ]),
+  ) as Partial<Record<MachineGradeId, number>>;
+  const selectedCost = MACHINE_GRADES[machine].installCost;
 
   return (
     <div className="plan-schedule">
       <h3>排產 · {FACTORY_TYPES[factoryTypeId].nameZh}</h3>
+      <MachineCompare
+        selected={machine}
+        cash={cash}
+        profitPerTick={profitByGrade}
+        onSelect={setMachine}
+      />
       {options.length === 0 ? (
         <p className="sys-muted">這座廠現在沒有可開工的配方。技術鏈收在右側「可解鎖」。</p>
       ) : (
         <ul className="plan-recipes">
-          {options.map((option) => (
-            <li key={option.recipe.id}>
-              <button
-                type="button"
-                className="sys-btn block"
-                onClick={() => onStart(parcel.id, option.recipe.id)}
-              >
-                {option.recipe.nameZh}
-                <span className="recipe-io">
-                  趕路 {option.travel} 刻 · 作業 {option.work} 刻 · 係數{' '}
-                  {Math.round(option.factor * 100)}% · 規劃利潤（含路程）{' '}
-                  {formatProfit(option.profit)}
-                  /週期
-                </span>
-              </button>
-            </li>
-          ))}
+          {options.map((option) => {
+            const needsMachine = option.recipe.stage !== 'extract';
+            const blocked = needsMachine && cash < selectedCost;
+            return (
+              <li key={option.recipe.id}>
+                <button
+                  type="button"
+                  className="sys-btn block"
+                  disabled={blocked}
+                  onClick={() => onStart(parcel.id, option.recipe.id, option.mounted ?? undefined)}
+                >
+                  {option.recipe.nameZh}
+                  <span className="recipe-io">
+                    趕路 {option.travel} 刻 · 作業 {option.work} 刻 · 係數{' '}
+                    {Math.round(option.factor * 100)}% · 規劃利潤（含路程）{' '}
+                    {formatProfit(option.profit)}/刻
+                    {needsMachine ? ` · ${MACHINE_GRADES[machine].nameZh}` : ' · 不裝機'}
+                  </span>
+                  <span className="recipe-io">
+                    {chainMarginCue(option.recipe, option.profit, oreBenchmark)}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

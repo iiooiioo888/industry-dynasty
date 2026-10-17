@@ -29,6 +29,7 @@ export {
 } from './distance-cost.js';
 export {
   createProductionLine,
+  retuneProductionLine,
   stopProductionLine,
   tickProductionLine,
   motionPhase,
@@ -36,6 +37,28 @@ export {
   type ProductionMotion,
   type ProductionStatus,
 } from './production-line.js';
+export {
+  MACHINE_GRADE_LIST,
+  MACHINE_GRADES,
+  MACHINE_PRODUCT_NOTE,
+  machineCreditAfter,
+  machineUpgradeDue,
+  resolveMachineTuning,
+  stageMachineLeverage,
+  type MachineGradeDef,
+  type MachineGradeId,
+  type MachineTuning,
+} from './machines.js';
+export {
+  STAGE_DEPTH_DRAG,
+  applyDepthDrag,
+  chainMarginCue,
+  nominalProfitPerTick,
+  profitPerTick,
+  projectLine,
+  recipeLedger,
+  type LineProjection,
+} from './line-economy.js';
 export {
   craftedByTier,
   planProfitPerTick,

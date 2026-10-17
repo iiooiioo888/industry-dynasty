@@ -2,7 +2,8 @@ import type { Parcel } from '../types/map.js';
 import { recipeUsesLinkedResource, resourceThroughputBonus } from '../world/parcel-resources.js';
 import { ITEMS } from './items.js';
 import { addItem, getItemQty, removeItem, type PlayerStock } from './items.js';
-import { computeProductionTiming } from './logistics.js';
+import { projectLine } from './line-economy.js';
+import type { MachineGradeId } from './machines.js';
 import type { RecipeDef } from './recipes.js';
 
 export type ProductionStatus = 'stopped' | 'running' | 'waiting_inputs';
@@ -35,6 +36,12 @@ export interface ProductionLine {
   readonly totalIdleLossValue: number;
   readonly localResourceBonus: number;
   readonly localResourceNameZh: string;
+  /** 未裝機為 null。產品 SKU 不因這個欄位改變。 */
+  readonly machineGradeId: MachineGradeId | null;
+  /** 已付過的裝機費，升級只補差額。 */
+  readonly machinePaid: number;
+  /** 高效爐超過路程門檻時為 true。 */
+  readonly pathGated: boolean;
   /**
    * 產出係數造成的不足一單位餘額，累積到下一週期。
    *
@@ -67,13 +74,8 @@ export function createProductionLine(
   parcel: Parcel,
   logisticsEfficiency: number,
   anchorMs = 0,
+  machineGradeId: MachineGradeId | null = null,
 ): ProductionLine {
-  const timing = computeProductionTiming(
-    recipe.baseCycleTicks,
-    recipe.travelTickPerDistance,
-    parcel,
-    logisticsEfficiency,
-  );
   const usesLocal = recipe.sourceKind
     ? parcel.resource.kind === recipe.sourceKind
     : recipeUsesLinkedResource(
@@ -81,22 +83,21 @@ export function createProductionLine(
         recipe.inputs.map((i) => i.itemId),
       );
   const localBonus = resourceThroughputBonus(parcel.resource, usesLocal);
-  const throughputFactor = Math.min(1.5, timing.throughputFactor * localBonus);
-  // 去程畫在週期前段。workerTravelTicks 仍是到樞紐的真實步數，供距離懲罰使用。
-  const travelTicks = Math.min(timing.workerTravelTicks, Math.max(0, timing.cycleTicks - 1));
+  const mounted = recipe.stage === 'extract' ? null : machineGradeId;
+  const projected = projectLine(recipe, parcel, logisticsEfficiency, mounted, localBonus);
 
   return withMotion({
     recipeId: recipe.id,
     status: 'running',
     phase: 'working',
-    travelTicks,
+    travelTicks: projected.travelTicks,
     progressAnchorMs: anchorMs,
     stallTicks: 0,
     progressTicks: 0,
-    cycleTicks: timing.cycleTicks,
-    throughputFactor,
-    workerTravelTicks: timing.workerTravelTicks,
-    idleLossPerTick: timing.idleLossPerTick,
+    cycleTicks: projected.cycleTicks,
+    throughputFactor: projected.throughputFactor,
+    workerTravelTicks: projected.workerTravelTicks,
+    idleLossPerTick: projected.idleLossPerTick,
     idleTicksAccumulated: 0,
     completedRuns: 0,
     totalOutputValue: 0,
@@ -104,7 +105,40 @@ export function createProductionLine(
     totalIdleLossValue: 0,
     localResourceBonus: localBonus,
     localResourceNameZh: parcel.resource.nameZh,
+    machineGradeId: projected.machineGradeId,
+    machinePaid: 0,
+    pathGated: projected.pathGated,
     fractionalOutput: 0,
+  });
+}
+
+/** 換機械時保留進度與累計，只重算週期、產量與閒置敏感度。 */
+export function retuneProductionLine(
+  line: ProductionLine,
+  recipe: RecipeDef,
+  parcel: Parcel,
+  logisticsEfficiency: number,
+  machineGradeId: MachineGradeId,
+): ProductionLine {
+  const tuned = createProductionLine(
+    recipe,
+    parcel,
+    logisticsEfficiency,
+    line.progressAnchorMs,
+    machineGradeId,
+  );
+  return withMotion({
+    ...tuned,
+    status: line.status,
+    progressTicks: Math.min(line.progressTicks, Math.max(0, tuned.cycleTicks - 1)),
+    stallTicks: line.stallTicks,
+    idleTicksAccumulated: line.idleTicksAccumulated,
+    completedRuns: line.completedRuns,
+    totalOutputValue: line.totalOutputValue,
+    totalDistanceLossValue: line.totalDistanceLossValue,
+    totalIdleLossValue: line.totalIdleLossValue,
+    fractionalOutput: line.fractionalOutput,
+    machinePaid: line.machinePaid,
   });
 }
 

@@ -9,6 +9,7 @@ import {
   type ParcelId,
   type WorldState,
 } from '@industry-dynasty/sim';
+import { MachineCompare } from './MachineCompare';
 import './BuildPanel.css';
 
 export interface BuildPanelProps {
@@ -68,8 +69,9 @@ export function BuildPanel({
       <h3>建造</h3>
       <p className="panel-hint">
         若在此銷售：每週約 {demand.weeklyVolume} 件，單價 ${demand.unitPrice.toLocaleString()}。
-        開工後進度吃模擬時間，暫停就停工。
+        開工後進度吃模擬時間，暫停就停工。加工機械在排產時選，不改產品。
       </p>
+      <MachineCompare />
       <ul className="factory-list">
         {FACTORY_TYPE_LIST.map((def) => {
           const affordable = player.cash >= def.buildCost;
