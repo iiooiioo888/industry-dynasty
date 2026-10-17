@@ -144,7 +144,65 @@ describe('工人沿路徑移動', () => {
     expect(arrived.completedRuns).toBe(0);
     const home = listMapActors(stepped).find((item) => item.parcelKey === parcelId.value)!;
     expect(home.activity).toBe('working');
+    expect(home.leg).toBe('working');
+    expect(home.status).toBe('作業');
     expect(Math.abs(home.x - 4) + Math.abs(home.y - 4)).toBeLessThan(0.05);
+  });
+
+  it('去程、樞紐、回程分成三段，作業時人留在廠內', () => {
+    const { state, parcelId } = startParts(4, 4);
+    const travelTicks = getProductionLine(state, parcelId)!.travelTicks;
+    expect(travelTicks).toBeGreaterThanOrEqual(5);
+
+    const outbound = applyWorldAction(state, {
+      type: 'ADVANCE_SIM_TIME',
+      deltaMs: SIM_MS_PER_TICK * Math.max(1, Math.floor(travelTicks * 0.2)),
+    });
+    const leaving = listMapActors(outbound).find((item) => item.parcelKey === parcelId.value)!;
+    expect(leaving.leg).toBe('outbound');
+    expect(leaving.status).toBe('去程');
+
+    let atHub = state;
+    for (let step = 0; step < Math.floor(travelTicks * 0.5); step += 1) {
+      atHub = applyWorldAction(atHub, { type: 'ADVANCE_PRODUCTION_TICK' });
+    }
+    const hub = listMapActors(atHub).find((item) => item.parcelKey === parcelId.value)!;
+    expect(hub.leg).toBe('hub');
+    expect(hub.status).toBe('樞紐');
+    expect(Math.abs(hub.x - SUPPLY_HUB.x) + Math.abs(hub.y - SUPPLY_HUB.y)).toBeLessThan(0.05);
+
+    let returning = atHub;
+    const returnSteps = Math.ceil(travelTicks * 0.75) - Math.floor(travelTicks * 0.5);
+    for (let step = 0; step < returnSteps; step += 1) {
+      returning = applyWorldAction(returning, { type: 'ADVANCE_PRODUCTION_TICK' });
+    }
+    const back = listMapActors(returning).find((item) => item.parcelKey === parcelId.value)!;
+    expect(back.leg).toBe('return');
+    expect(back.status).toBe('回程');
+  });
+
+  it('同格的兩名工人會錯開', () => {
+    const first = startParts(4, 4);
+    const second = ownAndCompleteFactory(first.state, 5, 4);
+    let state = applyWorldAction(second.state, {
+      type: 'START_PRODUCTION',
+      parcelId: second.parcelId,
+      recipeId: 'make-basic-part',
+    });
+    const travel = Math.min(
+      getProductionLine(state, first.parcelId)!.travelTicks,
+      getProductionLine(state, second.parcelId)!.travelTicks,
+    );
+    for (let step = 0; step < Math.floor(travel * 0.5); step += 1) {
+      state = applyWorldAction(state, { type: 'ADVANCE_PRODUCTION_TICK' });
+    }
+    const actors = listMapActors(state);
+    expect(actors).toHaveLength(2);
+    expect(actors.every((actor) => actor.leg === 'hub')).toBe(true);
+    const apart =
+      Math.abs((actors[0]?.x ?? 0) - (actors[1]?.x ?? 0)) +
+      Math.abs((actors[0]?.y ?? 0) - (actors[1]?.y ?? 0));
+    expect(apart).toBeGreaterThan(0.2);
   });
 
   it('待料時停在當下位置，不再跟著時間滑動', () => {

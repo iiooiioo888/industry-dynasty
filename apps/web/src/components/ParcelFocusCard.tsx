@@ -4,6 +4,7 @@ import {
   findOpenLotForParcel,
   getPlayerHoldings,
   listMapActors,
+  listShipmentViews,
   roadNamesAt,
   type Parcel,
   type ParcelId,
@@ -108,7 +109,7 @@ export function ParcelFocusCard({ state, selectedParcelId, onSelectParcel }: Par
 
   return (
     <div className="parcel-focus">
-      <p className="parcel-focus-note">手機不展開 16×12 全圖，改看這一格的方位與相對位置。</p>
+      <p className="parcel-focus-note">全圖可左右滑動。這裡只補充這一格的方位，不取代地圖。</p>
       {state.clock.paused ? (
         <p className="parcel-focus-note">時間已暫停，工人停在原地，標籤是暫停當下的狀態。</p>
       ) : null}
@@ -181,6 +182,20 @@ export function ParcelFocusCard({ state, selectedParcelId, onSelectParcel }: Par
                 const point = mapPoint(selected.x, selected.y);
                 return <circle className="locator-parcel" cx={point.x} cy={point.y} r="5" />;
               })()}
+              {listShipmentViews(state).map((route) => (
+                <polyline
+                  key={route.id}
+                  className="locator-route"
+                  points={route.points
+                    .map((tile) => {
+                      const point = mapPoint(tile.x, tile.y);
+                      return `${point.x},${point.y}`;
+                    })
+                    .join(' ')}
+                >
+                  <title>{route.label}</title>
+                </polyline>
+              ))}
               {listMapActors(state).map((actor) => {
                 const point = mapPoint(actor.x, actor.y);
                 const label = state.clock.paused ? `已暫停 · ${actor.label}` : actor.label;

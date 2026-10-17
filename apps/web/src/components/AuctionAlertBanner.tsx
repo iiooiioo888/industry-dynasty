@@ -34,11 +34,11 @@ export function AuctionAlertBanner({ state, selectedParcelId }: AuctionAlertBann
         <div className="auction-alert-focus">
           目前選取 ({selectedParcel.x},{selectedParcel.y}) ·
           {selectedOpen.highBidderId
-            ? ` 最高價 $${selectedOpen.highBid.toLocaleString()} — 請加價或結算`
-            : ` 底價 $${selectedOpen.minPrice.toLocaleString()} — 請出價`}
+            ? ` 最高價 $${selectedOpen.highBid.toLocaleString()} — 規劃卡可一次購入`
+            : ` 底價 $${selectedOpen.minPrice.toLocaleString()} — 規劃卡可比較後購入`}
         </div>
       ) : (
-        <div className="auction-alert-focus">點選閃爍橙格土地進入拍賣</div>
+        <div className="auction-alert-focus">點選閃爍橙格，在地圖旁比較後購入</div>
       )}
     </div>
   );

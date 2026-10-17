@@ -230,8 +230,9 @@ export function tickProductionLine(
 
   const theoretical = recipe.outputQuantity;
   const actual = Math.max(0, Math.round(theoretical * working.throughputFactor));
-  const lostUnits = Math.max(0, theoretical - actual);
   const unitVal = outputUnitValue(recipe);
+  const distanceGap = Math.max(0, 1 - working.throughputFactor);
+  const lostValue = Math.round(Math.max(0, theoretical * distanceGap * unitVal));
 
   let nextStock = consumed.stock;
   if (actual > 0) {
@@ -243,7 +244,7 @@ export function tickProductionLine(
     progressTicks: 0,
     completedRuns: working.completedRuns + 1,
     totalOutputValue: working.totalOutputValue + actual * unitVal,
-    totalDistanceLossValue: working.totalDistanceLossValue + lostUnits * unitVal,
+    totalDistanceLossValue: working.totalDistanceLossValue + lostValue,
   });
 
   return { line: working, stock: nextStock, parcel: consumed.parcel };

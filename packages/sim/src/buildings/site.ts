@@ -8,6 +8,8 @@ export interface ConstructingSite {
   readonly ownerId: string;
   readonly progressTicks: number;
   readonly totalTicks: number;
+  /** 最近一次建設刻對齊的模擬毫秒。缺省時不插值，避免舊狀態被快轉。 */
+  readonly progressAnchorMs?: number;
 }
 
 export interface CompleteSite {

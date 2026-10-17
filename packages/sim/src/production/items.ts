@@ -17,8 +17,8 @@ export interface ItemDef {
   readonly nameZh: string;
   readonly tier: ItemTier;
   /**
-   * 單位名目價值。收購價只使用 sellable 的四種；
-   * 煤炭、銅礦、石英砂粒與錠／矽片要再加工成可售品。
+   * 單位名目價值。初階產出（原礦、樹脂、煤炭、銅礦、石英砂粒、基礎零件、合金板）可直接收購。
+   * 鐵錠、銅錠、矽片仍是中間件，要再加工成合金板才變成可售品。
    */
   readonly unitValue: number;
   readonly sellable: boolean;
@@ -27,14 +27,14 @@ export interface ItemDef {
 export const ITEMS = {
   'raw-ore': { id: 'raw-ore', nameZh: '原礦', tier: 'raw', unitValue: 50, sellable: true },
   resin: { id: 'resin', nameZh: '樹脂', tier: 'raw', unitValue: 40, sellable: true },
-  coal: { id: 'coal', nameZh: '煤炭', tier: 'raw', unitValue: 20, sellable: false },
-  'copper-ore': { id: 'copper-ore', nameZh: '銅礦', tier: 'raw', unitValue: 45, sellable: false },
+  coal: { id: 'coal', nameZh: '煤炭', tier: 'raw', unitValue: 20, sellable: true },
+  'copper-ore': { id: 'copper-ore', nameZh: '銅礦', tier: 'raw', unitValue: 45, sellable: true },
   'quartz-grit': {
     id: 'quartz-grit',
     nameZh: '石英砂粒',
     tier: 'raw',
     unitValue: 28,
-    sellable: false,
+    sellable: true,
   },
   'iron-ingot': {
     id: 'iron-ingot',

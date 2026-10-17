@@ -4,16 +4,24 @@ import {
   type DataReport,
   type ProfitBucket,
 } from '@industry-dynasty/sim';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import './DataReportPanel.css';
 
 const MAX_GAMES = 200;
 
 interface DataReportPanelProps {
   onClose: () => void;
+  mapWidth: number;
+  mapHeight: number;
+  startingCash: number;
 }
 
-export function DataReportPanel({ onClose }: DataReportPanelProps) {
+export function DataReportPanel({
+  onClose,
+  mapWidth,
+  mapHeight,
+  startingCash,
+}: DataReportPanelProps) {
   const gameCountId = useId();
   const titleId = useId();
   const generation = useRef(0);
@@ -24,29 +32,40 @@ export function DataReportPanel({ onClose }: DataReportPanelProps) {
   const [running, setRunning] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const publishReport = (gameCount: number, nextSeed: number) => {
-    const runId = generation.current + 1;
-    generation.current = runId;
-    if (timerRef.current !== null) {
-      window.clearTimeout(timerRef.current);
-    }
-    setRunning(true);
-    setError(null);
-    timerRef.current = window.setTimeout(() => {
-      if (generation.current !== runId) {
-        return;
+  const publishReport = useCallback(
+    (gameCount: number, nextSeed: number) => {
+      const runId = generation.current + 1;
+      generation.current = runId;
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
       }
-      try {
-        setReport(runDataReport({ gameCount, seed: nextSeed }));
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : '模擬失敗');
-      } finally {
-        if (generation.current === runId) {
-          setRunning(false);
+      setRunning(true);
+      setError(null);
+      timerRef.current = window.setTimeout(() => {
+        if (generation.current !== runId) {
+          return;
         }
-      }
-    }, 16);
-  };
+        try {
+          setReport(
+            runDataReport({
+              gameCount,
+              seed: nextSeed,
+              mapWidth,
+              mapHeight,
+              startingCash,
+            }),
+          );
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : '模擬失敗');
+        } finally {
+          if (generation.current === runId) {
+            setRunning(false);
+          }
+        }
+      }, 16);
+    },
+    [mapHeight, mapWidth, startingCash],
+  );
 
   useEffect(() => {
     publishReport(DEFAULT_SIMULATION.gameCount, DEFAULT_SIMULATION.seed);
@@ -56,7 +75,7 @@ export function DataReportPanel({ onClose }: DataReportPanelProps) {
         window.clearTimeout(timerRef.current);
       }
     };
-  }, []);
+  }, [publishReport]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -118,6 +137,10 @@ export function DataReportPanel({ onClose }: DataReportPanelProps) {
       </header>
 
       <p className="report-tagline">空間效率 × 時間規劃 = 利潤</p>
+      <p className="metric-note">
+        這是同一張 {mapWidth}×{mapHeight} 地圖、起始現金 {formatMoney(startingCash)}{' '}
+        規則下的機器人對局，不是這一局的損益。週期是機器人模擬週期，不是畫面上的日。
+      </p>
       {error ? <p className="report-error">{error}</p> : null}
 
       {report ? (
@@ -218,7 +241,7 @@ export function DataReportPanel({ onClose }: DataReportPanelProps) {
 
           <footer className="report-foot">
             模擬 {report.gameCount.toLocaleString('zh-TW')} 局 · 地圖 {report.parameters.mapWidth}×
-            {report.parameters.mapHeight} · {report.parameters.horizon} 週期 · 起始現金{' '}
+            {report.parameters.mapHeight} · {report.parameters.horizon} 個機器人週期 · 起始現金{' '}
             {formatMoney(report.parameters.startingCash)} · 種子{' '}
             {report.seed.toLocaleString('zh-TW')}
             。產能＝基礎產出 ×

@@ -4,9 +4,10 @@ import {
   getPlayerHoldings,
   getPlayerInventory,
   ITEMS,
+  listShipmentViews,
   MARKET_HUB,
+  manhattanToMarket,
   quoteSale,
-  resolveShipParcel,
   type ParcelId,
   type WorldState,
 } from '@industry-dynasty/sim';
@@ -24,7 +25,7 @@ function salesDisabledReason(
   state: WorldState,
   offerId: string,
   qty: number,
-  shipParcel: ReturnType<typeof resolveShipParcel>,
+  shipParcel: ReturnType<typeof findParcel>,
 ): string | null {
   const playerId = state.localPlayerId;
   const holdings = getPlayerHoldings(state, playerId);
@@ -40,7 +41,7 @@ function salesDisabledReason(
     return `庫存不足（目前 ${getItemQty(stock, offer.itemId)}，欲售 ${qty}）。`;
   }
   if (!shipParcel) {
-    return '無法決定出貨土地。';
+    return '請從下拉選擇出貨點。';
   }
   const quote = quoteSale(offer, shipParcel);
   if (quote.netPerUnit <= 0) {
@@ -54,10 +55,10 @@ export function SalesPanel({ state, selectedParcelId, onSell }: SalesPanelProps)
   const stock = getPlayerInventory(state, player.id);
   const holdings = getPlayerHoldings(state, player.id);
   const preferred = selectedParcelId ? findParcel(state, selectedParcelId) : undefined;
-  const shipParcel = resolveShipParcel(holdings, preferred);
 
   const [offerId, setOfferId] = useState(state.npcBuyOffers[0]?.id ?? '');
   const [qty, setQty] = useState(1);
+  const [shipKey, setShipKey] = useState('');
 
   useEffect(() => {
     if (!state.npcBuyOffers.some((o) => o.id === offerId)) {
@@ -65,6 +66,22 @@ export function SalesPanel({ state, selectedParcelId, onSell }: SalesPanelProps)
     }
   }, [state.npcBuyOffers, offerId]);
 
+  const holdingKey = holdings.map((parcel) => parcel.id.value).join('|');
+
+  useEffect(() => {
+    if (preferred?.ownerId === player.id) {
+      setShipKey(preferred.id.value);
+    }
+  }, [preferred?.id.value, preferred?.ownerId, player.id]);
+
+  useEffect(() => {
+    if (shipKey && !holdingKey.split('|').includes(shipKey)) {
+      setShipKey('');
+    }
+  }, [shipKey, holdingKey]);
+
+  const shipParcel = holdings.find((parcel) => parcel.id.value === shipKey);
+  const shipments = listShipmentViews(state);
   const offer = state.npcBuyOffers.find((o) => o.id === offerId);
   const quote = offer && shipParcel ? quoteSale(offer, shipParcel) : null;
   const blockReason = useMemo(
@@ -78,10 +95,10 @@ export function SalesPanel({ state, selectedParcelId, onSell }: SalesPanelProps)
     <section className="sys-panel sales-panel">
       <header className="sys-panel-head">
         <span className="sys-panel-tag">SAL</span>
-        <h2>NPC 收購 · 上架銷售</h2>
+        <h2>出貨運輸</h2>
       </header>
       <p className="sys-muted sales-guide">
-        出貨點用你選中的自有土地；沒選到就改用最靠近港區的那塊。成交是立刻的，運輸費已經算進淨利。
+        出貨佔用模擬時間。地圖會畫路線，到港才入帳。出貨點必須從下拉選擇。
       </p>
       <div className="market-hub-cue">
         <img
@@ -127,6 +144,17 @@ export function SalesPanel({ state, selectedParcelId, onSell }: SalesPanelProps)
         </p>
       )}
       <label className="sales-field">
+        <span>出貨點</span>
+        <select value={shipKey} onChange={(event) => setShipKey(event.target.value)}>
+          <option value="">選擇出貨點</option>
+          {holdings.map((parcel) => (
+            <option key={parcel.id.value} value={parcel.id.value}>
+              ({parcel.x},{parcel.y}) · 到港 {manhattanToMarket(parcel)} 格
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="sales-field">
         <span>數量</span>
         <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} />
       </label>
@@ -157,10 +185,16 @@ export function SalesPanel({ state, selectedParcelId, onSell }: SalesPanelProps)
           {blockReason}
         </p>
       )}
-      {holdings.length > 0 && shipParcel && preferred?.ownerId !== player.id && (
-        <p className="sys-muted">
-          未選你的土地時，已自動用最靠近市場的 ({shipParcel.x},{shipParcel.y}) 計算運輸。
-        </p>
+      {shipments.length > 0 ? (
+        <ul className="shipment-list">
+          {shipments.map((shipment) => (
+            <li key={shipment.id}>
+              {shipment.label} · 前往 ({shipment.toX},{shipment.toY})
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="sys-muted">到貨才入帳。出貨點要從下拉明選，不會自動改成最近港區。</p>
       )}
       <button
         type="button"
@@ -168,7 +202,7 @@ export function SalesPanel({ state, selectedParcelId, onSell }: SalesPanelProps)
         disabled={!canSell}
         onClick={() => canSell && onSell(offer.id, qty, shipParcel.id)}
       >
-        確認上架並銷售
+        派出運輸
       </button>
     </section>
   );

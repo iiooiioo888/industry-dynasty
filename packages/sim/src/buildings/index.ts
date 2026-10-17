@@ -16,6 +16,7 @@ export {
   applyDemolish,
   applyStartBuild,
   canBuildOnParcel,
+  constructionRemainingTicks,
   getSiteForParcel,
   validateStartBuild,
 } from './build-logic.js';

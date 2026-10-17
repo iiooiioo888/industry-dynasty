@@ -3,10 +3,9 @@ import './PlayerOverview.css';
 
 export interface PlayerOverviewProps {
   state: WorldState;
-  onAdvanceTax: () => void;
 }
 
-export function PlayerOverview({ state, onAdvanceTax }: PlayerOverviewProps) {
+export function PlayerOverview({ state }: PlayerOverviewProps) {
   const player = state.players[state.localPlayerId];
   const holdings = getPlayerHoldings(state, player.id);
 
@@ -19,13 +18,7 @@ export function PlayerOverview({ state, onAdvanceTax }: PlayerOverviewProps) {
       <p className="cash-line">
         現金 <strong>${player.cash.toLocaleString()}</strong>
       </p>
-      <p className="meta-line">
-        生產週期：第 {state.productionTick} 期 · 銀行第 {state.financeTick} 期
-      </p>
-      <p className="panel-hint">結束本日會先扣土地稅與貸款，再對剩餘閒置現金計息。</p>
-      <button type="button" className="sys-btn full" onClick={onAdvanceTax}>
-        結束本日（稅務＋銀行＋維護＋刷新收購價）
-      </button>
+      <p className="panel-hint">日結跟標題列倒數走。歸零時一次扣土地稅、計息，並收工廠維護。</p>
       <h3>持有土地 ({holdings.length})</h3>
       {holdings.length === 0 ? (
         <p className="panel-muted">尚無土地，請從拍賣取得。</p>

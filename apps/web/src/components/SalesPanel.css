@@ -117,3 +117,9 @@
   border: 1px solid #6a3030;
   border-radius: 3px;
 }
+
+.shipment-list {
+  margin: 0.4rem 0;
+  padding-left: 1.1rem;
+  font-size: 0.75rem;
+}

@@ -1,10 +1,11 @@
 import {
   MARKET_HUB,
   PARCEL_RESOURCE_DEFS,
-  SIM_MS_PER_TICK,
   findOpenLotForParcel,
   listMapActors,
+  listShipmentViews,
   quoteLocalDemand,
+  ticksUntilDayClose,
   roadNamesAt,
   roadPresentationAt,
   type ClockSpeed,
@@ -127,16 +128,6 @@ function ariaLabel(state: WorldState, parcel: Parcel): string {
 
 const CLOCK_SPEED_OPTIONS = [1, 2, 4] as const satisfies readonly ClockSpeed[];
 
-function workerVerb(activity: string): string {
-  if (activity === 'traveling') {
-    return '趕路';
-  }
-  if (activity === 'working') {
-    return '作業';
-  }
-  return '閒置';
-}
-
 export function GameMap({
   state,
   selectedParcelId,
@@ -151,14 +142,12 @@ export function GameMap({
   const cityNames = state.map.cities.map((city) => city.name).join(' · ');
   const featureArt = resolveMapFeatureArt(state);
   const actors = listMapActors(state);
-  const simTick = Math.floor(state.clock.simMs / SIM_MS_PER_TICK);
+  const routes = listShipmentViews(state);
 
   return (
-    <section className="map-shell" aria-label={narrow ? '地塊方位' : '世界地圖'}>
+    <section className="map-shell" aria-label="世界地圖">
       <div className="map-toolbar">
-        <span>
-          {narrow ? '方位' : '地圖'} · {cityNames || '點選土地'}
-        </span>
+        <span>地圖 · {cityNames || '點選土地'}</span>
         {openCount > 0 && <span className="map-auction-chip">拍賣中 {openCount}</span>}
         <span className="map-market-cue" title={`港區市場 (${MARKET_HUB.x}, ${MARKET_HUB.y})`}>
           <img
@@ -188,18 +177,230 @@ export function GameMap({
             <button
               key={speed}
               type="button"
-              className={`clock-btn${state.clock.speed === speed ? ' on' : ''}`}
-              aria-pressed={state.clock.speed === speed}
+              className={`clock-btn${!state.clock.paused && state.clock.speed === speed ? ' on' : ''}`}
+              aria-pressed={!state.clock.paused && state.clock.speed === speed}
               onClick={() => onSetSpeed(speed)}
             >
               {speed}×
             </button>
           ))}
           <span className="clock-readout">
-            {state.clock.paused ? '已暫停 · 工人停在原地' : `${state.clock.speed}× 進行中`} · 時刻{' '}
-            {simTick}
+            {state.clock.paused ? '已暫停 · 工人停在原地' : `${state.clock.speed}× 進行中`} · 距日結{' '}
+            {ticksUntilDayClose(state.clock.simMs)} 刻
           </span>
         </div>
+      </div>
+      <div
+        className={`map-stage${narrow ? ' is-scroll-map' : ''}`}
+        style={{ ['--map-cols' as string]: width, ['--map-rows' as string]: height }}
+      >
+        <div className="map-scroll">
+          <div
+            className="map-grid"
+            style={{
+              gridTemplateColumns: `repeat(${width}, minmax(${narrow ? '2.5rem' : '0'}, 1fr))`,
+            }}
+          >
+            {state.map.parcels.map((parcel) => {
+              const selected = selectedParcelId?.value === parcel.id.value;
+              const isLocalOwner = parcel.ownerId === localId;
+              const lot = findOpenLotForParcel(state, parcel.id);
+              const hasOpenAuction = lot !== undefined && !parcel.ownerId && parcel.role === 'land';
+              const hasBids = lot?.highBidderId != null;
+              const isMarket = parcel.x === MARKET_HUB.x && parcel.y === MARKET_HUB.y;
+              const road = roadPresentationAt(state.map.parcels, parcel, state.map.size);
+              const art = cellFeatureArt(featureArt, parcel.x, parcel.y);
+              const city = state.map.cities.find((hub) => hub.x === parcel.x && hub.y === parcel.y);
+              const showDensity =
+                parcel.role === 'land' &&
+                !hasOpenAuction &&
+                !isLocalOwner &&
+                !parcel.ownerId &&
+                parcel.state === 'empty';
+              return (
+                <button
+                  key={parcel.id.value}
+                  type="button"
+                  className={`${cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids, road?.joint ?? null)}${isMarket ? ' market-hub' : ''}`}
+                  style={
+                    showDensity
+                      ? { backgroundColor: densityColor(parcel.populationDensity) }
+                      : undefined
+                  }
+                  data-art-slot={primarySlot(art)}
+                  data-role={parcel.role}
+                  data-road-joint={road?.joint}
+                  data-road-mode={road?.mode}
+                  data-road-links={road ? roadLinkCode(road.links) : undefined}
+                  data-road-rotation={road?.mode === 'tile' ? road.rotation : undefined}
+                  onClick={() => onSelectParcel(parcel.id)}
+                  title={ariaLabel(state, parcel)}
+                  aria-label={ariaLabel(state, parcel)}
+                >
+                  <MapCellFeatureArt art={art} road={road} />
+                  {city ? <span className="city-label">{city.name}</span> : null}
+                  {hasOpenAuction && (
+                    <span className="map-cell-auction-tag" aria-hidden="true">
+                      拍
+                    </span>
+                  )}
+                  {parcel.role === 'land' && (
+                    <span
+                      className="map-cell-resource-dot"
+                      style={
+                        {
+                          '--res-hue': `${PARCEL_RESOURCE_DEFS[parcel.resource.kind].colorHue}`,
+                        } as CSSProperties
+                      }
+                      title={`${parcel.resource.nameZh} · 儲量${parcel.resource.reserves}`}
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {routes.length > 0 ? (
+            <svg
+              className="map-routes"
+              viewBox={`0 0 ${width} ${height}`}
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              {routes.map((route) => (
+                <polyline
+                  key={route.id}
+                  points={route.points
+                    .map((point) => `${point.x + 0.5},${point.y + 0.5}`)
+                    .join(' ')}
+                  fill="none"
+                  stroke="#7ec8ff"
+                  strokeWidth={0.12}
+                  strokeDasharray="0.28 0.16"
+                />
+              ))}
+            </svg>
+          ) : null}
+          <div className="map-actors">
+            {routes.map((route) => (
+              <span
+                key={route.id}
+                className="map-cargo"
+                style={{
+                  left: `${((route.x + 0.5) / width) * 100}%`,
+                  top: `${((route.y + 0.5) / height) * 100}%`,
+                }}
+                role="img"
+                title={route.label}
+                aria-label={route.label}
+              >
+                <span className={`map-worker-label${route.x > width * 0.65 ? ' flip' : ''}`}>
+                  {route.label}
+                </span>
+              </span>
+            ))}
+            {actors.map((actor) => {
+              const short = state.clock.paused ? `暫停 · ${actor.status}` : actor.status;
+              const label = state.clock.paused ? `${short} · ${actor.label}` : actor.label;
+              return (
+                <span
+                  key={actor.id}
+                  className={`map-worker ${actor.activity} leg-${actor.leg}${state.clock.paused ? ' is-paused' : ''}`}
+                  style={{
+                    left: `${((actor.x + 0.5) / width) * 100}%`,
+                    top: `${((actor.y + 0.5) / height) * 100}%`,
+                  }}
+                  role="img"
+                  title={label}
+                  aria-label={label}
+                  data-activity={actor.activity}
+                  data-leg={actor.leg}
+                  data-paused={state.clock.paused ? 'true' : 'false'}
+                >
+                  <span className={`map-worker-label${actor.x > width * 0.65 ? ' flip' : ''}`}>
+                    {short}
+                  </span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <p className="map-strategy">
+        靠近人口密集區、城市與道路，收購量與單價較高。道路與城市核心不出售。工人分去程、樞紐、回程、作業，出貨沿路線走到港才入帳。
+      </p>
+      <div className="map-legend">
+        <span>
+          <i className="swatch auction-live" /> 拍賣中（閃爍）
+        </span>
+        <span>
+          <i className="swatch heat" /> 人口熱度
+        </span>
+        <span>
+          <i className="swatch road" /> 道路
+        </span>
+        <span>
+          <i className="swatch city" /> 城市據點
+        </span>
+        <span>
+          <i className="swatch owned" /> 你的土地
+        </span>
+        <span>
+          <i className="swatch under-construction" /> 建造中
+        </span>
+        <span>
+          <i className="swatch building-ready" /> 工廠運營
+        </span>
+        <span>
+          <i className="swatch worker-travel" /> 工人趕路
+        </span>
+        <span>
+          <i className="swatch worker-work" /> 工人作業
+        </span>
+        <span>
+          <i className="swatch worker-idle" /> 工人閒置
+        </span>
+        <span>
+          <img
+            className="swatch art-icon"
+            src={ASSET_SLOTS.map.road}
+            alt=""
+            data-art-slot={MAP_ART_SLOT.road}
+          />
+          道路圖層
+        </span>
+        <span>
+          <img
+            className="swatch art-icon"
+            src={ASSET_SLOTS.map.cityHub}
+            alt=""
+            data-art-slot={MAP_ART_SLOT.cityHub}
+          />
+          城市據點圖層
+        </span>
+        <span>
+          <img
+            className="swatch art-icon"
+            src={ASSET_SLOTS.map.popDense}
+            alt=""
+            data-art-slot={MAP_ART_SLOT.popDense}
+          />
+          人口密集圖層
+        </span>
+        <span>
+          <img
+            className="swatch art-icon"
+            src={ASSET_SLOTS.map.cityBuilding}
+            alt=""
+            data-art-slot={MAP_ART_SLOT.cityBuilding}
+          />
+          城市建築圖層
+        </span>
+        {featureArt.source === 'placeholder' && (
+          <span className="map-legend-note">
+            道路、城市與人口密集為美術占位；地理資料寫入後會改接同一組圖層鍵。
+          </span>
+        )}
       </div>
       {narrow ? (
         <ParcelFocusCard
@@ -207,181 +408,7 @@ export function GameMap({
           selectedParcelId={selectedParcelId}
           onSelectParcel={onSelectParcel}
         />
-      ) : (
-        <>
-          <div className="map-stage">
-            <div
-              className="map-grid"
-              style={{ gridTemplateColumns: `repeat(${width}, minmax(0, 1fr))` }}
-            >
-              {state.map.parcels.map((parcel) => {
-                const selected = selectedParcelId?.value === parcel.id.value;
-                const isLocalOwner = parcel.ownerId === localId;
-                const lot = findOpenLotForParcel(state, parcel.id);
-                const hasOpenAuction =
-                  lot !== undefined && !parcel.ownerId && parcel.role === 'land';
-                const hasBids = lot?.highBidderId != null;
-                const isMarket = parcel.x === MARKET_HUB.x && parcel.y === MARKET_HUB.y;
-                const road = roadPresentationAt(state.map.parcels, parcel, state.map.size);
-                const art = cellFeatureArt(featureArt, parcel.x, parcel.y);
-                const city = state.map.cities.find(
-                  (hub) => hub.x === parcel.x && hub.y === parcel.y,
-                );
-                const showDensity =
-                  parcel.role === 'land' &&
-                  !hasOpenAuction &&
-                  !isLocalOwner &&
-                  !parcel.ownerId &&
-                  parcel.state === 'empty';
-                return (
-                  <button
-                    key={parcel.id.value}
-                    type="button"
-                    className={`${cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids, road?.joint ?? null)}${isMarket ? ' market-hub' : ''}`}
-                    style={
-                      showDensity
-                        ? { backgroundColor: densityColor(parcel.populationDensity) }
-                        : undefined
-                    }
-                    data-art-slot={primarySlot(art)}
-                    data-role={parcel.role}
-                    data-road-joint={road?.joint}
-                    data-road-mode={road?.mode}
-                    data-road-links={road ? roadLinkCode(road.links) : undefined}
-                    data-road-rotation={road?.mode === 'tile' ? road.rotation : undefined}
-                    onClick={() => onSelectParcel(parcel.id)}
-                    title={ariaLabel(state, parcel)}
-                    aria-label={ariaLabel(state, parcel)}
-                  >
-                    <MapCellFeatureArt art={art} road={road} />
-                    {city ? <span className="city-label">{city.name}</span> : null}
-                    {hasOpenAuction && (
-                      <span className="map-cell-auction-tag" aria-hidden="true">
-                        拍
-                      </span>
-                    )}
-                    {parcel.role === 'land' && (
-                      <span
-                        className="map-cell-resource-dot"
-                        style={
-                          {
-                            '--res-hue': `${PARCEL_RESOURCE_DEFS[parcel.resource.kind].colorHue}`,
-                          } as CSSProperties
-                        }
-                        title={`${parcel.resource.nameZh} · 儲量${parcel.resource.reserves}`}
-                        aria-hidden="true"
-                      />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="map-actors">
-              {actors.map((actor) => {
-                const pausedLabel = `暫停 · ${workerVerb(actor.activity)}`;
-                const label = state.clock.paused ? `${pausedLabel} · ${actor.label}` : actor.label;
-                return (
-                  <span
-                    key={actor.id}
-                    className={`map-worker ${actor.activity}${state.clock.paused ? ' is-paused' : ''}`}
-                    style={{
-                      left: `${((actor.x + 0.5) / width) * 100}%`,
-                      top: `${((actor.y + 0.5) / height) * 100}%`,
-                    }}
-                    role="img"
-                    title={label}
-                    aria-label={label}
-                    data-activity={actor.activity}
-                    data-paused={state.clock.paused ? 'true' : 'false'}
-                  >
-                    {state.clock.paused ? (
-                      <span className={`map-worker-label${actor.x > width * 0.65 ? ' flip' : ''}`}>
-                        {pausedLabel}
-                      </span>
-                    ) : null}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-          <p className="map-strategy">
-            靠近人口密集區、城市與道路，收購量與單價較高。道路與城市核心不出售。工人沿路網往返供應樞紐，跟著模擬時間走，抵達後才作業。
-          </p>
-          <div className="map-legend">
-            <span>
-              <i className="swatch auction-live" /> 拍賣中（閃爍）
-            </span>
-            <span>
-              <i className="swatch heat" /> 人口熱度
-            </span>
-            <span>
-              <i className="swatch road" /> 道路
-            </span>
-            <span>
-              <i className="swatch city" /> 城市據點
-            </span>
-            <span>
-              <i className="swatch owned" /> 你的土地
-            </span>
-            <span>
-              <i className="swatch under-construction" /> 建造中
-            </span>
-            <span>
-              <i className="swatch building-ready" /> 工廠運營
-            </span>
-            <span>
-              <i className="swatch worker-travel" /> 工人趕路
-            </span>
-            <span>
-              <i className="swatch worker-work" /> 工人作業
-            </span>
-            <span>
-              <i className="swatch worker-idle" /> 工人閒置
-            </span>
-            <span>
-              <img
-                className="swatch art-icon"
-                src={ASSET_SLOTS.map.road}
-                alt=""
-                data-art-slot={MAP_ART_SLOT.road}
-              />
-              道路圖層
-            </span>
-            <span>
-              <img
-                className="swatch art-icon"
-                src={ASSET_SLOTS.map.cityHub}
-                alt=""
-                data-art-slot={MAP_ART_SLOT.cityHub}
-              />
-              城市據點圖層
-            </span>
-            <span>
-              <img
-                className="swatch art-icon"
-                src={ASSET_SLOTS.map.popDense}
-                alt=""
-                data-art-slot={MAP_ART_SLOT.popDense}
-              />
-              人口密集圖層
-            </span>
-            <span>
-              <img
-                className="swatch art-icon"
-                src={ASSET_SLOTS.map.cityBuilding}
-                alt=""
-                data-art-slot={MAP_ART_SLOT.cityBuilding}
-              />
-              城市建築圖層
-            </span>
-            {featureArt.source === 'placeholder' && (
-              <span className="map-legend-note">
-                道路、城市與人口密集為美術占位；地理資料寫入後會改接同一組圖層鍵。
-              </span>
-            )}
-          </div>
-        </>
-      )}
+      ) : null}
     </section>
   );
 }

@@ -6,13 +6,13 @@ import {
   findOfferById,
   generateNpcBuyOffers,
 } from '../sales/index.js';
-import { resolveShipParcel } from '../sales/ship-route.js';
 import type { ParcelId } from '../types/map.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
-import { findParcel, getPlayerHoldings, type Player, type WorldState } from './state.js';
+import { createShipment, listShipments } from './shipments.js';
+import { findParcel, type Player, type WorldState } from './state.js';
 import { applyTaxTickWithPnl } from './day-reducer.js';
 
-const MAINTENANCE_PER_FACTORY = 250;
+export const MAINTENANCE_PER_FACTORY = 250;
 
 export function applySellToNpc(
   state: WorldState,
@@ -26,39 +26,46 @@ export function applySellToNpc(
     return state;
   }
 
-  const holdings = getPlayerHoldings(state, player.id);
-  const preferred = findParcel(state, shipFromParcelId);
-  const parcel = resolveShipParcel(holdings, preferred);
-  if (!parcel) {
+  const parcel = findParcel(state, shipFromParcelId);
+  if (!parcel || parcel.ownerId !== player.id) {
     return state;
   }
 
   const stock = state.inventories[player.id] ?? {};
   const result = executeSellToNpc(offer, quantity, parcel, stock, player.id);
-  if (!result.ok || !result.stock || result.netCash === undefined) {
+  if (
+    !result.ok ||
+    !result.stock ||
+    result.netCash === undefined ||
+    result.grossRevenue === undefined ||
+    result.transportCost === undefined
+  ) {
     return state;
   }
 
-  const pnl = addPnL(state.pnl[player.id] ?? emptyPnL(), {
-    revenue: result.grossRevenue ?? 0,
-    transportCost: result.transportCost ?? 0,
+  const shipment = createShipment({
+    state,
+    ownerId: player.id,
+    offerId: offer.id,
+    itemId: offer.itemId,
+    quantity,
+    parcel,
+    grossRevenue: result.grossRevenue,
+    transportCost: result.transportCost,
+    netCash: result.netCash,
   });
-
-  const nextPlayer: Player = {
-    ...player,
-    cash: player.cash + result.netCash,
-  };
 
   return {
     ...state,
-    players: { ...state.players, [player.id]: nextPlayer },
     inventories: { ...state.inventories, [player.id]: result.stock },
-    pnl: { ...state.pnl, [player.id]: pnl },
-    scenario: evaluateScenario(state.scenario, state.gameDay, pnl),
+    shipments: [...listShipments(state), shipment],
   };
 }
 
-export function applyAdvanceDay(state: WorldState, config: WorldConfig = DEFAULT_WORLD_CONFIG): WorldState {
+export function applyAdvanceDay(
+  state: WorldState,
+  config: WorldConfig = DEFAULT_WORLD_CONFIG,
+): WorldState {
   const next = applyTaxTickWithPnl(state, config);
 
   const playerId = next.localPlayerId;

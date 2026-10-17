@@ -143,6 +143,7 @@ describe('距離懲罰', () => {
     const nearLine = getProductionLine(nearState, near.parcelId)!;
     const farLine = getProductionLine(farState, far.parcelId)!;
     expect(nearLine.totalOutputValue).toBeGreaterThanOrEqual(farLine.totalOutputValue);
-    expect(farLine.totalDistanceLossValue).toBeGreaterThanOrEqual(nearLine.totalDistanceLossValue);
+    expect(farLine.totalDistanceLossValue).toBeGreaterThan(0);
+    expect(farLine.totalDistanceLossValue).toBeGreaterThan(nearLine.totalDistanceLossValue);
   });
 });

@@ -65,6 +65,7 @@ export function createInitialWorld(config: Partial<WorldConfig> = {}): WorldStat
     pnl: { [player.id]: emptyPnL() },
     scenario: createScenarioState(),
     clock: initialSimClock(),
+    shipments: [],
   };
 }
 
