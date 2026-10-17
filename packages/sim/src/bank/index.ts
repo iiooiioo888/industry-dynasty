@@ -42,6 +42,7 @@ export {
   quoteCommodityBid,
   quoteStock,
   quoteStockMove,
+  quoteStockSeries,
 } from './quotes.js';
 export {
   ZERO_SETTLEMENT,

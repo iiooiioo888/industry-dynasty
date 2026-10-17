@@ -48,7 +48,8 @@ export function BuildPanel({
           <div className="progress-fill" style={{ width: `${pct}%` }} />
         </div>
         <p className="panel-muted">
-          進度 {site.progressTicks} / {site.totalTicks} 週期（{pct}%）
+          進度 {site.progressTicks} / {site.totalTicks} 週期（{pct}
+          %）。建設不跟著模擬時間走，要按推進建設週期才會動。
         </p>
         <div className="panel-actions">
           <button type="button" onClick={onAdvanceBuild}>
@@ -84,6 +85,7 @@ export function BuildPanel({
       </p>
       <p className="panel-hint">
         若在此銷售：每週約 {demand.weeklyVolume} 件，單價 ${demand.unitPrice.toLocaleString()}。
+        選工廠後按開始建造，再推進建設週期直到藍框完工，接著到產線排配方。
       </p>
       <ul className="factory-list">
         {FACTORY_TYPE_LIST.map((def) => {

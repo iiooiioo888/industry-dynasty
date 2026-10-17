@@ -4,7 +4,13 @@ import { parcelIdFromCoords } from '../types/map.js';
 import { applyWorldAction } from '../world/reducer.js';
 import { createInitialWorld } from '../world/create-world.js';
 import { findOpenLotForParcel, getSite } from '../world/state.js';
-import { formatBps, quoteCommodityAsk, quoteCommodityBid, quoteStock } from './quotes.js';
+import {
+  formatBps,
+  quoteCommodityAsk,
+  quoteCommodityBid,
+  quoteStock,
+  quoteStockSeries,
+} from './quotes.js';
 import { previewCoupledWeek, summarizeBank } from './logic.js';
 
 function ownParcel(state: ReturnType<typeof createInitialWorld>, x: number, y: number) {
@@ -190,6 +196,19 @@ describe('股票與大宗', () => {
     expect(formatBps(50)).toBe('0.50%');
     expect(quoteStock('IRON', 0)).toBe(68);
     expect(quoteStock('IRON', 4)).toBe(90);
+    expect(quoteStockSeries('IRON', 0)).toEqual([68]);
+    expect(quoteStockSeries('IRON', 4)).toEqual([68, 74, 78, 83, 90]);
+    expect(quoteStockSeries('IRON', 10)).toEqual([
+      quoteStock('IRON', 3),
+      quoteStock('IRON', 4),
+      quoteStock('IRON', 5),
+      quoteStock('IRON', 6),
+      quoteStock('IRON', 7),
+      quoteStock('IRON', 8),
+      quoteStock('IRON', 9),
+      quoteStock('IRON', 10),
+    ]);
+    expect(quoteStockSeries('TOOL', -3)).toEqual([quoteStock('TOOL', 0)]);
 
     let state = applyWorldAction(createInitialWorld({ startingCash: 10_000 }), {
       type: 'BUY_STOCK',

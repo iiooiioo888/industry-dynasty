@@ -32,6 +32,21 @@ export function quoteStockMove(
   return { price, previous, delta: price - previous };
 }
 
+/**
+ * 已發生的股價，最長一個波段。
+ * 只收到本期為止，不把下一期的確定波段畫出來。
+ */
+export function quoteStockSeries(symbol: StockSymbol, tick: number): readonly number[] {
+  const safeTick = Number.isFinite(tick) ? Math.max(0, Math.floor(tick)) : 0;
+  const window = STOCKS[symbol].waveBps.length;
+  const start = Math.max(0, safeTick - (window - 1));
+  const prices: number[] = [];
+  for (let step = start; step <= safeTick; step += 1) {
+    prices.push(quoteStock(symbol, step));
+  }
+  return prices;
+}
+
 export function quoteCommodityAsk(commodityId: CommodityId, tick: number): number {
   const def = COMMODITIES[commodityId];
   return priceFromWave(def.basePrice, def.waveBps, tick);

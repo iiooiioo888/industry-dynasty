@@ -80,6 +80,9 @@ export function SalesPanel({ state, selectedParcelId, onSell }: SalesPanelProps)
         <span className="sys-panel-tag">SAL</span>
         <h2>NPC 收購 · 上架銷售</h2>
       </header>
+      <p className="sys-muted sales-guide">
+        出貨點用你選中的自有土地；沒選到就改用最靠近港區的那塊。成交是立刻的，運輸費已經算進淨利。
+      </p>
       <div className="market-hub-cue">
         <img
           src={ASSET_SLOTS.ui.marketHub}

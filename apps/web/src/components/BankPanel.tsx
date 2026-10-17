@@ -9,6 +9,7 @@ import {
   quoteCommodityAsk,
   quoteCommodityBid,
   quoteStockMove,
+  quoteStockSeries,
   summarizeBank,
   validateBuyCommodity,
   validateBuyStock,
@@ -60,6 +61,41 @@ function signedMoney(amount: number): string {
     return `−$${Math.abs(amount).toLocaleString()}`;
   }
   return '$0';
+}
+
+function StockSparkline({
+  prices,
+  tone,
+  label,
+}: {
+  prices: readonly number[];
+  tone: string;
+  label: string;
+}) {
+  const width = 128;
+  const height = 36;
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const span = max - min || 1;
+  const points = prices.map((price, index) => {
+    const x = prices.length === 1 ? width / 2 : (index / (prices.length - 1)) * (width - 4) + 2;
+    const y = height - 3 - ((price - min) / span) * (height - 8);
+    return { x, y };
+  });
+  const line = points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
+  const last = points[points.length - 1];
+
+  return (
+    <svg
+      className={`stock-spark ${tone}`}
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      aria-label={label}
+    >
+      <polyline points={line} fill="none" stroke="currentColor" strokeWidth="1.6" />
+      {last ? <circle cx={last.x} cy={last.y} r="2.2" fill="currentColor" /> : null}
+    </svg>
+  );
 }
 
 export function BankPanel({
@@ -366,23 +402,37 @@ export function BankPanel({
       {tab === 'stocks' ? (
         <div role="tabpanel">
           <p className="panel-muted">
-            無買賣價差。跨期才有漲跌，持有期間放棄閒置利息。紅漲、綠跌。
+            無買賣價差。跨期才有漲跌，持有期間放棄閒置利息。紅漲、綠跌。走勢只畫到本期。
           </p>
           <ul className="bank-list">
             {STOCK_LIST.map((stock) => {
               const quote = quoteStockMove(stock.symbol, state.financeTick);
+              const series = quoteStockSeries(stock.symbol, state.financeTick);
               const holding = book.stocks.find((item) => item.symbol === stock.symbol);
               const shares = shareAmounts[stock.symbol];
               const tone =
                 quote.delta > 0 ? 'quote-rise' : quote.delta < 0 ? 'quote-fall' : 'quote-flat';
+              const low = Math.min(...series);
+              const high = Math.max(...series);
               return (
                 <li key={stock.symbol} className="bank-card">
                   <strong>
                     {stock.nameZh} <span className="bank-code">{stock.symbol}</span>
                   </strong>
-                  <p className={tone}>
-                    {money(quote.price)} {quote.delta > 0 ? '▲' : quote.delta < 0 ? '▼' : '–'}{' '}
-                    {Math.abs(quote.delta)}
+                  <div className="stock-quote-row">
+                    <p className={tone}>
+                      {money(quote.price)} {quote.delta > 0 ? '▲' : quote.delta < 0 ? '▼' : '–'}{' '}
+                      {Math.abs(quote.delta)}
+                    </p>
+                    <StockSparkline
+                      prices={series}
+                      tone={tone}
+                      label={`${stock.nameZh}近 ${series.length} 期走勢，最低 ${money(low)}，最高 ${money(high)}，現價 ${money(quote.price)}`}
+                    />
+                  </div>
+                  <p className="panel-muted">
+                    近 {series.length} 期 {money(low)}–{money(high)}
+                    {series.length < 2 ? ' · 推進銀行週期後才會走出第二點' : ''}
                   </p>
                   <p className="panel-muted">
                     {stock.blurb}
