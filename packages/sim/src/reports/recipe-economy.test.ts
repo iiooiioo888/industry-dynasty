@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { executeSellToNpc } from '../sales/sell-logic.js';
 import { generateNpcBuyOffers } from '../sales/market.js';
 import { ITEMS, VALUE_CHAIN, type PlayerStock } from '../production/items.js';
+import { nominalProfitPerTick, projectLine } from '../production/line-economy.js';
 import { RECIPES } from '../production/recipes.js';
 import { BALANCE, HOLDING, dailyHoldingCostPerFactory } from '../balance/targets.js';
 import { FACTORY_TYPES } from '../buildings/catalog.js';
@@ -121,9 +122,11 @@ describe('配方毛利：哪條路線真的有錢賺', () => {
       const gross = outVal - inVal;
       const perDay = gross / r.baseCycleTicks;
       const target =
-        r.inputs.length === 0
+        r.stage === 'extract'
           ? VALUE_CHAIN.extractMarginPerCycle / r.baseCycleTicks
-          : VALUE_CHAIN.processingMarginPerDay;
+          : r.stage === 'finish'
+            ? VALUE_CHAIN.finishMarginPerTick
+            : VALUE_CHAIN.processMarginPerTick;
       console.log(
         r.id.padEnd(20) +
           String(r.baseCycleTicks).padStart(6) +
@@ -140,48 +143,46 @@ describe('配方毛利：哪條路線真的有錢賺', () => {
     }
   });
 
-  it('加工報酬與最佳開採同量級，中間件仍須往下游變現', () => {
-    const perTick = (r: (typeof RECIPES)[keyof typeof RECIPES]): number => {
-      const outVal = ITEMS[r.outputItemId].unitValue * r.outputQuantity * (r.outputMultiplier ?? 1);
-      const inVal = r.inputs.reduce((s, i) => s + ITEMS[i.itemId].unitValue * i.quantity, 0);
-      return (outVal - inVal) / r.baseCycleTicks;
-    };
-    const extraction = Object.values(RECIPES).filter((r) => r.inputs.length === 0);
-    const processing = Object.values(RECIPES).filter((r) => r.inputs.length > 0);
-    const bestExtract = Math.max(...extraction.map(perTick));
-
-    console.log('\n=== 每刻報酬 ===');
-    for (const r of extraction) {
-      console.log(
-        `  [開採] ${r.id.padEnd(18)} ${perTick(r).toFixed(0).padStart(6)}/刻` +
-          `  sellable=${ITEMS[r.outputItemId].sellable}`,
-      );
-    }
-    for (const r of processing) {
-      console.log(
-        `  [加工] ${r.id.padEnd(18)} ${perTick(r).toFixed(0).padStart(6)}/刻` +
-          `  sellable=${ITEMS[r.outputItemId].sellable}`,
-      );
-    }
-
-    // 開採的每刻報酬由「產出倍率 × 品項單價」決定，而鐵礦兩者都最高，
-    // 所以它是唯一的天花板（1,500/刻）。加工不必贏過它才算合理 ——
-    // 加工的價值在於**讓其餘三分之二的地圖能用**。
+  it('短路程名目毛利是開採 < 加工 < 成品，遠址則賣礦反超', () => {
+    const perTick = (r: (typeof RECIPES)[keyof typeof RECIPES]): number => nominalProfitPerTick(r);
+    const extraction = Object.values(RECIPES).filter((r) => r.stage === 'extract');
+    const processing = Object.values(RECIPES).filter((r) => r.stage !== 'extract');
     const ironTick = perTick(RECIPES['extract-iron']);
+    const bestProcess = Math.max(
+      ...Object.values(RECIPES)
+        .filter((r) => r.stage === 'process')
+        .map(perTick),
+    );
+    const bestFinish = Math.max(
+      ...Object.values(RECIPES)
+        .filter((r) => r.stage === 'finish')
+        .map(perTick),
+    );
 
-    // 護欄一：加工報酬必須與最佳開採同量級（至少六成）。
-    // 低於此就會出現「整張圖只有鐵礦值得蓋」的退化玩法。
-    // 門檻取六成而非更高，是因為鐵礦同時擁有最高單價與 6 倍產出倍率，
-    // 是刻意的天花板；加工不必追上它，只要不被它甩開。
-    for (const r of processing) {
-      expect(
-        perTick(r),
-        `${r.id} 每刻 ${perTick(r).toFixed(0)} 遠低於鐵礦的 ${ironTick.toFixed(0)}`,
-      ).toBeGreaterThan(ironTick * 0.6);
+    console.log('\n=== 名目每刻報酬（係數 1、未裝機）===');
+    for (const r of Object.values(RECIPES)) {
+      console.log(`  [${r.stage}] ${r.id.padEnd(18)} ${perTick(r).toFixed(0).padStart(6)}/刻`);
     }
 
-    // 護欄二：P0 起開採產出都可賣。鐵錠、銅錠、矽片仍不可直接賣，
-    // 必須有每刻報酬為正的下游配方，否則中間件庫存永遠變不成現金。
+    expect(bestProcess, '加工名目每刻應高於鐵礦').toBeGreaterThan(ironTick);
+    expect(bestFinish, '成品名目每刻應高於加工').toBeGreaterThan(bestProcess);
+    for (const r of processing) {
+      expect(perTick(r), `${r.id} 名目每刻不該低於鐵礦`).toBeGreaterThan(ironTick);
+    }
+
+    const near = bareParcel(0, 0);
+    const far = bareParcel(12, 10);
+    const nearIron = projectLine(RECIPES['extract-iron'], near, 1, null, 1).profitPerTick;
+    const nearPart = projectLine(RECIPES['make-basic-part'], near, 1, null, 1).profitPerTick;
+    const nearPlate = projectLine(RECIPES['make-alloy-plate'], near, 1, null, 1).profitPerTick;
+    const farIron = projectLine(RECIPES['extract-iron'], far, 1, null, 1).profitPerTick;
+    const farPart = projectLine(RECIPES['make-basic-part'], far, 1, null, 1).profitPerTick;
+    const farPlate = projectLine(RECIPES['make-alloy-plate'], far, 1, null, 1).profitPerTick;
+    expect(nearPart).toBeGreaterThan(nearIron);
+    expect(nearPlate).toBeGreaterThan(nearPart);
+    expect(farIron, '遠址賣礦應反超加工').toBeGreaterThan(farPart);
+    expect(farIron, '遠址賣礦應反超成品').toBeGreaterThan(farPlate);
+
     expect(extraction.every((r) => ITEMS[r.outputItemId].sellable)).toBe(true);
     const intermediates = ['iron-ingot', 'copper-ingot', 'silica'] as const;
     for (const itemId of intermediates) {
@@ -192,6 +193,22 @@ describe('配方毛利：哪條路線真的有錢賺', () => {
         expect(perTick(consumer), `${consumer.id} 消化 ${itemId} 卻不賺錢`).toBeGreaterThan(0);
       }
     }
-    void bestExtract;
   });
 });
+
+function bareParcel(x: number, y: number) {
+  return {
+    id: parcelIdFromCoords(x, y),
+    x,
+    y,
+    state: 'building-ready' as const,
+    ownerId: 'p',
+    resource: generateParcelResource(x, y),
+    role: 'land' as const,
+    populationDensity: 10,
+    roadAccess: 1,
+    cityProximity: 1,
+    nearestCityName: null,
+    nearestCityDistance: 0,
+  };
+}

@@ -1,23 +1,29 @@
 import {
   CHAIN_STAGES,
   FACTORY_TYPES,
+  MACHINE_GRADES,
   RECIPE_LIST,
   RECIPES,
+  chainMarginCue,
   findParcel,
   getProductionLine,
   getSite,
   getSiteLogisticsView,
+  nominalProfitPerTick,
   planProfitPerTick,
+  projectLine,
   quoteLocalDemand,
   recipeOutputLabel,
   recipeSourceLabel,
   techStage,
   unitsUntilNextStage,
+  type MachineGradeId,
   type ParcelId,
   type ProductionStatus,
   type WorldState,
 } from '@industry-dynasty/sim';
 import { useEffect, useId, useState } from 'react';
+import { MachineCompare } from './MachineCompare';
 import { ParcelResourceBadge } from './ParcelResourceBadge';
 import './ProductionPanel.css';
 
@@ -55,6 +61,7 @@ export interface ProductionPanelProps {
   state: WorldState;
   selectedParcelId: ParcelId | null;
   onStop: (parcelId: ParcelId) => void;
+  onInstallMachine: (parcelId: ParcelId, machineGradeId: MachineGradeId) => void;
   onAdvanceProduction: () => void;
   onDemolish: (parcelId: ParcelId) => void;
 }
@@ -82,6 +89,7 @@ export function ProductionPanel({
   state,
   selectedParcelId,
   onStop,
+  onInstallMachine,
   onAdvanceProduction,
   onDemolish,
 }: ProductionPanelProps) {
@@ -100,10 +108,11 @@ export function ProductionPanel({
     line && line.cycleTicks > 0 ? Math.round((line.progressTicks / line.cycleTicks) * 100) : 0;
   const activeRecipe = line ? RECIPES[line.recipeId] : undefined;
   const demand = parcel ? quoteLocalDemand(parcel) : undefined;
-  const locationBonus =
+  const logisticsView =
     parcel && site?.phase === 'complete'
-      ? getSiteLogisticsView(state.map, parcel, site, state.sites).locationBonus
-      : 0;
+      ? getSiteLogisticsView(state.map, parcel, site, state.sites)
+      : null;
+  const locationBonus = logisticsView?.locationBonus ?? 0;
   const stageName = CHAIN_STAGES.find((entry) => entry.stage === stage)?.nameZh ?? '開採';
   const foldSummary = line
     ? `${stageName} · ${lineStatusZh(line.status)}`
@@ -158,6 +167,9 @@ export function ProductionPanel({
                       <span className="chain-meta">
                         {recipe.buildings.map((id) => FACTORY_TYPES[id].nameZh).join('/')}
                         {recipe.minTechStage === 0 && recipe.stage === 'finish' ? ' · 捷徑' : ''}
+                        {' · '}
+                        短路程名目每刻{' '}
+                        {Math.round(nominalProfitPerTick(recipe)).toLocaleString('zh-Hant')}
                       </span>
                     </li>
                   ))}
@@ -166,8 +178,8 @@ export function ProductionPanel({
             ))}
           </div>
           <p className="sys-muted chain-note">
-            規劃利潤／週期＝（產出名目 − 投入名目）÷ 週期。離供應樞紐 (0,0)
-            越遠，週期越長、係數越低。煤炭、銅礦、石英砂粒可直接賣給港區。鐵錠、銅錠、矽片要再加工；合金板要組裝廠，工坊做不到。
+            短路程名目每刻是開採 &lt; 加工 &lt; 成品。離供應樞紐 (0,0)
+            愈遠，加工溢價掉得愈快，賣礦會反超。加工機不改產品，只改速度、產量與維護。煤炭、銅礦、石英砂粒可直接賣給港區。鐵錠、銅錠、矽片要再加工；合金板要組裝廠。
           </p>
         </details>
 
@@ -185,7 +197,42 @@ export function ProductionPanel({
               <>
                 <p className="sys-muted">
                   生產中：{activeRecipe.nameZh} · {FACTORY_TYPES[site.factoryTypeId].nameZh}
+                  {line.machineGradeId ? ` · ${MACHINE_GRADES[line.machineGradeId].nameZh}` : ''}
+                  {line.pathGated ? ' · 路程超過門檻' : ''}
                 </p>
+                <p className="panel-hint">
+                  {chainMarginCue(
+                    activeRecipe,
+                    planProfitPerTick(activeRecipe, line.cycleTicks, line.throughputFactor),
+                    projectLine(
+                      RECIPES['extract-iron'],
+                      parcel,
+                      logisticsView?.factor ?? 1,
+                      null,
+                      1,
+                    ).profitPerTick,
+                  )}
+                </p>
+                {activeRecipe.stage !== 'extract' ? (
+                  <MachineCompare
+                    compact
+                    selected={line.machineGradeId}
+                    cash={(state.players[playerId]?.cash ?? 0) + (line.machinePaid ?? 0)}
+                    profitPerTick={Object.fromEntries(
+                      (['anvil-bench', 'balance-press', 'neighbor-kiln'] as const).map((grade) => [
+                        grade,
+                        projectLine(
+                          activeRecipe,
+                          parcel,
+                          logisticsView?.factor ?? 1,
+                          grade,
+                          line.localResourceBonus,
+                        ).profitPerTick,
+                      ]),
+                    )}
+                    onSelect={(grade) => onInstallMachine(parcel.id, grade)}
+                  />
+                ) : null}
                 <dl className="prod-metrics">
                   <div>
                     <dt>地皮加成</dt>

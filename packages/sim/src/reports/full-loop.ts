@@ -342,6 +342,31 @@ export function startProductionEverywhere(
   return next;
 }
 
+/**
+ * 深度 2 需要工坊供料、組裝廠收尾。前段槽位蓋工坊，最後一座才蓋組裝廠。
+ * 深度 0／1 維持呼叫端指定的廠型（預設工坊），避免改動可通關路徑。
+ */
+export function factoryTypeForChainSlot(
+  builtCount: number,
+  depth: 0 | 1 | 2,
+  extractorCount: number,
+  maxParcels: number,
+  fallback: FactoryTypeId,
+): FactoryTypeId {
+  if (depth < 2 || fallback === 'assembly-plant') {
+    return fallback;
+  }
+  const processorSlots = Math.max(0, maxParcels - Math.max(1, extractorCount));
+  if (processorSlots < 2) {
+    return 'workshop';
+  }
+  const feederSlots = Math.max(1, processorSlots - 1);
+  if (builtCount < Math.max(1, extractorCount) + feederSlots) {
+    return 'workshop';
+  }
+  return 'assembly-plant';
+}
+
 export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
   const config: WorldConfig = {
     ...DEFAULT_WORLD_CONFIG,
@@ -353,12 +378,12 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
   const maxDays = options.maxDays ?? DEFAULT_SCENARIO.maxDays;
   const maxParcels = options.maxParcels ?? 1;
   const factoryTypeId = options.factoryTypeId ?? 'workshop';
-  const buildCost = FACTORY_TYPES[factoryTypeId].buildCost;
-  const buildTicks = FACTORY_TYPES[factoryTypeId].buildTimeTicks;
+  const depth = options.depth ?? 0;
+  const extractorCount = options.extractorCount ?? 2;
 
   let state = createInitialWorld(config);
   const days: FullLoopDay[] = [];
-  const resourceKinds = pickResourceKinds(state, options.recipeId, options.depth ?? 0);
+  const resourceKinds = pickResourceKinds(state, options.recipeId, depth);
 
   const record = (): void => {
     const playerId = state.localPlayerId;
@@ -386,8 +411,16 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
         const lot = state.auctionLots.find(
           (l) => l.parcelId.value === target.value && l.status === 'open',
         );
+        const nextType = factoryTypeForChainSlot(
+          Object.keys(state.sites).length,
+          depth,
+          extractorCount,
+          maxParcels,
+          factoryTypeId,
+        );
+        const nextCost = FACTORY_TYPES[nextType].buildCost;
         const cash = state.players[state.localPlayerId]?.cash ?? 0;
-        if (lot && cash >= lot.minPrice + buildCost) {
+        if (lot && cash >= lot.minPrice + nextCost) {
           state = applyWorldAction(state, { type: 'BID', parcelId: target, amount: lot.minPrice });
           state = applyWorldAction(state, { type: 'SETTLE_AUCTION', parcelId: target });
         }
@@ -402,29 +435,42 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
       if (parcel.state !== 'owned') {
         continue;
       }
+      const slotType = factoryTypeForChainSlot(
+        Object.keys(state.sites).length,
+        depth,
+        extractorCount,
+        maxParcels,
+        factoryTypeId,
+      );
+      const slotCost = FACTORY_TYPES[slotType].buildCost;
       const cash = state.players[state.localPlayerId]?.cash ?? 0;
-      if (cash < buildCost) {
+      if (cash < slotCost) {
         continue;
       }
       state = applyWorldAction(state, {
         type: 'START_BUILD',
         parcelId: parcel.id,
-        factoryTypeId,
+        factoryTypeId: slotType,
       });
     }
 
-    // 3) 推進建造
+    // 3) 推進建造。有工地就補到最慢的那座當天能完工；
+    // 沒有工地時仍推進預設廠型的建造刻，與舊迴圈的 buildTick 語意相同。
+    let buildTicks = 0;
+    for (const site of Object.values(state.sites)) {
+      if (site.phase === 'constructing') {
+        buildTicks = Math.max(buildTicks, site.totalTicks - site.progressTicks);
+      }
+    }
+    if (buildTicks === 0) {
+      buildTicks = FACTORY_TYPES[factoryTypeId].buildTimeTicks;
+    }
     for (let i = 0; i < buildTicks; i += 1) {
       state = applyWorldAction(state, { type: 'ADVANCE_BUILD_TICK' });
     }
 
     // 4) 排生產
-    state = startProductionEverywhere(
-      state,
-      options.recipeId ?? null,
-      options.depth ?? 0,
-      options.extractorCount ?? 2,
-    );
+    state = startProductionEverywhere(state, options.recipeId ?? null, depth, extractorCount);
 
     // 除錯用：讓呼叫端觀察每一天排定的配方
     options.inspect?.(day, state);
@@ -433,7 +479,7 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
     state = applyWorldAction(state, { type: 'ADVANCE_PRODUCTION_TICK' });
 
     // 6) 賣出（保留加工廠需要的原料）
-    state = sellInventory(state, options.depth ?? 0, options.extractorCount ?? 2);
+    state = sellInventory(state, depth, extractorCount);
 
     // 7) 結束本日（稅、維護、刷新 NPC 報價、通關判定）
     state = applyWorldAction(state, { type: 'ADVANCE_DAY' });

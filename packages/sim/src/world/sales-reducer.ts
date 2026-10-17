@@ -7,6 +7,7 @@ import {
   generateNpcBuyOffers,
 } from '../sales/index.js';
 import { HOLDING } from '../balance/targets.js';
+import { MACHINE_GRADES } from '../production/machines.js';
 import type { ParcelId } from '../types/map.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
 import { createShipment, listShipments } from './shipments.js';
@@ -74,7 +75,13 @@ export function applyAdvanceDay(
   let pnl = next.pnl[playerId] ?? emptyPnL();
 
   const factoryCount = Object.values(next.sites).filter((s) => s.phase === 'complete').length;
-  const maintenance = factoryCount * MAINTENANCE_PER_FACTORY;
+  const machineUpkeep = Object.values(next.productionLines).reduce((sum, line) => {
+    if (!line.machineGradeId) {
+      return sum;
+    }
+    return sum + MACHINE_GRADES[line.machineGradeId].maintenancePerDay;
+  }, 0);
+  const maintenance = factoryCount * MAINTENANCE_PER_FACTORY + machineUpkeep;
   let cash = player.cash;
   const paidMaintenance = Math.min(maintenance, cash);
   cash -= paidMaintenance;

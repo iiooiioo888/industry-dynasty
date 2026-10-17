@@ -1,5 +1,7 @@
 # 平衡量測：空間效率被數量槓桿壓過
 
+> 2026-10-17 的加工深度與機械檔位見倉庫根目錄 [`docs/balance-findings.md`](../../../docs/balance-findings.md)。下文仍是 rebase 前對 `2fe65c5` 的舊量測，稅率與門檻不要當成現況。
+
 > 這份紀錄的是 rebase 之前、對 `2fe65c5` 的量測。現行 `main` 的規劃日是 48 刻，出貨要走完路程才入帳；稅、維護與通關門檻已改到 `balance/targets.ts`。下文的 500 稅、60,000 門檻與策略淨利不要當成現況。
 
 以 `reports/simulate.ts` 的機器人模擬器對 `main`（`2fe65c5`）量測。

@@ -34,37 +34,38 @@ export interface ItemDef {
  * 推導式：`產出單價 = (投入單價總和 + 目標毛利) / 產出數量`
  * 由基礎原料往上逐階計算。
  *
- * **目標毛利隨週期長度放大。** 開採週期 2 刻、加工週期 3～6 刻；
- * 若每個配方都只賺相同的每週期毛利，加工因為週期長、每日跑的輪數少，
- * 每日毛利會被稀釋到開採的十分之一（實測 200 vs 1500），
- * 於是「往下游走」永遠是壞選擇。改用 `processingMarginPerCycle(cycleTicks)`
- * 讓每日毛利大致持平，加工才有存在的理由。
+ * **名目每刻毛利：開採 < 加工 < 成品。**
+ * 開採鐵礦因 6 倍產量，係數為 1 時每刻約 1,500。
+ * 加工與成品的單價故意高過這個天花板，否則玩家會正確地只賣礦。
+ *
+ * 高單價不是全程白送。`line-economy.ts` 的距離指數在係數掉下去之後
+ * 把加工溢價吃掉，遠址深加工會輸給賣礦。機械再決定你留得住多少。
  */
 export const VALUE_CHAIN = {
-  /** 開採配方（週期 2 刻）的每週期毛利基準。 */
+  /** 開採配方（週期 2 刻）的每週期毛利基準。實際鐵礦更高，因為有產出倍率。 */
   extractMarginPerCycle: 600,
   /**
-   * 加工配方的每日毛利目標；每週期毛利 = 此值 × 週期刻數 ÷ 2。
-   *
-   * **門檻由開採的實際產出決定，不是憑感覺調的。**
-   * 開採配方因為 `EXTRACT_OUTPUT_MULTIPLIER = 6`，每週期賣出
-   * `6 × 250 = 1,500`（鐵礦），週期 2 刻 → **每刻 1,500**。
-   * 加工配方每週期毛利是 `此值 × 週期刻數 ÷ 2`：
-   *
-   *   - 1,400 時：每週期 2,100（週期 3）→ **每刻 700**，只有開採的一半。
-   *     實測 `roll-alloy`（最終產物）每刻 787，仍輸給賣原礦的 1,500，
-   *     於是「往下游走」永遠是壞選擇，整條加工鏈形同裝飾。
-   *   - 2,000 時：每週期 3,000（週期 3）→ **每刻 1,000**。
-   *
-   * 加工還必須**值得**才有人做：它要蓋更多廠、吃更長的週期
-   * （`roll-alloy` 的完整鏈是 4+4+6 = 14 刻），所以每刻報酬理應高於開採。
+   * 加工（一階）名目每刻毛利。每週期毛利 = 此值 × 週期刻數。
+   * 要高過鐵礦的 1,500/刻，兩座加工廠的營收才蓋得過四座礦場。
    */
-  processingMarginPerDay: 2_000,
+  processMarginPerTick: 4_100,
+  /**
+   * 成品（二階）名目每刻毛利。熔鑄捷徑用它定合金板單價；
+   * 軋製鏈的每刻毛利是這個單價減去中間件投入後的結果，應仍高於一階。
+   */
+  finishMarginPerTick: 8_450,
+  /** 與 `processMarginPerTick` 相同，保留舊欄位名稱。 */
+  processingMarginPerDay: 4_100,
 } as const;
 
-/** 依配方週期長度決定加工配方的每週期目標毛利。 */
-export function processingMarginPerCycle(baseCycleTicks: number): number {
-  return Math.round((VALUE_CHAIN.processingMarginPerDay * baseCycleTicks) / 2);
+/** 依配方週期與階段決定加工配方的每週期目標毛利。 */
+export function processingMarginPerCycle(
+  baseCycleTicks: number,
+  stage: 'process' | 'finish' = 'process',
+): number {
+  const perTick =
+    stage === 'finish' ? VALUE_CHAIN.finishMarginPerTick : VALUE_CHAIN.processMarginPerTick;
+  return perTick * baseCycleTicks;
 }
 
 /** 由投入推導產出單價。 */
@@ -124,7 +125,7 @@ const V_ALLOY_PLATE = deriveOutputValue(
     { unitValue: V_BASIC_PART, quantity: 1 },
   ],
   1,
-  processingMarginPerCycle(5),
+  processingMarginPerCycle(5, 'finish'),
 );
 
 export const ITEMS = {

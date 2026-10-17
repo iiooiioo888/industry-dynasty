@@ -7,12 +7,18 @@ import {
   addItem,
   createProductionLine,
   getItemQty,
+  MACHINE_GRADES,
+  machineCreditAfter,
+  machineUpgradeDue,
   RECIPES,
+  retuneProductionLine,
   stopProductionLine,
   tickProductionLine,
+  type MachineGradeId,
   type RecipeId,
 } from '../production/index.js';
 import type { ParcelId } from '../types/map.js';
+import { bumpPlayerPnl } from './pnl-helpers.js';
 import { findParcel, type WorldState } from './state.js';
 
 export function getProductionLine(state: WorldState, parcelId: ParcelId) {
@@ -23,6 +29,7 @@ export function applyStartProduction(
   state: WorldState,
   parcelId: ParcelId,
   recipeId: RecipeId,
+  machineGradeId?: MachineGradeId,
 ): WorldState {
   const parcel = findParcel(state, parcelId);
   const player = state.players[state.localPlayerId];
@@ -50,11 +57,88 @@ export function applyStartProduction(
   }
 
   const logistics = getSiteLogisticsView(state.map, parcel, site as CompleteSite, state.sites);
-  const line = createProductionLine(recipe, parcel, logistics.factor, state.clock.simMs);
+  const mounted = recipe.stage === 'extract' ? null : (machineGradeId ?? null);
+  const grade = mounted ? MACHINE_GRADES[mounted] : null;
+  const previous = state.productionLines[parcelId.value];
+  const previousPaid = previous?.machinePaid ?? 0;
+  const due = grade ? machineUpgradeDue(previousPaid, grade.installCost) : 0;
+  if (player.cash < due) {
+    return state;
+  }
+  const line = {
+    ...createProductionLine(recipe, parcel, logistics.factor, state.clock.simMs, mounted),
+    machinePaid: grade ? machineCreditAfter(previousPaid, grade.installCost) : 0,
+  };
+
+  const charged =
+    due > 0
+      ? {
+          ...state,
+          players: {
+            ...state.players,
+            [player.id]: { ...player, cash: player.cash - due },
+          },
+          pnl: bumpPlayerPnl(state, player.id, { buildSpend: due }),
+        }
+      : state;
 
   return {
-    ...state,
-    productionLines: { ...state.productionLines, [parcelId.value]: line },
+    ...charged,
+    productionLines: { ...charged.productionLines, [parcelId.value]: line },
+  };
+}
+
+export function applyInstallMachine(
+  state: WorldState,
+  parcelId: ParcelId,
+  machineGradeId: MachineGradeId,
+): WorldState {
+  const parcel = findParcel(state, parcelId);
+  const player = state.players[state.localPlayerId];
+  const site = getSiteForParcel(state.sites, parcelId);
+  const line = state.productionLines[parcelId.value];
+  if (
+    !parcel ||
+    !player ||
+    !site ||
+    site.phase !== 'complete' ||
+    site.ownerId !== player.id ||
+    !line
+  ) {
+    return state;
+  }
+  const recipe = RECIPES[line.recipeId];
+  if (!recipe || recipe.stage === 'extract' || line.machineGradeId === machineGradeId) {
+    return state;
+  }
+  const grade = MACHINE_GRADES[machineGradeId];
+  const alreadyPaid = line.machinePaid ?? 0;
+  const due = machineUpgradeDue(alreadyPaid, grade.installCost);
+  if (player.cash < due) {
+    return state;
+  }
+  const logistics = getSiteLogisticsView(state.map, parcel, site, state.sites);
+  const tuned = retuneProductionLine(line, recipe, parcel, logistics.factor, machineGradeId);
+  const charged =
+    due > 0
+      ? {
+          ...state,
+          players: {
+            ...state.players,
+            [player.id]: { ...player, cash: player.cash - due },
+          },
+          pnl: bumpPlayerPnl(state, player.id, { buildSpend: due }),
+        }
+      : state;
+  return {
+    ...charged,
+    productionLines: {
+      ...charged.productionLines,
+      [parcelId.value]: {
+        ...tuned,
+        machinePaid: machineCreditAfter(alreadyPaid, grade.installCost),
+      },
+    },
   };
 }
 

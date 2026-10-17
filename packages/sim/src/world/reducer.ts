@@ -23,6 +23,7 @@ import { applyBidToLot, settleLot, validateBid } from './auction-logic.js';
 import type { WorldAction } from './actions.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
 import {
+  applyInstallMachine,
   applyStartProduction,
   applyStopProduction,
   clearProductionAtParcel,
@@ -94,7 +95,9 @@ export function applyWorldAction(
     case 'SELL_LAND':
       return applySellLand(state, action.parcelId, config);
     case 'START_PRODUCTION':
-      return applyStartProduction(state, action.parcelId, action.recipeId);
+      return applyStartProduction(state, action.parcelId, action.recipeId, action.machineGradeId);
+    case 'INSTALL_MACHINE':
+      return applyInstallMachine(state, action.parcelId, action.machineGradeId);
     case 'STOP_PRODUCTION':
       return applyStopProduction(state, action.parcelId);
     case 'ADVANCE_PRODUCTION_TICK':

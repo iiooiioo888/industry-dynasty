@@ -13,7 +13,7 @@
 import { applyWorldAction } from '../world/reducer.js';
 import type { WorldState } from '../world/state.js';
 import { ITEMS, getItemQty } from '../production/items.js';
-import { RECIPES, type RecipeId } from '../production/recipes.js';
+import { RECIPES, type RecipeDef, type RecipeId, type RecipeStage } from '../production/recipes.js';
 import { techStage } from '../production/chain.js';
 
 /** 找出某礦脈對應、不需外部投入的配方（開採類）。 */
@@ -49,6 +49,38 @@ export interface SlotPlan {
  * 3. 加工機會不足（原料被賣光或還沒進來）就退回開採 ——
  *    開採永遠是最安全的預設值。
  */
+function marginPerCycle(recipe: RecipeDef): number {
+  const outValue =
+    ITEMS[recipe.outputItemId].unitValue * recipe.outputQuantity * recipe.outputMultiplier;
+  const inValue = recipe.inputs.reduce(
+    (sum, input) => sum + ITEMS[input.itemId].unitValue * input.quantity,
+    0,
+  );
+  return outValue - inValue;
+}
+
+function bestReadyRecipe(
+  state: WorldState,
+  playerId: string,
+  siteFactoryTypeId: string,
+  stage: RecipeStage,
+): RecipeId | null {
+  const stock = state.inventories[playerId] ?? {};
+  const crafted = state.craftedTotals[playerId];
+  const candidates = Object.values(RECIPES)
+    .filter((recipe) => recipe.stage === stage && recipe.inputs.length > 0)
+    .filter((recipe) => ITEMS[recipe.outputItemId].sellable)
+    .filter((recipe) => techStage(crafted) >= recipe.minTechStage)
+    .filter((recipe) => (recipe.buildings as readonly string[]).includes(siteFactoryTypeId))
+    .filter((recipe) =>
+      recipe.inputs.every((input) => getItemQty(stock, input.itemId) >= input.quantity),
+    )
+    .map((recipe) => ({ recipe, marginPerCycle: marginPerCycle(recipe) }))
+    .filter((candidate) => candidate.marginPerCycle > 0)
+    .sort((a, b) => b.marginPerCycle - a.marginPerCycle || a.recipe.id.localeCompare(b.recipe.id));
+  return candidates[0]?.recipe.id ?? null;
+}
+
 export function planProductionSlots(
   state: WorldState,
   playerId: string,
@@ -57,9 +89,10 @@ export function planProductionSlots(
   extractorCount: number,
 ): SlotPlan[] {
   const ordered = [...factoryKeys].sort();
-  const extractorKeys = new Set(ordered.slice(0, Math.max(1, extractorCount)));
-  const stock = state.inventories[playerId] ?? {};
-  const crafted = state.craftedTotals[playerId];
+  const workshops = ordered.filter((key) => state.sites[key]?.factoryTypeId === 'workshop');
+  const extractorKeys = new Set(workshops.slice(0, Math.max(1, extractorCount)));
+  const depthTwo =
+    depth >= 2 && ordered.some((key) => state.sites[key]?.factoryTypeId === 'assembly-plant');
 
   const plans: SlotPlan[] = [];
   for (const key of ordered) {
@@ -69,34 +102,27 @@ export function planProductionSlots(
       continue;
     }
     const extraction = extractionRecipeFor(parcel.resource.kind);
+    const wanted: RecipeStage | null =
+      depth <= 0
+        ? null
+        : site.factoryTypeId === 'assembly-plant' && depthTwo
+          ? 'finish'
+          : extractorKeys.has(key)
+            ? null
+            : 'process';
 
-    if (depth > 0 && !extractorKeys.has(key)) {
-      // 與引擎一致：以 craftedTotals 推導技術階段，尊重 minTechStage。
-      // 只挑可販售的產出，否則做了中間財卻換不到現金。
-      const candidates = Object.values(RECIPES)
-        .filter((r) => r.inputs.length > 0)
-        .filter((r) => (r.stage === 'process' ? depth >= 1 : depth >= 2))
-        .filter((r) => ITEMS[r.outputItemId].sellable)
-        .filter((r) => techStage(crafted) >= r.minTechStage)
-        .filter((r) => (r.buildings as readonly string[]).includes(site.factoryTypeId))
-        // 原料現在就夠，才能啟動；不夠就別佔著工廠
-        .filter((r) => r.inputs.every((i) => getItemQty(stock, i.itemId) >= i.quantity))
-        // 以「每週期毛利」排序：正毛利才做，最高的優先
-        .map((r) => {
-          const outValue = ITEMS[r.outputItemId].unitValue * r.outputQuantity * r.outputMultiplier;
-          const inValue = r.inputs.reduce(
-            (sum, i) => sum + ITEMS[i.itemId].unitValue * i.quantity,
-            0,
-          );
-          return { recipe: r, marginPerCycle: outValue - inValue };
-        })
-        .filter((c) => c.marginPerCycle > 0)
-        .sort((a, b) => b.marginPerCycle - a.marginPerCycle);
-
-      const best = candidates[0];
-      if (best) {
-        plans.push({ recipeId: best.recipe.id, processing: true });
+    if (wanted) {
+      const picked = bestReadyRecipe(state, playerId, site.factoryTypeId, wanted);
+      if (picked) {
+        plans.push({ recipeId: picked, processing: true });
         continue;
+      }
+      if (wanted === 'finish') {
+        const feeder = bestReadyRecipe(state, playerId, site.factoryTypeId, 'process');
+        if (feeder) {
+          plans.push({ recipeId: feeder, processing: true });
+          continue;
+        }
       }
     }
 
