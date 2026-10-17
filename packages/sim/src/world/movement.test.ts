@@ -151,34 +151,38 @@ describe('工人沿路徑移動', () => {
 
   it('去程、樞紐、回程分成三段，作業時人留在廠內', () => {
     const { state, parcelId } = startParts(4, 4);
-    const travelTicks = getProductionLine(state, parcelId)!.travelTicks;
-    expect(travelTicks).toBeGreaterThanOrEqual(5);
+    const line = getProductionLine(state, parcelId)!;
+    // 到樞紐的路程仍然很長；生產週期不再把這段路程加進去，
+    // 否則遠廠在經濟日模型裡幾乎沒有產出。畫面上的去程被收進週期前段。
+    expect(line.workerTravelTicks).toBeGreaterThanOrEqual(5);
+    expect(line.cycleTicks).toBeLessThan(line.workerTravelTicks);
+    const travelTicks = line.travelTicks;
+    expect(travelTicks).toBeGreaterThan(0);
+    expect(travelTicks).toBeLessThanOrEqual(line.cycleTicks - 1);
 
-    const outbound = applyWorldAction(state, {
-      type: 'ADVANCE_SIM_TIME',
-      deltaMs: SIM_MS_PER_TICK * Math.max(1, Math.floor(travelTicks * 0.2)),
-    });
-    const leaving = listMapActors(outbound).find((item) => item.parcelKey === parcelId.value)!;
+    const at = (fraction: number) =>
+      applyWorldAction(state, {
+        type: 'ADVANCE_SIM_TIME',
+        deltaMs: SIM_MS_PER_TICK * travelTicks * fraction,
+      });
+
+    const leaving = listMapActors(at(0.2)).find((item) => item.parcelKey === parcelId.value)!;
     expect(leaving.leg).toBe('outbound');
     expect(leaving.status).toBe('去程');
 
-    let atHub = state;
-    for (let step = 0; step < Math.floor(travelTicks * 0.5); step += 1) {
-      atHub = applyWorldAction(atHub, { type: 'ADVANCE_PRODUCTION_TICK' });
-    }
-    const hub = listMapActors(atHub).find((item) => item.parcelKey === parcelId.value)!;
+    const hub = listMapActors(at(0.5)).find((item) => item.parcelKey === parcelId.value)!;
     expect(hub.leg).toBe('hub');
     expect(hub.status).toBe('樞紐');
     expect(Math.abs(hub.x - SUPPLY_HUB.x) + Math.abs(hub.y - SUPPLY_HUB.y)).toBeLessThan(0.05);
 
-    let returning = atHub;
-    const returnSteps = Math.ceil(travelTicks * 0.75) - Math.floor(travelTicks * 0.5);
-    for (let step = 0; step < returnSteps; step += 1) {
-      returning = applyWorldAction(returning, { type: 'ADVANCE_PRODUCTION_TICK' });
-    }
-    const back = listMapActors(returning).find((item) => item.parcelKey === parcelId.value)!;
+    const back = listMapActors(at(0.75)).find((item) => item.parcelKey === parcelId.value)!;
     expect(back.leg).toBe('return');
     expect(back.status).toBe('回程');
+
+    const home = listMapActors(at(1)).find((item) => item.parcelKey === parcelId.value)!;
+    expect(home.leg).toBe('working');
+    expect(home.activity).toBe('working');
+    expect(Math.abs(home.x - 4) + Math.abs(home.y - 4)).toBeLessThan(0.05);
   });
 
   it('同格的兩名工人會錯開', () => {

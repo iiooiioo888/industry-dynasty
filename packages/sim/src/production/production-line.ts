@@ -82,6 +82,7 @@ export function createProductionLine(
       );
   const localBonus = resourceThroughputBonus(parcel.resource, usesLocal);
   const throughputFactor = Math.min(1.5, timing.throughputFactor * localBonus);
+  // 去程畫在週期前段。workerTravelTicks 仍是到樞紐的真實步數，供距離懲罰使用。
   const travelTicks = Math.min(timing.workerTravelTicks, Math.max(0, timing.cycleTicks - 1));
 
   return withMotion({

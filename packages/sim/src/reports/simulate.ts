@@ -9,6 +9,7 @@ import { quoteSale } from '../sales/sell-logic.js';
 import { DEFAULT_SCENARIO } from '../sales/scenario.js';
 import { quoteLandSale } from '../world/land-sale.js';
 import { aggregateReport, isBankrupt, measureMarket, playerCapacity } from './economy.js';
+import { recognizeDispatchedShipments } from './settle-shipments.js';
 import { createRng, deriveGameSeed, shuffle } from './rng.js';
 import { bidLimit, chooseBid, chooseBuilds, type StrategyContext } from './strategies.js';
 import type {
@@ -183,6 +184,9 @@ function runSingleGame(
     for (const bot of order) {
       state = applyBotSales(state, bot);
     }
+    // P0 出貨要到港才入帳。量測迴圈不把時鐘快進到 48 刻日界，
+    // 否則會多跑產線並重複日結。見 settle-shipments.ts。
+    state = recognizeDispatchedShipments(state);
     // 已經增值的土地換回現金（圈地投機的出口）
     for (const bot of order) {
       state = applyBotLandSales(state, bot, acquiredAt.get(bot.id)!);

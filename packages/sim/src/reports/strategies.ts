@@ -196,9 +196,8 @@ function chooseRandomBid(ctx: StrategyContext): WorldAction | null {
  * 兩個條件缺一不可：
  * 1. 有對應的開採配方（`extract-iron` 只能在 `iron-vein` 上跑），
  *    且該配方能在這型工廠執行。
- * 2. 產出**可販售**。五種礦脈中只有鐵脈（原礦）與樹脂沼（樹脂）的產出可賣；
- *    煤、銅、石英砂粒都不可販售，蓋在那些脈上只會持續付土地稅與維護費
- *    卻完全沒有收入 —— 實測 `rapid-assembly` 就是因此 2 座工廠營收為 0。
+ * 2. 產出**可販售**。P0 起五種開採產出都可賣給港區，煤／銅／石英不再是死路。
+ *    仍排除產出不可販售的配方，避免工廠只做賣不掉的中間件。
  */
 function parcelCanProduce(parcel: Parcel, factoryTypeId: FactoryTypeId): boolean {
   return Object.values(RECIPES).some(

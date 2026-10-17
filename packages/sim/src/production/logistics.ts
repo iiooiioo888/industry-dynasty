@@ -33,6 +33,8 @@ export interface ProductionTimingView {
  * 但不會出現「遠到幾乎不生產」的懸崖。
  *
  * `logisticsEfficiency`（道路、城市、相鄰工廠）仍會縮短週期，保留區位加成。
+ * 工人去程被收進週期前段（最多 `cycleTicks - 1` 刻），不再把週期拉成路程長度。
+ * 港區出貨不走這條捷徑：貨要按路徑長度走完模擬時間才入帳。
  */
 export function computeProductionTiming(
   baseCycleTicks: number,

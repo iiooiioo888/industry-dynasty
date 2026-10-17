@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { HOLDING } from '../balance/targets.js';
 import { FACTORY_TYPES } from '../buildings/catalog.js';
 import { SIM_MS_PER_TICK, SIM_TICKS_PER_DAY, ticksUntilDayClose } from './clock.js';
+import { DEFAULT_WORLD_CONFIG } from './config.js';
 import { createInitialWorld } from './create-world.js';
 import { quoteParcelPlan } from './parcel-plan.js';
 import { applyWorldAction } from './reducer.js';
@@ -63,7 +65,8 @@ describe('一條規劃時間', () => {
     expect(nearQuote.portDistance).toBeLessThan(farQuote.portDistance);
     expect(farQuote.hubSteps).toBeLessThan(nearQuote.hubSteps);
     expect(nearQuote.freightPerUnit).toBeLessThan(farQuote.freightPerUnit);
-    expect(nearQuote.landTax).toBe(500);
+    expect(nearQuote.landTax).toBe(DEFAULT_WORLD_CONFIG.landTaxPerTick);
+    expect(nearQuote.landTax).toBe(HOLDING.landTaxPerParcelPerDay);
     expect(nearQuote.populationDensity).toBe(nearPort.populationDensity);
   });
 });

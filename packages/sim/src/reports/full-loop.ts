@@ -8,7 +8,10 @@
  *   BID → SETTLE_AUCTION → START_BUILD → ADVANCE_BUILD_TICK
  *   → START_PRODUCTION → ADVANCE_PRODUCTION_TICK → SELL_TO_NPC → ADVANCE_DAY
  *
- * 因此這裡量到的淨利與 `evaluateScenario` 的通關判定，就是玩家實際會經歷的數字。
+ * 出貨沿用 P0：賣出只建立在途貨，現金要等到達才入帳。本迴圈在日結前
+ * 呼叫 `recognizeDispatchedShipments`，用正式結算函式入帳，但不把時鐘
+ * 快進 48 刻。平衡數值仍以「一次生產推進 ≈ 一個經濟日」校準；
+ * 正式遊玩的規劃日是 48 刻，見 `balance/targets.ts` 的假設說明。
  */
 import { FACTORY_TYPES, type FactoryTypeId } from '../buildings/catalog.js';
 import { RECIPES, type RecipeId } from '../production/recipes.js';
@@ -24,6 +27,7 @@ import { createInitialWorld } from '../world/create-world.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from '../world/config.js';
 import { getPlayerHoldings, type WorldState } from '../world/state.js';
 import { DEFAULT_SCENARIO } from '../sales/scenario.js';
+import { recognizeDispatchedShipments } from './settle-shipments.js';
 
 export interface FullLoopOptions {
   readonly mapWidth?: number;
@@ -97,14 +101,13 @@ function extractionRecipeFor(kind: string): RecipeId | null {
  *
  * `extract-*` 都綁定礦脈，配錯會被 `recipeBlockReason` 擋下，所以先決定礦脈再找地。
  *
- * **順序刻意以「產出可販售」優先**：五種礦脈中只有鐵脈（原礦）與樹脂沼（樹脂）
- * 的產出可賣，其餘三種必須再加工。先到先得會挑到無法變現的礦脈，
- * 於是工廠一直生產卻沒有收入 —— 這正是先前機器人虧損的根因。
+ * **順序刻意以單價優先**：P0 起五種開採產出都可賣給港區。
+ * 先鐵脈（原礦單價最高），避免機器人只蓋在低價礦上。
  */
 const PREFERRED_RESOURCE_ORDER = [
-  'iron-vein', // 原礦，可直接賣，單價最高
-  'resin-bog', // 樹脂，可直接賣
-  'copper-shale', // 以下需加工才能變現
+  'iron-vein', // 原礦，單價最高
+  'resin-bog',
+  'copper-shale',
   'quartz-sand',
   'coal-seam',
 ] as const;
@@ -281,7 +284,7 @@ function sellInventory(state: WorldState, depth: 0 | 1 | 2, extractorCount: numb
       shipFromParcelId: shipped.id,
     });
   }
-  return next;
+  return recognizeDispatchedShipments(next);
 }
 
 /** 目前每座完工工廠排定的配方，供測試與除錯檢視。 */

@@ -140,7 +140,7 @@ describe('配方毛利：哪條路線真的有錢賺', () => {
     }
   });
 
-  it('加工讓不可販售的礦脈得以變現，且報酬與最佳開採同量級', () => {
+  it('加工報酬與最佳開採同量級，中間件仍須往下游變現', () => {
     const perTick = (r: (typeof RECIPES)[keyof typeof RECIPES]): number => {
       const outVal = ITEMS[r.outputItemId].unitValue * r.outputQuantity * (r.outputMultiplier ?? 1);
       const inVal = r.inputs.reduce((s, i) => s + ITEMS[i.itemId].unitValue * i.quantity, 0);
@@ -180,27 +180,18 @@ describe('配方毛利：哪條路線真的有錢賺', () => {
       ).toBeGreaterThan(ironTick * 0.6);
     }
 
-    // 護欄二：不可販售的礦脈，加工後每刻報酬必須嚴格為正 ——
-    // 那些礦脈不加工就是 0 收入，加工是它們唯一的變現途徑。
-    const deadExtraction = extraction.filter((r) => !ITEMS[r.outputItemId].sellable);
-    expect(deadExtraction.length).toBeGreaterThan(0);
-    for (const extract of deadExtraction) {
-      const consumers = processing.filter((r) =>
-        r.inputs.some((i) => i.itemId === extract.outputItemId),
-      );
-      expect(consumers.length, `${extract.outputItemId} 沒有配方能消化`).toBeGreaterThan(0);
-      for (const c of consumers) {
-        expect(perTick(c), `${c.id} 消化 ${extract.outputItemId} 卻不賺錢`).toBeGreaterThan(0);
+    // 護欄二：P0 起開採產出都可賣。鐵錠、銅錠、矽片仍不可直接賣，
+    // 必須有每刻報酬為正的下游配方，否則中間件庫存永遠變不成現金。
+    expect(extraction.every((r) => ITEMS[r.outputItemId].sellable)).toBe(true);
+    const intermediates = ['iron-ingot', 'copper-ingot', 'silica'] as const;
+    for (const itemId of intermediates) {
+      expect(ITEMS[itemId].sellable, itemId).toBe(false);
+      const consumers = processing.filter((r) => r.inputs.some((i) => i.itemId === itemId));
+      expect(consumers.length, `${itemId} 沒有配方能消化`).toBeGreaterThan(0);
+      for (const consumer of consumers) {
+        expect(perTick(consumer), `${consumer.id} 消化 ${itemId} 卻不賺錢`).toBeGreaterThan(0);
       }
     }
-
-    // 護欄三：使用不可販售礦脈的加工配方，必須存在
-    //（否則那三分之二的地圖仍然無用）
-    const usesDeadVein = processing.filter((r) =>
-      r.inputs.some((i) => deadExtraction.some((e) => e.outputItemId === i.itemId)),
-    );
-    expect(usesDeadVein.length).toBeGreaterThan(0);
-    console.log(`\n  可消化不可販售礦脈的配方：${usesDeadVein.map((r) => r.id).join(', ')}`);
     void bestExtract;
   });
 });

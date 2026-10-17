@@ -8,16 +8,11 @@ import { DEFAULT_WORLD_CONFIG } from '../world/config.js';
 /**
  * 礦脈可販售性：影響地圖上「哪些地值得蓋工廠」。
  *
- * 五種礦脈中只有**鐵脈**（原礦）與**樹脂沼**（樹脂）的開採產出可販售。
- * 煤、銅、石英砂粒的產出都不可販售，必須再加工才有價值 ——
- * 但加工需要另一條供應鏈。若把只會開採的工廠蓋在那些礦脈上，
- * 它會一直生產卻一毛錢都換不到，只持續付土地稅與維護費。
- *
- * 這正是機器人策略先前大幅虧損的原因（實測 `rapid-assembly`
- * 兩座工廠營收恰為 0），因此 `parcelCanProduce` 會排除這類地塊。
+ * P0 修正試玩死路後，五種開採產出（含煤炭、銅礦、石英砂粒）都可直接收購。
+ * 鐵錠、銅錠、矽片仍是中間件。`parcelCanProduce` 只排除產出不可販售的配方。
  */
 describe('礦脈與可販售性', () => {
-  it('只有部分開採產出可販售', () => {
+  it('五種開採產出都可販售，中間件仍不可直接賣', () => {
     const extraction = Object.values(RECIPES).filter((r) => r.inputs.length === 0);
     const sellable = extraction.filter((r) => ITEMS[r.outputItemId].sellable);
     const dead = extraction.filter((r) => !ITEMS[r.outputItemId].sellable);
@@ -29,11 +24,20 @@ describe('礦脈與可販售性', () => {
       );
     }
 
-    // 護欄：這個比例是地圖設計的重要參數，改變它會大幅影響可建地數量
+    // 護欄：P0 銅礦／煤炭／石英死路已打開。改回「只有兩種可賣」會讓試玩再次卡死。
     expect(extraction).toHaveLength(5);
-    expect(sellable).toHaveLength(2);
-    expect(dead).toHaveLength(3);
-    expect(sellable.map((r) => r.sourceKind).sort()).toEqual(['iron-vein', 'resin-bog']);
+    expect(sellable).toHaveLength(5);
+    expect(dead).toHaveLength(0);
+    expect(sellable.map((r) => r.sourceKind).sort()).toEqual([
+      'coal-seam',
+      'copper-shale',
+      'iron-vein',
+      'quartz-sand',
+      'resin-bog',
+    ]);
+    expect(ITEMS['iron-ingot'].sellable).toBe(false);
+    expect(ITEMS['copper-ingot'].sellable).toBe(false);
+    expect(ITEMS.silica.sellable).toBe(false);
   });
 
   it('機器人不再把工廠蓋在無法販售的礦脈上', () => {
