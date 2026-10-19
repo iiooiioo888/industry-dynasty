@@ -1,3 +1,4 @@
+﻿import { craftedValue } from '../production/chain.js';
 import { ITEMS } from '../production/items.js';
 import type { Shipment } from '../sales/shipment.js';
 import { addPnL, emptyPnL, evaluateScenario } from '../sales/index.js';
@@ -86,7 +87,14 @@ export function settleArrivedShipments(state: WorldState): WorldState {
     players,
     pnl,
     shipments: pending,
-    scenario: localPnl ? evaluateScenario(state.scenario, state.gameDay, localPnl) : state.scenario,
+    scenario: localPnl
+      ? evaluateScenario(
+          state.scenario,
+          state.gameDay,
+          localPnl,
+          craftedValue(state.craftedTotals[state.localPlayerId]),
+        )
+      : state.scenario,
   };
 }
 

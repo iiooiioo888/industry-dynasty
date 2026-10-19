@@ -42,6 +42,31 @@
   color: var(--sys-muted);
 }
 
+/* 通關的兩個維度：淨利與加工產值，各自顯示是否達成 */
+.pnl-goals {
+  margin: 0.6rem 0 0;
+  padding: 0.45rem 0 0;
+  border-top: 1px solid var(--sys-border);
+}
+
+.pnl-goals .pnl-goal {
+  margin: 0.15rem 0;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pnl-goals .pnl-goal.met {
+  color: #6dd96d;
+}
+
+.pnl-goal-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: var(--sys-muted);
+  opacity: 0.85;
+}
+
 .pnl-win {
   color: #6dd96d;
   font-weight: 700;

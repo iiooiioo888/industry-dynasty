@@ -28,7 +28,14 @@ describe('深度 vs 廣度：達到通關門檻所需的土地', () => {
         '  won?',
     );
 
-    const grid = new Map<string, { net: number; status: string; revenue: number }>();
+    type Cell = {
+      net: number;
+      status: string;
+      revenue: number;
+      won: boolean;
+      crafted: number;
+    };
+    const grid = new Map<string, Cell>();
     for (const parcels of [2, 3, 4, 6, 8]) {
       for (const depth of [0, 1, 2] as const) {
         // 公平比較：加工路線也必須有足夠礦場供料。
@@ -45,6 +52,8 @@ describe('深度 vs 廣度：達到通關門檻所需的土地', () => {
           net: r.netProfit,
           status: r.status,
           revenue: r.pnl.revenue,
+          won: r.reachedTarget,
+          crafted: r.craftedValue,
         });
         console.log(
           String(parcels).padStart(8) +
@@ -58,27 +67,29 @@ describe('深度 vs 廣度：達到通關門檻所需的土地', () => {
       }
     }
 
-    console.log('\n=== 各深度「最少需要幾塊地」才能達標 ===');
+    console.log('\n=== 各深度「最少需要幾塊地」才能**通關**（淨利＋加工產值雙目標）===');
     const minParcels: Record<number, number | null> = {};
     for (const depth of [0, 1, 2]) {
       let found: number | null = null;
       for (const parcels of [2, 3, 4, 6, 8]) {
-        const cell = grid.get(`${parcels}/${depth}`)!;
-        if (cell.net >= BALANCE.targetNetProfit) {
+        if (grid.get(`${parcels}/${depth}`)!.won) {
           found = parcels;
           break;
         }
       }
       minParcels[depth] = found;
       console.log(
-        `  depth=${depth} → ${found === null ? '在 ≤8 塊地內無法達標' : `${found} 塊地`}`,
+        `  depth=${depth} → ${found === null ? '在 ≤8 塊地內無法通關' : `${found} 塊地`}`,
       );
     }
 
-    // 護欄一：每一種深度都必須有「能達標」的配置。遊戲不該只有唯一解。
-    for (const depth of [0, 1, 2]) {
-      expect(minParcels[depth], `depth=${depth} 必須至少有一種配置能通關`).not.toBeNull();
-    }
+    // 護欄一：純開採**不得**通關 —— 加工產值恆為 0，這是刻意的設計。
+    // 通關必須真的把原料變成產品（見 `balance/targets.ts` 的 targetCraftedValue）。
+    expect(minParcels[0], '純開採不該有任何規模能通關').toBeNull();
+
+    // 護欄二：加工路線必須各自有能通關的配置（一階從 3 塊地起、二階需要規模）
+    expect(minParcels[1], '一階加工必須至少有一種配置能通關').not.toBeNull();
+    expect(minParcels[2], '二階加工必須至少有一種配置能通關').not.toBeNull();
 
     // 護欄二：每一條路線的最佳配置都必須獲利
     for (const depth of [0, 1, 2]) {
@@ -104,27 +115,33 @@ describe('深度 vs 廣度：達到通關門檻所需的土地', () => {
       );
     }
 
-    // 護欄四：至少一種規模下，加工深度必須真的勝過純開採 ——
-    // 否則「加工深度」不是有效策略軸，只是較差的做法。
-    const winsByDepth: Record<number, number[]> = { 0: [], 1: [], 2: [] };
-    for (const parcels of [2, 3, 4, 6, 8]) {
-      const base = grid.get(`${parcels}/0`)!.net;
-      for (const depth of [1, 2] as const) {
-        if (grid.get(`${parcels}/${depth}`)!.net > base) {
-          winsByDepth[depth]!.push(parcels);
-        }
-      }
-    }
-    console.log(
-      `\n  深度 1 勝過廣度的規模：${winsByDepth[1]!.length ? winsByDepth[1]!.join(', ') + ' 塊地' : '（無）'}`,
+    // 護欄四：新契約是「廣度賺得多，但贏不了；深度才通關」。
+    //
+    // 舊契約要求「加工淨利必須高於純開採」，但那是把兩個不同的東西混在一起：
+    // 純開採的毛利的確最高（原料單價 × 6 倍產出倍率），卻**永遠無法通關**，
+    // 因為加工產值恆為 0。所以正確的不變量不是淨利高低，而是：
+    //   1. 純開採在**任何**規模都不得通關（已由護欄一保證）
+    //   2. 至少要有一種加工配置真的通關
+    //   3. 純開採的淨利必須仍然可觀，否則「先挖礦累積資本再轉型」這條路會消失
+    const miningBest = Math.max(...[2, 3, 4, 6, 8].map((p) => grid.get(`${p}/0`)!.net));
+    const depthWinsSomewhere = [1, 2].some((depth) =>
+      [2, 3, 4, 6, 8].some((p) => grid.get(`${p}/${depth}`)!.won),
+    );
+    const depthWinsMost = [2, 3, 4, 6, 8].filter(
+      (p) => grid.get(`${p}/1`)!.won || grid.get(`${p}/2`)!.won,
     );
     console.log(
-      `  深度 2 勝過廣度的規模：${winsByDepth[2]!.length ? winsByDepth[2]!.join(', ') + ' 塊地' : '（無）'}`,
+      `\n  純開採最佳淨利 ${miningBest.toLocaleString()}（但永不通關）` +
+        `\n  加工可通關的規模：${depthWinsMost.join(', ')} 塊地`,
     );
-    expect(
-      winsByDepth[1]!.length,
-      '加工深度（一階）必須至少在一種規模下優於純開採',
-    ).toBeGreaterThan(0);
-    expect(winsByDepth[2]!.length, '成品深度必須至少在一種規模下優於純開採').toBeGreaterThan(0);
+
+    expect(depthWinsSomewhere, '加工必須真的能通關').toBe(true);
+    expect(depthWinsMost.length, '加工應該在多種規模下都能通關').toBeGreaterThan(1);
+    // 純開採仍必須是可行的「累積資本」路線，只是不構成勝利
+    expect(miningBest, '純開採仍應能累積可觀資本').toBeGreaterThan(BALANCE.targetNetProfit);
+
+    // 護欄五：二階加工的規模門檻必須比一階高 —— 越深的產業鏈需要越大佈局，
+    // 否則「先做一階、站穩後再往下走」這條成長曲線就不存在。
+    expect(minParcels[2]!, '二階的規模門檻應高於一階').toBeGreaterThan(minParcels[1]!);
   });
 });

@@ -1,4 +1,4 @@
-import {
+﻿import {
   addPnL,
   emptyPnL,
   evaluateScenario,
@@ -7,6 +7,7 @@ import {
   generateNpcBuyOffers,
 } from '../sales/index.js';
 import { HOLDING } from '../balance/targets.js';
+import { craftedValue } from '../production/chain.js';
 import { MACHINE_GRADES } from '../production/machines.js';
 import type { ParcelId } from '../types/map.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
@@ -91,7 +92,13 @@ export function applyAdvanceDay(
   const nextPlayer: Player = { ...player, cash };
   pnl = aggregateProductionIdleLoss(next, playerId, pnl);
 
-  const scenario = evaluateScenario(next.scenario, gameDay, pnl);
+  // 通關需要兩個維度：淨利 **且** 累計加工產值（見 `sales/scenario.ts`）
+  const scenario = evaluateScenario(
+    next.scenario,
+    gameDay,
+    pnl,
+    craftedValue(next.craftedTotals[playerId]),
+  );
 
   return {
     ...next,

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 完整遊戲迴圈模擬器 · full-loop simulator
  *
  * 與 `reports/simulate.ts` 的差別：那個檔案用的是**簡化的營運收入模型**
@@ -26,6 +26,8 @@ import { applyWorldAction } from '../world/reducer.js';
 import { createInitialWorld } from '../world/create-world.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from '../world/config.js';
 import { getPlayerHoldings, type WorldState } from '../world/state.js';
+import { craftedValue } from '../production/chain.js';
+import { scenarioProgress } from '../sales/scenario.js';
 import { DEFAULT_SCENARIO } from '../sales/scenario.js';
 import { recognizeDispatchedShipments } from './settle-shipments.js';
 
@@ -81,6 +83,10 @@ export interface FullLoopResult {
   readonly ownedParcels: number;
   readonly completeFactories: number;
   readonly scenarioTarget: number;
+  /** 累計加工產值（工業化維度） */
+  readonly craftedValue: number;
+  /** 加工產值門檻 */
+  readonly craftedTarget: number;
   readonly maxDays: number;
   /** 是否達成通關門檻（不論天數是否用完）。 */
   readonly reachedTarget: boolean;
@@ -317,27 +323,19 @@ export function startProductionEverywhere(
   // 配方選擇集中在 `production/planning.ts`，與機器人模擬共用同一套規則，
   // 兩邊才不會各自漂移（先前機器人不會加工就是因為規則只存在這裡）。
   const plans = planProductionSlots(state, playerId, factoryKeys, depth, extractorCount);
-  const planMap = new Map<RecipeId, string[]>();
-  for (const [index, key] of [...factoryKeys].sort().entries()) {
-    const plan = plans[index];
-    if (!plan) {
+  const planMap = new Map<string, RecipeId>();
+  for (const plan of plans) {
+    const site = state.sites[plan.parcelKey];
+    if (!site) {
       continue;
     }
-    if (
-      !(RECIPES[plan.recipeId].buildings as readonly string[]).includes(
-        state.sites[key]!.factoryTypeId,
-      )
-    ) {
+    if (!(RECIPES[plan.recipeId].buildings as readonly string[]).includes(site.factoryTypeId)) {
       continue;
     }
-    planMap.set(plan.recipeId, [...(planMap.get(plan.recipeId) ?? []), key]);
+    planMap.set(plan.parcelKey, plan.recipeId);
   }
 
-  let next = state;
-  for (const [recipeId, keys] of planMap) {
-    const map = new Map(keys.map((k) => [k, recipeId]));
-    next = applyProductionPlans(next, map);
-  }
+  const next = applyProductionPlans(state, planMap);
   void fallbackRecipe;
   return next;
 }
@@ -494,6 +492,8 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
   const playerId = state.localPlayerId;
   const pnl = state.pnl[playerId] ?? emptyPnL();
   const profit = netProfit(pnl);
+  const achievedCraftedValue = craftedValue(state.craftedTotals[playerId]);
+  const progress = scenarioProgress(state.scenario, pnl, achievedCraftedValue);
 
   return {
     days,
@@ -504,8 +504,10 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
     ownedParcels: getPlayerHoldings(state, playerId).length,
     completeFactories: countCompleteFactories(state, playerId),
     scenarioTarget: DEFAULT_SCENARIO.targetNetProfit,
+    craftedValue: achievedCraftedValue,
+    craftedTarget: DEFAULT_SCENARIO.targetCraftedValue,
     maxDays,
-    reachedTarget: profit >= DEFAULT_SCENARIO.targetNetProfit,
+    reachedTarget: progress.profitMet && progress.craftedMet,
   };
 }
 
