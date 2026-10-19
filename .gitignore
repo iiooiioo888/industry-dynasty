@@ -5,3 +5,7 @@ dist
 coverage
 .vite
 *.tsbuildinfo
+
+# 部署設定與機密：只保留範本，實際設定與密碼留在本機
+.deploy/
+
