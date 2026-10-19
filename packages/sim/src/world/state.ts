@@ -2,6 +2,7 @@ import type { CommerceState } from '../commerce/types.js';
 import type { NpcDeal } from '../npc/roster.js';
 import type { PlayerBank } from '../bank/types.js';
 import type { SimClock } from './clock.js';
+import { parcelIndex, parcelsOwnedBy } from './parcel-index.js';
 import type { ParcelSite } from '../buildings/site.js';
 import type { NpcBuyOffer } from '../sales/market.js';
 import type { PnLSummary } from '../sales/pnl.js';
@@ -50,7 +51,8 @@ export interface WorldState {
 }
 
 export function findParcel(state: WorldState, parcelId: ParcelId): Parcel | undefined {
-  return state.map.parcels.find((p) => p.id.value === parcelId.value);
+  const { width, height } = state.map.size;
+  return parcelIndex(state.map.parcels, width, height).byIdValue(parcelId.value);
 }
 
 export function findOpenLotForParcel(
@@ -63,7 +65,7 @@ export function findOpenLotForParcel(
 }
 
 export function getPlayerHoldings(state: WorldState, playerId: string): readonly Parcel[] {
-  return state.map.parcels.filter((p) => p.ownerId === playerId);
+  return parcelsOwnedBy(state.map.parcels, playerId);
 }
 
 export function getSite(state: WorldState, parcelId: ParcelId): ParcelSite | undefined {
