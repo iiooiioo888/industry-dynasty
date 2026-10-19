@@ -4,9 +4,10 @@ import { createInitialWorld } from '../world/create-world.js';
 import { getPlayerHoldings, type Player, type WorldState } from '../world/state.js';
 import { ITEMS, getItemQty } from '../production/items.js';
 import { runProductionPlan } from '../production/planning.js';
+import { craftedValue } from '../production/chain.js';
 import { emptyPnL, netProfit } from '../sales/pnl.js';
 import { quoteSale } from '../sales/sell-logic.js';
-import { DEFAULT_SCENARIO } from '../sales/scenario.js';
+import { DEFAULT_SCENARIO, scenarioProgress } from '../sales/scenario.js';
 import { quoteLandSale } from '../world/land-sale.js';
 import { aggregateReport, isBankrupt, measureMarket, playerCapacity } from './economy.js';
 import { recognizeDispatchedShipments } from './settle-shipments.js';
@@ -412,10 +413,11 @@ function summarizeGame(state: WorldState, config: ResolvedSimulation, seed: numb
     const completeFactories = Object.values(state.sites).filter(
       (site) => site.phase === 'complete' && site.ownerId === bot.id,
     ).length;
-    // 淨利改用真實 PnL（營收 − 稅 − 維護 − 運費 − 拍賣 − 建廠 − 閒置），
-    // 這是 `evaluateScenario` 判定通關所用的同一個數字。
+    // 淨利與加工產值都取自真實狀態，判定方式與 `evaluateScenario` 完全相同
     const pnl = state.pnl[bot.id] ?? emptyPnL();
     const profit = netProfit(pnl);
+    const botCraftedValue = craftedValue(state.craftedTotals[bot.id]);
+    const progress = scenarioProgress(state.scenario, pnl, { craftedValue: botCraftedValue });
     return {
       playerId: bot.id,
       name: bot.name,
@@ -423,13 +425,14 @@ function summarizeGame(state: WorldState, config: ResolvedSimulation, seed: numb
       startingCash: config.startingCash,
       endingCash,
       netProfit: profit,
-      // 通關判定與實際遊戲一致：horizon 結束時淨利是否達到門檻
-      won: profit >= DEFAULT_SCENARIO.targetNetProfit,
+      // 通關是**雙維度**：淨利達標 **且** 累計加工產值達標
+      won: progress.profitMet && progress.craftedMet,
       bankrupt: isBankrupt(endingCash, completeFactories),
       ownedParcels,
       completeFactories,
       capacity: playerCapacity(state, bot.id),
       revenue: pnl.revenue,
+      craftedValue: botCraftedValue,
     };
   });
 

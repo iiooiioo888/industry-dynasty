@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 完整遊戲迴圈模擬器 · full-loop simulator
  *
  * 與 `reports/simulate.ts` 的差別：那個檔案用的是**簡化的營運收入模型**
@@ -26,6 +26,8 @@ import { applyWorldAction } from '../world/reducer.js';
 import { createInitialWorld } from '../world/create-world.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from '../world/config.js';
 import { getPlayerHoldings, type WorldState } from '../world/state.js';
+import { craftedValue } from '../production/chain.js';
+import { scenarioProgress } from '../sales/scenario.js';
 import { DEFAULT_SCENARIO } from '../sales/scenario.js';
 import { recognizeDispatchedShipments } from './settle-shipments.js';
 
@@ -81,6 +83,10 @@ export interface FullLoopResult {
   readonly ownedParcels: number;
   readonly completeFactories: number;
   readonly scenarioTarget: number;
+  /** 累計加工產值（工業化維度） */
+  readonly craftedValue: number;
+  /** 加工產值門檻 */
+  readonly craftedTarget: number;
   readonly maxDays: number;
   /** 是否達成通關門檻（不論天數是否用完）。 */
   readonly reachedTarget: boolean;
@@ -175,9 +181,35 @@ function nextVeinToBuy(kinds: readonly string[], owned: Map<string, number>): st
   return kinds[0] ?? null;
 }
 
+/**
+ * 只把 `role === 'production'` 的建築算成工廠。
+ *
+ * `main` 加入門市（`storefront`）與實驗室（`lab`）之後，它們同樣存在於
+ * `state.sites` 裡。若把它們算成工廠，這個量測迴圈的「工廠數」與
+ * 礦場／加工廠的名額配置就會被灌水 —— 實測 6 塊地時真正的工坊只有 2 座，
+ * 卻都被當成礦場，於是沒有任何工廠能做加工，加工產值恆為 0。
+ */
+function isProductionSite(factoryTypeId: FactoryTypeId): boolean {
+  return FACTORY_TYPES[factoryTypeId].role === 'production';
+}
+
 function countCompleteFactories(state: WorldState, playerId: string): number {
-  return Object.values(state.sites).filter((s) => s.phase === 'complete' && s.ownerId === playerId)
-    .length;
+  return Object.entries(state.sites).filter(
+    ([, site]) =>
+      site.phase === 'complete' && site.ownerId === playerId && isProductionSite(site.factoryTypeId),
+  ).length;
+}
+
+/** 完工且屬於該玩家的生產建築 parcel key。 */
+function productionSiteKeys(state: WorldState, playerId: string): string[] {
+  return Object.entries(state.sites)
+    .filter(
+      ([, site]) =>
+        site.phase === 'complete' &&
+        site.ownerId === playerId &&
+        isProductionSite(site.factoryTypeId),
+    )
+    .map(([key]) => key);
 }
 
 /** 選一塊可買、且有指定礦脈的地。 */
@@ -222,7 +254,7 @@ function reserveQtyFor(
     return 0;
   }
   const sites = Object.values(state.sites).filter(
-    (s) => s.phase === 'complete' && s.ownerId === playerId,
+    (s) => s.phase === 'complete' && s.ownerId === playerId && isProductionSite(s.factoryTypeId),
   );
   // 開採廠以外的工廠才會加工
   const processors = Math.max(0, sites.length - Math.max(1, extractorCount));
@@ -310,34 +342,24 @@ export function startProductionEverywhere(
   extractorCount = 2,
 ): WorldState {
   const playerId = state.localPlayerId;
-  const factoryKeys = Object.entries(state.sites)
-    .filter(([, site]) => site.phase === 'complete' && site.ownerId === playerId)
-    .map(([key]) => key);
+  const factoryKeys = productionSiteKeys(state, playerId);
 
   // 配方選擇集中在 `production/planning.ts`，與機器人模擬共用同一套規則，
   // 兩邊才不會各自漂移（先前機器人不會加工就是因為規則只存在這裡）。
   const plans = planProductionSlots(state, playerId, factoryKeys, depth, extractorCount);
-  const planMap = new Map<RecipeId, string[]>();
-  for (const [index, key] of [...factoryKeys].sort().entries()) {
-    const plan = plans[index];
-    if (!plan) {
+  const planMap = new Map<string, RecipeId>();
+  for (const plan of plans) {
+    const site = state.sites[plan.parcelKey];
+    if (!site) {
       continue;
     }
-    if (
-      !(RECIPES[plan.recipeId].buildings as readonly string[]).includes(
-        state.sites[key]!.factoryTypeId,
-      )
-    ) {
+    if (!(RECIPES[plan.recipeId].buildings as readonly string[]).includes(site.factoryTypeId)) {
       continue;
     }
-    planMap.set(plan.recipeId, [...(planMap.get(plan.recipeId) ?? []), key]);
+    planMap.set(plan.parcelKey, plan.recipeId);
   }
 
-  let next = state;
-  for (const [recipeId, keys] of planMap) {
-    const map = new Map(keys.map((k) => [k, recipeId]));
-    next = applyProductionPlans(next, map);
-  }
+  const next = applyProductionPlans(state, planMap);
   void fallbackRecipe;
   return next;
 }
@@ -412,7 +434,7 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
           (l) => l.parcelId.value === target.value && l.status === 'open',
         );
         const nextType = factoryTypeForChainSlot(
-          Object.keys(state.sites).length,
+          countCompleteFactories(state, state.localPlayerId),
           depth,
           extractorCount,
           maxParcels,
@@ -436,7 +458,7 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
         continue;
       }
       const slotType = factoryTypeForChainSlot(
-        Object.keys(state.sites).length,
+        countCompleteFactories(state, state.localPlayerId),
         depth,
         extractorCount,
         maxParcels,
@@ -494,6 +516,8 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
   const playerId = state.localPlayerId;
   const pnl = state.pnl[playerId] ?? emptyPnL();
   const profit = netProfit(pnl);
+  const achievedCraftedValue = craftedValue(state.craftedTotals[playerId]);
+  const progress = scenarioProgress(state.scenario, pnl, { craftedValue: achievedCraftedValue });
 
   return {
     days,
@@ -504,8 +528,10 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
     ownedParcels: getPlayerHoldings(state, playerId).length,
     completeFactories: countCompleteFactories(state, playerId),
     scenarioTarget: DEFAULT_SCENARIO.targetNetProfit,
+    craftedValue: achievedCraftedValue,
+    craftedTarget: DEFAULT_SCENARIO.targetCraftedValue,
     maxDays,
-    reachedTarget: profit >= DEFAULT_SCENARIO.targetNetProfit,
+    reachedTarget: progress.profitMet && progress.craftedMet,
   };
 }
 
