@@ -142,4 +142,42 @@ describe('配方解鎖條件', () => {
     const recipe = RECIPES['make-pack-module'];
     expect(isRecipeUnlocked(recipe, ['a', 'b', 'c'])).toBe(false);
   });
+
+  it('自動排程不會排出未解鎖的配方', () => {
+    // 這是回歸守門：先前 researchId 完全沒被檢查，排程可以排出任何配方。
+    // 現在對每一種「排得出來」的情境檢查一遍 —— 排出來的配方必須全部符合解鎖條件。
+    let state = createInitialWorld({ startingCash: 500_000 });
+    const parcel = state.map.parcels
+      .filter((p) => p.role === 'land' && p.ownerId === null)
+      .find((p) => findOpenLotForParcel(state, p.id) !== undefined)!;
+    const lot = findOpenLotForParcel(state, parcel.id)!;
+    state = applyWorldAction(state, { type: 'BID', parcelId: parcel.id, amount: lot.minPrice });
+    state = applyWorldAction(state, { type: 'SETTLE_AUCTION', parcelId: parcel.id });
+    state = applyWorldAction(state, {
+      type: 'START_BUILD',
+      parcelId: parcel.id,
+      factoryTypeId: 'workshop',
+    });
+    for (let i = 0; i < FACTORY_TYPES.workshop.buildTimeTicks; i += 1) {
+      state = applyWorldAction(state, { type: 'ADVANCE_BUILD_TICK' });
+    }
+    // 給一大堆原料，讓排程「有本錢」排出任何毛利最高的配方
+    state = {
+      ...state,
+      inventories: {
+        ...state.inventories,
+        [state.localPlayerId]: Object.fromEntries(Object.keys(ITEMS).map((itemId) => [itemId, 99])),
+      },
+    };
+    const unlocked = state.commerce?.unlocked ?? [];
+    for (const depth of [0, 1, 2] as const) {
+      const plans = planProductionSlots(state, state.localPlayerId, [parcel.id.value], depth, 1);
+      for (const plan of plans) {
+        expect(
+          isRecipeUnlocked(RECIPES[plan.recipeId], unlocked),
+          `排程排出了未解鎖的配方：${plan.recipeId}`,
+        ).toBe(true);
+      }
+    }
+  });
 });
