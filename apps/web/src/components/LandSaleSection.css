@@ -1,0 +1,63 @@
+.land-sale ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.land-sale li {
+  display: grid;
+  grid-template-columns: auto auto auto 1fr auto;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 3%);
+  font-size: 0.68rem;
+}
+
+.land-sale li.is-blocked {
+  opacity: 0.55;
+}
+
+.ls-coord {
+  color: var(--sys-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ls-appraise {
+  color: var(--sys-muted);
+}
+
+.ls-proceeds {
+  color: var(--sys-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.ls-advice {
+  color: var(--sys-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.land-sale li button {
+  border: 1px solid var(--sys-border);
+  background: var(--sys-panel);
+  color: inherit;
+  border-radius: 4px;
+  padding: 0.18rem 0.45rem;
+  font-size: 0.66rem;
+  cursor: pointer;
+}
+
+.land-sale li button:hover:not(:disabled) {
+  border-color: var(--sys-accent);
+  color: var(--sys-accent);
+}
+
+.land-sale li button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

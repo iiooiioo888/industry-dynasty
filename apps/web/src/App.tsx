@@ -37,6 +37,7 @@ import { computeStageProgress, currentStage } from './game/stage-progress';
 import { loadProgress, markStageCleared } from './game/campaign-storage';
 import { OpsPanel } from './components/OpsPanel';
 import { ProductionPanel } from './components/ProductionPanel';
+import { LandSaleSection } from './components/LandSaleSection';
 import { SalesPanel } from './components/SalesPanel';
 import { useWorldState } from './game/useWorldState';
 import './App.css';
@@ -193,6 +194,12 @@ export function App() {
               }
               onAdvanceProduction={() => dispatch({ type: 'ADVANCE_PRODUCTION_TICK' })}
               onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
+            />
+          ) : null}
+          {page === 'produce' ? (
+            <LandSaleSection
+              state={state}
+              onSellLand={(parcelId) => dispatch({ type: 'SELL_LAND', parcelId })}
             />
           ) : null}
           {page === 'market' ? (

@@ -20,3 +20,4 @@ export {
   type ProductionSummary,
 } from './status.js';
 export { contractBoard, type ContractBoard, type ContractRow } from './contracts.js';
+export { landSaleBoard, type LandSaleBoard, type LandSaleRow } from './land-sale.js';
