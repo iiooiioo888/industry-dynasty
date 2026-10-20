@@ -90,8 +90,10 @@ function sellSurplus(state: WorldState): WorldState {
 }
 
 /** 標地 + 蓋廠；回傳新狀態。 */
-function acquireAndBuild(state: WorldState, stage: StageDef): WorldState {
+function acquireAndBuild(state: WorldState, stage: StageDef, extraParcels = 0): WorldState {
   let next = state;
+  // 深加工路線需要額外的地蓋實驗室與組裝廠
+  const targetParcels = stage.recommendedParcels + extraParcels;
   // 先挑礦脈種類齊全的地，再補齊規模
   const wantedKinds = ['iron-vein', 'resin-bog', 'quartz-sand', 'coal-seam', 'copper-shale'];
   const picked: string[] = [];
@@ -102,7 +104,7 @@ function acquireAndBuild(state: WorldState, stage: StageDef): WorldState {
     );
 
   for (const kind of wantedKinds) {
-    if (picked.length >= stage.recommendedParcels) {
+    if (picked.length >= targetParcels) {
       break;
     }
     const parcel = candidates().find((p) => p.resource.kind === kind);
@@ -116,7 +118,7 @@ function acquireAndBuild(state: WorldState, stage: StageDef): WorldState {
       picked.push(parcel.id.value);
     }
   }
-  while (picked.length < stage.recommendedParcels) {
+  while (picked.length < targetParcels) {
     const parcel = candidates()[0];
     if (!parcel) {
       break;
@@ -178,6 +180,98 @@ function startLines(state: WorldState, stage: StageDef): WorldState {
   return next;
 }
 
+// ── 深加工路線的三個步驟 ────────────────────────────────────────────
+
+/** 找一塊還沒蓋東西的自有地塊。 */
+function freeParcelKey(state: WorldState): string | null {
+  const playerId = state.localPlayerId;
+  const parcel = getPlayerHoldings(state, playerId).find(
+    (entry) => state.sites[entry.id.value] === undefined,
+  );
+  return parcel?.id.value ?? null;
+}
+
+/** 蓋實驗室、僱研發員、啟動研究，並等它完成。 */
+function buildLabAndResearch(state: WorldState): WorldState {
+  let next = state;
+  if (next.commerce?.unlocked.includes('consumer-line')) {
+    return next;
+  }
+  const key = freeParcelKey(next);
+  if (!key) {
+    return next;
+  }
+  next = applyWorldAction(next, {
+    type: 'START_BUILD',
+    parcelId: { value: key } as never,
+    factoryTypeId: 'lab',
+  });
+  for (let i = 0; i < 60; i += 1) {
+    next = applyWorldAction(next, { type: 'ADVANCE_BUILD_TICK' });
+  }
+  next = applyWorldAction(next, { type: 'HIRE_STAFF', role: 'researcher', count: 1 });
+  next = applyWorldAction(next, { type: 'START_RESEARCH', parcelId: { value: key } as never });
+  // 研發需要 16 刻；多推一些確保完成
+  for (let i = 0; i < 40; i += 1) {
+    next = applyWorldAction(next, { type: 'ADVANCE_SIM_TIME', deltaMs: 1000 });
+  }
+  return next;
+}
+
+/** 蓋組裝廠（需要基礎零件當材料）。 */
+function buildAssembly(state: WorldState): WorldState {
+  let next = state;
+  const key = freeParcelKey(next);
+  if (!key) {
+    return next;
+  }
+  next = applyWorldAction(next, {
+    type: 'START_BUILD',
+    parcelId: { value: key } as never,
+    factoryTypeId: 'assembly-plant',
+  });
+  for (let i = 0; i < 60; i += 1) {
+    next = applyWorldAction(next, { type: 'ADVANCE_BUILD_TICK' });
+  }
+  return next;
+}
+
+/**
+ * 把組裝廠轉去跑精密模組。
+ *
+ * 只有在研發解鎖、而且原料（合金板＋基礎零件）都到位時才切換 ——
+ * 太早切會把原本的合金板產線餓死（第 8～13 回合的教訓）。
+ */
+function assignAssemblyLine(state: WorldState): WorldState {
+  let next = state;
+  const playerId = next.localPlayerId;
+  if (!next.commerce?.unlocked.includes('consumer-line')) {
+    return next;
+  }
+  const stock = next.inventories[playerId] ?? {};
+  if (getItemQty(stock, 'alloy-plate') < 4 || getItemQty(stock, 'basic-part') < 4) {
+    return next;
+  }
+  for (const [key, site] of Object.entries(next.sites)) {
+    if (site.phase !== 'complete' || site.ownerId !== playerId) {
+      continue;
+    }
+    if (site.factoryTypeId !== 'assembly-plant') {
+      continue;
+    }
+    const parcel = next.map.parcels.find((entry) => entry.id.value === key);
+    if (!parcel) {
+      continue;
+    }
+    next = applyWorldAction(next, {
+      type: 'START_PRODUCTION',
+      parcelId: parcel.id,
+      recipeId: 'assemble-precision',
+    });
+  }
+  return next;
+}
+
 export interface PlayOptions {
   /**
    * 打滿整個天數上限，即使中途通關也不停。
@@ -193,8 +287,28 @@ export function playStage(stage: StageDef, options: PlayOptions = {}): PlayResul
   let state = createInitialWorld(stageWorldConfig(stage.id));
 
   // 有些關卡需要先做出零件才能蓋組裝廠，所以先跑幾天然後再補建
-  state = acquireAndBuild(state, stage);
+  const wantsDeepChain = stage.recommendedDepth === 2 && stage.index >= 18;
+  // 深加工需要多兩塊地（實驗室＋組裝廠）；若關卡建議規模已經含進去就不再加
+  const extraParcels = wantsDeepChain ? Math.max(0, 8 - stage.recommendedParcels) : 0;
+  state = acquireAndBuild(state, stage, extraParcels);
   state = startLines(state, stage);
+
+  const advanceDays = (days: number): void => {
+    for (let day = 0; day < days; day += 1) {
+      for (let tick = 0; tick < TICKS_PER_DAY; tick += 1) {
+        state = applyWorldAction(state, { type: 'ADVANCE_SIM_TIME', deltaMs: 1000 });
+      }
+      state = sellSurplus(state);
+    }
+  };
+
+  // 深加工路線：先做出基礎零件 → 蓋實驗室研發 → 蓋組裝廠跑精密模組。
+  // 這是第三階唯一真正會被用到的路徑，也是後期的主要成長來源。
+  if (wantsDeepChain) {
+    advanceDays(3); // 先讓基礎零件累積
+    state = buildLabAndResearch(state);
+    state = buildAssembly(state);
+  }
 
   for (let day = 0; day < stage.maxDays; day += 1) {
     if (!options.playFullHorizon && state.scenario.status !== 'playing') {
@@ -204,6 +318,8 @@ export function playStage(stage: StageDef, options: PlayOptions = {}): PlayResul
       state = applyWorldAction(state, { type: 'ADVANCE_SIM_TIME', deltaMs: 1000 });
     }
     state = sellSurplus(state);
+    // 研究完成後把組裝廠轉去跑精密模組
+    state = assignAssemblyLine(state);
   }
 
   const playerId = state.localPlayerId;

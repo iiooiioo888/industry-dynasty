@@ -32,7 +32,8 @@ export type RecipeId =
   | 'roll-alloy'
   | 'make-hand-tool'
   | 'make-wire-bundle'
-  | 'make-pack-module';
+  | 'make-pack-module'
+  | 'assemble-precision';
 
 export interface RecipeDef {
   readonly id: RecipeId;
@@ -312,6 +313,27 @@ export const RECIPES = {
     buildings: ['assembly-plant'],
     researchId: 'consumer-line',
   },
+  'assemble-precision': {
+    id: 'assemble-precision',
+    nameZh: '組裝精密模組',
+    // 第三階：拿二階成品（合金板）再加工，合金板因此變成中間件。
+    // 需要研發解鎖 —— 沒解鎖就不會被自動排程選到。
+    inputs: [
+      { itemId: 'alloy-plate', quantity: 2 },
+      { itemId: 'basic-part', quantity: 2 },
+    ],
+    outputItemId: 'precision-module',
+    outputQuantity: 1,
+    outputMultiplier: 1,
+    baseCycleTicks: 8,
+    travelTickPerDistance: 1,
+    stage: 'finish',
+    minTechStage: 2,
+    sourceKind: null,
+    reserveCost: 0,
+    buildings: ['assembly-plant'],
+    researchId: 'consumer-line',
+  },
 } as const satisfies Record<RecipeId, RecipeDef>;
 
 export const RECIPE_LIST: readonly RecipeDef[] = [
@@ -329,6 +351,7 @@ export const RECIPE_LIST: readonly RecipeDef[] = [
   RECIPES['make-hand-tool'],
   RECIPES['make-wire-bundle'],
   RECIPES['make-pack-module'],
+  RECIPES['assemble-precision'],
 ];
 
 export const CHAIN_STAGES = [
