@@ -34,6 +34,13 @@ export {
   rollWorldEvent,
   seedRivals,
 } from './logic.js';
+export {
+  MAX_CONCURRENT_EVENTS,
+  NEWS_TEMPLATES,
+  combineMultiplier,
+  rollNewsEvents,
+  type NewsTemplate,
+} from './news.js';
 export type {
   AdCampaign,
   CityContract,

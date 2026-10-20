@@ -196,8 +196,13 @@ describe('合約、研發與新聞', () => {
 
   it('新聞到期後失效', () => {
     const state = createInitialWorld();
-    expect(rollWorldEvent(2, state.map.cities)?.kind).toBe('freight-up');
-    expect(rollWorldEvent(1, state.map.cities)).toBeNull();
+    // 事件改成樣板表抽選（`commerce/news.ts`），仍必須對同一天完全決定性。
+    // 這裡只斷言「有無抽到東西」是穩定可重現的，不綁死特定日期會抽到哪一種。
+    const day2a = rollWorldEvent(2, state.map.cities);
+    const day2b = rollWorldEvent(2, state.map.cities);
+    expect(day2a?.id).toBe(day2b?.id);
+    expect(day2a?.kind).toBe(day2b?.kind);
+    expect(day2a === null || day2a.remainingDays > 0).toBe(true);
     const seeded = {
       ...state,
       commerce: {

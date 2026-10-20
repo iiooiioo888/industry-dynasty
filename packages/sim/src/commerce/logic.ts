@@ -4,6 +4,7 @@ import { quoteLocalDemand } from '../world/demand.js';
 import type { Parcel } from '../types/map.js';
 import type { ParcelId } from '../types/map.js';
 import type { Player, WorldState } from '../world/state.js';
+import { MAX_CONCURRENT_EVENTS, combineMultiplier, rollNewsEvents } from './news.js';
 import {
   EMPTY_STAFF,
   type AdCampaign,
@@ -219,53 +220,28 @@ export function quoteRetailDay(args: {
   };
 }
 
+/**
+ * 舊的單一事件抽取器（`day % 9` 的硬寫桶子）已由 `commerce/news.ts`
+ * 的樣板表取代。這裡保留一個薄包裝，回傳當天的第一個事件，
+ * 讓既有呼叫端與測試不必一次全改；新程式碼請用 `rollNewsEvents`。
+ */
 export function rollWorldEvent(
   day: number,
   cities: readonly { id: string; name: string }[],
 ): WorldEvent | null {
-  const bucket = day % 9;
-  if (bucket === 2) {
-    return {
-      id: `evt-freight-${day}`,
-      kind: 'freight-up',
-      headline: '港灣裝卸壅塞，運費短升',
-      remainingDays: 2,
-      magnitude: 1.25,
-    };
-  }
-  if (bucket === 5 && cities.length > 0) {
-    const city = cities[day % cities.length];
-    if (!city) {
-      return null;
-    }
-    return {
-      id: `evt-demand-${day}`,
-      kind: 'city-demand-up',
-      headline: `${city.name}工地趕工，消費品需求短升`,
-      remainingDays: 2,
-      magnitude: 0.35,
-      cityId: city.id,
-      cityName: city.name,
-    };
-  }
-  if (bucket === 8) {
-    return {
-      id: `evt-port-${day}`,
-      kind: 'port-raw-down',
-      headline: '港區原料庫滿，收購價短跌',
-      remainingDays: 2,
-      magnitude: 0.93,
-    };
-  }
-  return null;
+  return rollNewsEvents(day, { cities })[0] ?? null;
 }
 
+/**
+ * 運費乘數。多個事件並存時取**乘積**（`combineMultiplier`），
+ * 而不是只認第一個 —— 否則同時兩個運費事件只有一個生效。
+ */
 export function freightMultiplier(events: readonly WorldEvent[]): number {
-  return events.find((event) => event.kind === 'freight-up')?.magnitude ?? 1;
+  return combineMultiplier(events, 'freight-up');
 }
 
 export function rawPortMultiplier(events: readonly WorldEvent[]): number {
-  return events.find((event) => event.kind === 'port-raw-down')?.magnitude ?? 1;
+  return combineMultiplier(events, 'port-raw-down');
 }
 
 function staffCount(staff: StaffRoster, role: StaffRole): number {
@@ -563,11 +539,15 @@ export function applyCommerceDay(state: WorldState, gameDay: number): CommerceDa
   const events = commerce.events
     .map((event) => ({ ...event, remainingDays: event.remainingDays - 1 }))
     .filter((event) => event.remainingDays > 0);
-  if (events.length === 0) {
-    const rolled = rollWorldEvent(gameDay, state.map.cities);
-    if (rolled) {
-      events.push(rolled);
-    }
+  // 事件改成資料驅動的樣板表（見 `commerce/news.ts`），仍然一天最多一個，
+  // 且同類型不重複，避免乘數疊加失控。
+  if (events.length < MAX_CONCURRENT_EVENTS) {
+    const rolled = rollNewsEvents(
+      gameDay,
+      { cities: state.map.cities },
+      events.map((event) => event.kind),
+    );
+    events.push(...rolled);
   }
   const campaigns = commerce.campaigns
     .map((campaign) => ({ ...campaign, remainingDays: campaign.remainingDays - 1 }))
