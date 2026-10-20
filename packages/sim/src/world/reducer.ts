@@ -37,6 +37,7 @@ import { assignStaff, dismissStaff, hireStaff, releaseStaffAt } from '../company
 import { unlockResearch } from '../company/research.js';
 import { fillCityOrder } from '../company/orders.js';
 import { buyAdvert, setShelfPrice } from '../company/retail.js';
+import { dispatchSupply, releaseSiteBin } from '../supply/haul.js';
 import { applyWithdrawCommodity } from '../supply/intake.js';
 import { findOpenLotForParcel, findParcel, type Player, type WorldState } from './state.js';
 
@@ -127,6 +128,13 @@ export function applyWorldAction(
       return applyWithdrawCommodity(state, action.commodityId, action.lots);
     case 'FILL_CITY_ORDER':
       return fillCityOrder(state, action.orderId, action.quantity, action.shipFromParcelId);
+    case 'DISPATCH_SUPPLY':
+      return dispatchSupply(state, {
+        toParcelId: action.toParcelId,
+        itemId: action.itemId,
+        quantity: action.quantity,
+        fromParcelId: action.fromParcelId,
+      });
     default:
       return state;
   }
@@ -251,7 +259,7 @@ function applySellLand(state: WorldState, parcelId: ParcelId, config: WorldConfi
   const productionLines = { ...state.productionLines };
   delete productionLines[parcelId.value];
   const unpaidLandTax = { ...state.unpaidLandTax, [parcelId.value]: 0 };
-  const released = releaseStaffAt(state, parcelId.value);
+  const released = releaseSiteBin(releaseStaffAt(state, parcelId.value), parcelId.value);
 
   return {
     ...released,
@@ -295,7 +303,7 @@ function applyDemolishAction(state: WorldState, parcelId: ParcelId): WorldState 
   const sites = { ...state.sites };
   delete sites[parcelId.value];
   const productionLines = clearProductionAtParcel(state.productionLines, parcelId.value);
-  const released = releaseStaffAt(state, parcelId.value);
+  const released = releaseSiteBin(releaseStaffAt(state, parcelId.value), parcelId.value);
 
   return {
     ...released,

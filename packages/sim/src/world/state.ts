@@ -12,6 +12,7 @@ import type { ScenarioState } from '../sales/scenario.js';
 import type { Shipment } from '../sales/shipment.js';
 import type { ProductionLine } from '../production/production-line.js';
 import type { PlayerStock } from '../production/items.js';
+import type { SupplyHaul } from '../supply/haul.js';
 import type { AuctionLot } from '../types/auction.js';
 import type { GameMap, Parcel, ParcelId } from '../types/map.js';
 
@@ -55,6 +56,10 @@ export interface WorldState {
   readonly todayEvent?: MarketEvent;
   /** 當日城市供貨已交數量。鍵含日期，換日自然換新單。 */
   readonly orderFills?: Readonly<Record<string, number>>;
+  /** 各廠料倉。缺省視為空倉，產線仍吃公司庫。 */
+  readonly siteBins?: Readonly<Record<string, PlayerStock>>;
+  /** 沿路送往廠內料倉的貨物。到貨才入倉。 */
+  readonly supplyHauls?: readonly SupplyHaul[];
 }
 
 export function findParcel(state: WorldState, parcelId: ParcelId): Parcel | undefined {

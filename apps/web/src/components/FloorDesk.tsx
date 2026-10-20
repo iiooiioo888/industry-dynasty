@@ -8,6 +8,7 @@ import {
   RESEARCH_PROJECT_LIST,
   STAFF_ROSTER,
   brandOf,
+  downstreamOf,
   getItemQty,
   getPlayerInventory,
   getProductionLine,
@@ -15,14 +16,21 @@ import {
   hasRecipeInputs,
   listCityOrders,
   listStaff,
+  listSupplyHauls,
+  quoteSupplyDispatch,
   readResearch,
   recipeBlockReason,
+  siteBin,
+  upstreamOf,
   type FloorStation,
+  type ItemId,
   type MachineGradeId,
   type ParcelId,
+  type PlayerStock,
   type RecipeId,
   type WorldState,
 } from '@industry-dynasty/sim';
+import { useState } from 'react';
 import { MachineCompare } from './MachineCompare';
 import { ShelfDesk } from './OperationsPanel';
 
@@ -42,6 +50,7 @@ export interface FloorDeskProps {
   onBuyAd: (spend: number) => void;
   onSellToPort: (offerId: string, quantity: number) => void;
   onFillOrder: (orderId: string, quantity: number) => void;
+  onDispatchSupply: (itemId: ItemId, quantity: number, fromParcelId?: ParcelId | null) => void;
 }
 
 const ROLE_LABEL = {
@@ -66,6 +75,7 @@ export function FloorDesk({
   onBuyAd,
   onSellToPort,
   onFillOrder,
+  onDispatchSupply,
 }: FloorDeskProps) {
   const site = getSite(state, parcelId);
   if (!site || site.phase !== 'complete') {
@@ -96,6 +106,7 @@ export function FloorDesk({
         mode={station.role}
         onStart={onStartProduction}
         onStop={onStopProduction}
+        onDispatch={onDispatchSupply}
       />
     );
   }
@@ -263,14 +274,16 @@ function WorkDesk({
   mode,
   onStart,
   onStop,
+  onDispatch,
 }: {
   state: WorldState;
   parcelId: ParcelId;
   cash: number;
-  stock: ReturnType<typeof getPlayerInventory>;
+  stock: PlayerStock;
   mode: 'intake' | 'work';
   onStart: (recipeId: RecipeId, machineGradeId?: MachineGradeId) => void;
   onStop: () => void;
+  onDispatch: (itemId: ItemId, quantity: number, fromParcelId?: ParcelId | null) => void;
 }) {
   const parcel = state.map.parcels.find((entry) => entry.id.value === parcelId.value);
   const site = getSite(state, parcelId);
@@ -288,18 +301,22 @@ function WorkDesk({
           {line.status === 'waiting_inputs' ? ' · 待料' : ''}
         </p>
         {mode === 'intake' ? (
-          <ul className="floor-actions">
-            {recipe.inputs.length === 0 ? (
-              <li>這條線直接吃礦脈，不進原料。</li>
-            ) : (
-              recipe.inputs.map((input) => (
-                <li key={input.itemId}>
-                  {ITEMS[input.itemId].nameZh} 需要 {input.quantity} · 庫存 {getItemQty(stock, input.itemId)}
-                  {missing.some((gap) => gap.itemId === input.itemId) ? ' · 不足' : ''}
-                </li>
-              ))
-            )}
-          </ul>
+          <>
+            <ul className="floor-actions">
+              {recipe.inputs.length === 0 ? (
+                <li>這條線直接吃礦脈，不進原料。</li>
+              ) : (
+                recipe.inputs.map((input) => (
+                  <li key={input.itemId}>
+                    {ITEMS[input.itemId].nameZh} 需要 {input.quantity} · 公司庫 {getItemQty(stock, input.itemId)} · 料倉{' '}
+                    {getItemQty(siteBin(state, parcelId.value), input.itemId)}
+                    {missing.some((gap) => gap.itemId === input.itemId) ? ' · 公司庫不足' : ''}
+                  </li>
+                ))
+              )}
+            </ul>
+            <SupplyPanel state={state} parcelId={parcelId} stock={stock} recipeId={recipe.id} onDispatch={onDispatch} />
+          </>
         ) : (
           <button type="button" onClick={onStop}>
             停止這條產線
@@ -310,7 +327,12 @@ function WorkDesk({
   }
 
   if (mode === 'intake') {
-    return <p className="floor-detail">還沒排產。到作業區選配方，原料會從這裡進。</p>;
+    return (
+      <div className="floor-desk">
+        <p className="floor-detail">先排產，才能對上這座廠的上下游。料可以先送進料倉。</p>
+        <SupplyPanel state={state} parcelId={parcelId} stock={stock} recipeId={null} onDispatch={onDispatch} />
+      </div>
+    );
   }
 
   const crafted = state.craftedTotals[state.localPlayerId];
@@ -360,6 +382,118 @@ function WorkDesk({
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+function SupplyPanel({
+  state,
+  parcelId,
+  stock,
+  recipeId,
+  onDispatch,
+}: {
+  state: WorldState;
+  parcelId: ParcelId;
+  stock: PlayerStock;
+  recipeId: RecipeId | null;
+  onDispatch: (itemId: ItemId, quantity: number, fromParcelId?: ParcelId | null) => void;
+}) {
+  const [itemId, setItemId] = useState<ItemId | ''>('');
+  const [qtyText, setQtyText] = useState('1');
+  const [fromKey, setFromKey] = useState('');
+  const bin = siteBin(state, parcelId.value);
+  const held = Object.entries(bin).filter((entry): entry is [ItemId, number] => entry[1] > 0 && entry[0] in ITEMS);
+  const incoming = listSupplyHauls(state).filter((haul) => haul.toParcelId === parcelId.value);
+  const others = state.map.parcels.filter((parcel) => {
+    if (parcel.ownerId !== state.localPlayerId || parcel.id.value === parcelId.value) {
+      return false;
+    }
+    return state.sites[parcel.id.value]?.phase === 'complete';
+  });
+  const sourceStock = fromKey ? siteBin(state, fromKey) : stock;
+  const choices = Object.entries(sourceStock).filter(
+    (entry): entry is [ItemId, number] => entry[1] > 0 && entry[0] in ITEMS,
+  );
+  const chosen = choices.find(([id]) => id === itemId)?.[0] ?? choices[0]?.[0];
+  const qty = Number.parseInt(qtyText, 10);
+  const fromParcel = fromKey ? (others.find((parcel) => parcel.id.value === fromKey)?.id ?? null) : null;
+  const quote =
+    chosen !== undefined && Number.isInteger(qty)
+      ? quoteSupplyDispatch(state, {
+          toParcelId: parcelId,
+          itemId: chosen,
+          quantity: qty,
+          fromParcelId: fromParcel,
+        })
+      : null;
+  const upstream = recipeId ? upstreamOf(recipeId) : [];
+  const downstream = recipeId ? downstreamOf(recipeId) : [];
+
+  return (
+    <div className="floor-supply-block">
+      {recipeId ? (
+        <p className="floor-detail">
+          上游 {upstream.map((link) => link.nameZh).join('、') || '無'} · 下游{' '}
+          {downstream.map((link) => link.nameZh).join('、') || '無'}
+        </p>
+      ) : null}
+      <p className="floor-detail">
+        料倉 {held.length === 0 ? '空' : held.map(([id, have]) => `${ITEMS[id].nameZh} ${have}`).join('、')}
+        {incoming.length > 0
+          ? ` · 在途 ${incoming.map((haul) => `${ITEMS[haul.itemId].nameZh} ${haul.quantity}`).join('、')}`
+          : ''}
+      </p>
+      <div className="floor-supply">
+        <select value={fromKey} onChange={(event) => setFromKey(event.target.value)} aria-label="送料來源">
+          <option value="">公司庫</option>
+          {others.map((parcel) => (
+            <option key={parcel.id.value} value={parcel.id.value}>
+              {FACTORY_TYPES[state.sites[parcel.id.value]!.factoryTypeId].nameZh} {parcel.x},{parcel.y}
+            </option>
+          ))}
+        </select>
+        <select
+          value={chosen ?? ''}
+          onChange={(event) => {
+            const next = event.target.value;
+            if (next in ITEMS) {
+              setItemId(next as ItemId);
+            }
+          }}
+          aria-label="送料品項"
+          disabled={choices.length === 0}
+        >
+          {choices.length === 0 ? <option value="">沒有可送的料</option> : null}
+          {choices.map(([id, have]) => (
+            <option key={id} value={id}>
+              {ITEMS[id].nameZh} · {have}
+            </option>
+          ))}
+        </select>
+        <input
+          aria-label="送料數量"
+          inputMode="numeric"
+          value={qtyText}
+          onChange={(event) => setQtyText(event.target.value.replace(/[^\d]/g, ''))}
+        />
+        <button
+          type="button"
+          disabled={!quote?.ok || !chosen}
+          onClick={() => {
+            if (quote?.ok && chosen) {
+              onDispatch(chosen, qty, fromParcel);
+            }
+          }}
+        >
+          送進料倉
+        </button>
+      </div>
+      <p className="floor-detail">
+        {quote?.ok
+          ? `運費 $${quote.freight.toLocaleString()} · ${quote.travelTicks} 刻到達`
+          : (quote?.reason ?? '來源沒有可送的料')}
+      </p>
     </div>
   );
 }

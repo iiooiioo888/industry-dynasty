@@ -3,6 +3,7 @@ import type { ConsumerItemId } from '../company/retail.js';
 import type { ClockSpeed } from './clock.js';
 import type { FactoryTypeId } from '../buildings/catalog.js';
 import type { MachineGradeId } from '../production/machines.js';
+import type { ItemId } from '../production/items.js';
 import type { RecipeId } from '../production/recipes.js';
 import type { ParcelId } from '../types/map.js';
 
@@ -53,4 +54,12 @@ export type WorldAction =
   | { type: 'SET_SHELF_PRICE'; parcelId: ParcelId; itemId: ConsumerItemId; unitPrice: number }
   | { type: 'BUY_ADVERT'; spend: number }
   | { type: 'WITHDRAW_COMMODITY'; commodityId: CommodityId; lots: number }
-  | { type: 'FILL_CITY_ORDER'; orderId: string; quantity: number; shipFromParcelId: ParcelId };
+  | { type: 'FILL_CITY_ORDER'; orderId: string; quantity: number; shipFromParcelId: ParcelId }
+  | {
+      type: 'DISPATCH_SUPPLY';
+      toParcelId: ParcelId;
+      itemId: ItemId;
+      quantity: number;
+      /** 省略時從公司庫出發。指定時從另一座完工建物的料倉出發。 */
+      fromParcelId?: ParcelId | null;
+    };

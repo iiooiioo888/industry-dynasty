@@ -3,6 +3,7 @@ import { dayIndexAt, SIM_MS_PER_TICK, type ClockSpeed } from './clock.js';
 import { applyBuildTick } from './build-reducer.js';
 import { applyProductionTick } from './production-reducer.js';
 import { applyAdvanceDay } from './sales-reducer.js';
+import { settleSupplyHauls } from '../supply/haul.js';
 import { settleArrivedShipments } from './shipments.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
 import type { WorldState } from './state.js';
@@ -62,6 +63,7 @@ export function applyOneSimTick(
   }
   next = accrueResearch(next);
   next = settleArrivedShipments(next);
+  next = settleSupplyHauls(next);
   return catchUpDays(next, config);
 }
 
@@ -95,7 +97,7 @@ export function advanceSimClock(
   if (simMs !== next.clock.simMs) {
     next = { ...next, clock: { ...next.clock, simMs } };
   }
-  return settleArrivedShipments(next);
+  return settleSupplyHauls(settleArrivedShipments(next));
 }
 
 /** 手動推進正好一格模擬時間，暫停中也生效，供單步與既有測試使用。 */

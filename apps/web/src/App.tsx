@@ -134,6 +134,17 @@ export function App() {
                   });
                 }
               },
+              onDispatchSupply: (itemId, quantity, fromParcelId) => {
+                if (selectedParcelId) {
+                  dispatch({
+                    type: 'DISPATCH_SUPPLY',
+                    toParcelId: selectedParcelId,
+                    itemId,
+                    quantity,
+                    fromParcelId,
+                  });
+                }
+              },
             }}
             onSelectParcel={setSelectedParcelId}
             onTogglePause={() => dispatch({ type: 'SET_CLOCK', paused: !state.clock.paused })}

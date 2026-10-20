@@ -141,6 +141,10 @@
   box-shadow: 0 0 0 2px #102033;
 }
 
+.map-cargo.supply {
+  background: #e3b341;
+}
+
 .map-worker-label {
   position: absolute;
   left: calc(100% + 0.2rem);
@@ -407,9 +411,43 @@
 }
 
 .floor-actions button:disabled,
-.floor-desk > button:disabled {
+.floor-desk > button:disabled,
+.floor-supply button:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+.floor-supply {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.floor-supply select,
+.floor-supply input {
+  font: inherit;
+  font-size: 0.72rem;
+  background: #1c232d;
+  color: #d5dbe4;
+  border: 1px solid #3a4454;
+  border-radius: 4px;
+  padding: 0.15rem 0.35rem;
+}
+
+.floor-supply input {
+  width: 3.2rem;
+}
+
+.floor-supply button {
+  font: inherit;
+  font-size: 0.72rem;
+  background: #243044;
+  color: #f2efe6;
+  border: 1px solid #e3b341;
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  cursor: pointer;
 }
 
 .map-cell-order-tag {
@@ -732,6 +770,10 @@
 
 .map-legend .swatch.road {
   background: #d7c59a;
+}
+
+.map-legend .swatch.supply {
+  background: #e3b341;
 }
 
 .map-legend .swatch.city {

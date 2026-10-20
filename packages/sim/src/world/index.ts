@@ -85,6 +85,20 @@ export {
 export { processParcelTax } from './tax-logic.js';
 export { MAINTENANCE_PER_FACTORY, applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
 export { COMMODITY_INTAKE, applyWithdrawCommodity, validateWithdrawCommodity } from '../supply/intake.js';
+export {
+  dispatchSupply,
+  downstreamOf,
+  listSupplyHauls,
+  listSupplyHaulViews,
+  quoteSupplyDispatch,
+  releaseSiteBin,
+  settleSupplyHauls,
+  siteBin,
+  upstreamOf,
+  type ChainNeighbor,
+  type SupplyHaul,
+  type SupplyHaulView,
+} from '../supply/haul.js';
 export { netProfit, emptyPnL, type PnLSummary } from '../sales/pnl.js';
 export {
   generateParcelResource,

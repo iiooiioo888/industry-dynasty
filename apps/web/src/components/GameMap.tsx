@@ -6,6 +6,7 @@ import {
   findOpenLotForParcel,
   listMapActors,
   listShipmentViews,
+  listSupplyHaulViews,
   quoteLocalDemand,
   ticksUntilDayClose,
   roadNamesAt,
@@ -156,6 +157,7 @@ export function GameMap({
   const featureArt = resolveMapFeatureArt(state);
   const actors = listMapActors(state);
   const routes = listShipmentViews(state);
+  const hauls = listSupplyHaulViews(state);
   const floorBlock = selectedParcelId
     ? enterFloorBlock(state, selectedParcelId)
     : '先在大世界點一棟完工的建物';
@@ -327,7 +329,7 @@ export function GameMap({
               );
             })}
           </div>
-          {routes.length > 0 ? (
+          {routes.length > 0 || hauls.length > 0 ? (
             <svg
               className="map-routes"
               viewBox={`0 0 ${width} ${height}`}
@@ -346,9 +348,38 @@ export function GameMap({
                   strokeDasharray="0.28 0.16"
                 />
               ))}
+              {hauls.map((haul) => (
+                <polyline
+                  key={haul.id}
+                  points={haul.points
+                    .map((point) => `${point.x + 0.5},${point.y + 0.5}`)
+                    .join(' ')}
+                  fill="none"
+                  stroke="#e3b341"
+                  strokeWidth={0.12}
+                  strokeDasharray="0.18 0.14"
+                />
+              ))}
             </svg>
           ) : null}
           <div className="map-actors">
+            {hauls.map((haul) => (
+              <span
+                key={haul.id}
+                className="map-cargo supply"
+                style={{
+                  left: `${((haul.x + 0.5) / width) * 100}%`,
+                  top: `${((haul.y + 0.5) / height) * 100}%`,
+                }}
+                role="img"
+                title={haul.label}
+                aria-label={haul.label}
+              >
+                <span className={`map-worker-label${haul.x > width * 0.65 ? ' flip' : ''}`}>
+                  {haul.label}
+                </span>
+              </span>
+            ))}
             {routes.map((route) => (
               <span
                 key={route.id}
@@ -416,6 +447,9 @@ export function GameMap({
         </span>
         <span>
           <i className="swatch road" /> 道路
+        </span>
+        <span>
+          <i className="swatch supply" /> 廠間送料
         </span>
         <span>
           <i className="swatch city" /> 城市據點
