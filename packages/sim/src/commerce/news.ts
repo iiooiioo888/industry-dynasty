@@ -196,7 +196,9 @@ export function rollNewsEvents(
     ticket -= template.weight;
   }
 
-  const city = picked.needsCity ? context.cities[dayHash(day, 13) % context.cities.length] : undefined;
+  const city = picked.needsCity
+    ? context.cities[dayHash(day, 13) % context.cities.length]
+    : undefined;
   const headline = picked.headline.replace('{city}', city?.name ?? '本市');
   const event: WorldEvent = {
     id: `evt-${picked.id}-${day}`,

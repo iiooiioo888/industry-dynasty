@@ -41,6 +41,17 @@ export {
   rollNewsEvents,
   type NewsTemplate,
 } from './news.js';
+export {
+  COHORT_IDS,
+  COHORT_LABEL,
+  ITEM_COHORT_BIAS,
+  bestItemForCity,
+  cityCohorts,
+  dominantCohort,
+  itemCityDemandFactor,
+  type CohortId,
+  type CohortMix,
+} from './cohorts.js';
 export type {
   AdCampaign,
   CityContract,

@@ -4,6 +4,7 @@ import { quoteLocalDemand } from '../world/demand.js';
 import type { Parcel } from '../types/map.js';
 import type { ParcelId } from '../types/map.js';
 import type { Player, WorldState } from '../world/state.js';
+import { itemCityDemandFactor } from './cohorts.js';
 import { MAX_CONCURRENT_EVENTS, combineMultiplier, rollNewsEvents } from './news.js';
 import {
   EMPTY_STAFF,
@@ -19,7 +20,11 @@ import {
 } from './types.js';
 
 export const CONSUMER_RESEARCH_ID = 'consumer-line';
-export const CONSUMER_ITEM_IDS = ['hand-tool', 'wire-bundle', 'pack-module'] as const satisfies readonly ItemId[];
+export const CONSUMER_ITEM_IDS = [
+  'hand-tool',
+  'wire-bundle',
+  'pack-module',
+] as const satisfies readonly ItemId[];
 
 export const RESEARCH_COST = 2_800;
 export const RESEARCH_TICKS = 16;
@@ -36,7 +41,12 @@ export const CITY_DAILY_UNITS = 4;
 
 export const STAFF_TABLE: Record<
   StaffRole,
-  { readonly nameZh: string; readonly hireCost: number; readonly dailyWage: number; readonly cap: number }
+  {
+    readonly nameZh: string;
+    readonly hireCost: number;
+    readonly dailyWage: number;
+    readonly cap: number;
+  }
 > = {
   operator: { nameZh: '產線技師', hireCost: 400, dailyWage: 80, cap: 12 },
   clerk: { nameZh: '門市店員', hireCost: 350, dailyWage: 70, cap: 12 },
@@ -76,7 +86,9 @@ export function consumerReferencePrice(): number {
   return Math.max(1, Math.round(sum / CONSUMER_ITEM_IDS.length));
 }
 
-export function marketShareOf(commerce: Pick<CommerceState, 'consumerRevenue' | 'addressableValue'>): number {
+export function marketShareOf(
+  commerce: Pick<CommerceState, 'consumerRevenue' | 'addressableValue'>,
+): number {
   if (commerce.addressableValue <= 0) {
     return 0;
   }
@@ -200,12 +212,17 @@ export function quoteRetailDay(args: {
     )?.magnitude ?? 0;
   const rivalFactor = Math.max(0.2, 1 - presence + ad);
   // 規劃日不是日曆週。密集區大約三天可以消化一週的在地需求，門市才有得排班。
+  // 人口分級：同一座城市裡，賣對商品的需求量高於賣錯商品。
+  // 係數已正規化成消費品平均為 1，所以整體市場規模不變（見 `commerce/cohorts.ts`）。
+  const cityName = args.parcel.nearestCityName;
+  const cohortFactor = cityName ? itemCityDemandFactor(cityName, args.itemId) : 1;
   let units =
     Math.max(1, Math.round(local.weeklyVolume / 3)) *
     elasticity *
     (0.35 + 0.65 * clamp01(args.parcel.roadAccess)) *
     rivalFactor *
-    (1 + eventBoost);
+    (1 + eventBoost) *
+    cohortFactor;
   if (args.parcel.cityProximity <= 0 && args.parcel.populationDensity < 20) {
     units *= 0.15;
   }
@@ -417,7 +434,9 @@ export function advanceResearch(state: WorldState): WorldState {
   return writeCommerce(state, {
     ...commerce,
     research: null,
-    unlocked: commerce.unlocked.includes(job.id) ? commerce.unlocked : [...commerce.unlocked, job.id],
+    unlocked: commerce.unlocked.includes(job.id)
+      ? commerce.unlocked
+      : [...commerce.unlocked, job.id],
     qualityBand: 1,
   });
 }
@@ -445,7 +464,11 @@ export function applyBuyCampaign(state: WorldState, cityId: string): WorldState 
   );
 }
 
-function refreshContracts(commerce: CommerceState, state: WorldState, gameDay: number): CityContract[] {
+function refreshContracts(
+  commerce: CommerceState,
+  state: WorldState,
+  gameDay: number,
+): CityContract[] {
   const kept = commerce.contracts.filter((contract) => {
     if (contract.status === 'shipping') {
       return true;
@@ -560,7 +583,11 @@ export function applyCommerceDay(state: WorldState, gameDay: number): CommerceDa
   const nextCommerce: CommerceState = {
     ...commerce,
     shelves,
-    contracts: refreshContracts({ ...commerce, contracts, qualityBand: commerce.qualityBand }, state, gameDay),
+    contracts: refreshContracts(
+      { ...commerce, contracts, qualityBand: commerce.qualityBand },
+      state,
+      gameDay,
+    ),
     campaigns,
     events,
     consumerRevenue: commerce.consumerRevenue + retailRevenue,
@@ -582,7 +609,11 @@ export function applyCommerceDay(state: WorldState, gameDay: number): CommerceDa
   };
 }
 
-export function noteContractRevenue(state: WorldState, grossRevenue: number, contractId: string): WorldState {
+export function noteContractRevenue(
+  state: WorldState,
+  grossRevenue: number,
+  contractId: string,
+): WorldState {
   const commerce = readCommerce(state);
   return {
     ...state,
