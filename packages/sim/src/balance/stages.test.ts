@@ -68,12 +68,19 @@ describe('關卡表', () => {
     }
   });
 
-  it('資金成長不會快過目標成長（否則後面的關卡反而更簡單）', () => {
+  it('難度不成長得比資金慢（否則後面的關卡反而更簡單）', () => {
     const first = STAGES[0]!;
     const last = STAGES[STAGES.length - 1]!;
     const cashGrowth = last.startingCash / first.startingCash;
-    const targetGrowth = last.targets.netProfit / first.targets.netProfit;
-    expect(targetGrowth).toBeGreaterThan(cashGrowth);
+    // 淨利受到經濟天花板限制（規模紅利只到 6 塊地），所以不能拿它當唯一指標。
+    // 真正在後期把難度拉開的是**加工產值**，所以用兩者合計的成長倍率比較。
+    const difficultyGrowth =
+      (last.targets.netProfit + last.targets.craftedValue) /
+      (first.targets.netProfit + first.targets.craftedValue);
+    expect(
+      difficultyGrowth,
+      `難度成長 ${difficultyGrowth.toFixed(2)} 應高於資金成長 ${cashGrowth.toFixed(2)}`,
+    ).toBeGreaterThan(cashGrowth);
   });
 
   it('難度隨關卡推進（不會倒退）', () => {
