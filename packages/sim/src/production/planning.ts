@@ -59,6 +59,19 @@ function marginPerCycle(recipe: RecipeDef): number {
   return outValue - inValue;
 }
 
+/**
+ * 這個配方現在能不能排？需要研究的配方必須先解鎖。
+ *
+ * 這是修掉的一個真 bug：`RecipeDef.researchId` 先前**完全沒被檢查**，
+ * 所以「研發解鎖」在自動排程裡形同虛設 —— 只要原料夠、毛利高就會被排進去。
+ * 目前所有帶 researchId 的配方產出都不可販售，所以問題還沒顯現；
+ * 一旦有「可用但要解鎖」的配方就會直接爆掉。
+ */
+export function isRecipeUnlocked(recipe: RecipeDef, unlocked: readonly string[]): boolean {
+  const researchId = recipe.researchId;
+  return !researchId || unlocked.includes(researchId);
+}
+
 function bestReadyRecipe(
   state: WorldState,
   playerId: string,
@@ -67,10 +80,12 @@ function bestReadyRecipe(
 ): RecipeId | null {
   const stock = state.inventories[playerId] ?? {};
   const crafted = state.craftedTotals[playerId];
+  const unlocked = state.commerce?.unlocked ?? [];
   const candidates = Object.values(RECIPES)
     .filter((recipe) => recipe.stage === stage && recipe.inputs.length > 0)
     .filter((recipe) => ITEMS[recipe.outputItemId].sellable)
     .filter((recipe) => techStage(crafted) >= recipe.minTechStage)
+    .filter((recipe) => isRecipeUnlocked(recipe, unlocked))
     .filter((recipe) => (recipe.buildings as readonly string[]).includes(siteFactoryTypeId))
     .filter((recipe) =>
       recipe.inputs.every((input) => getItemQty(stock, input.itemId) >= input.quantity),

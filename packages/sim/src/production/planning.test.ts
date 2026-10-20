@@ -1,5 +1,10 @@
-﻿import { describe, expect, it } from 'vitest';
-import { planProductionSlots, extractionRecipeFor, runProductionPlan } from './planning.js';
+import { describe, expect, it } from 'vitest';
+import {
+  isRecipeUnlocked,
+  planProductionSlots,
+  extractionRecipeFor,
+  runProductionPlan,
+} from './planning.js';
 import { createInitialWorld } from '../world/create-world.js';
 import { applyWorldAction } from '../world/reducer.js';
 import { findOpenLotForParcel } from '../world/state.js';
@@ -109,5 +114,32 @@ describe('生產調度規則', () => {
         once.productionLines[key]!.progressTicks,
       );
     }
+  });
+});
+
+/**
+ * 配方解鎖條件。
+ *
+ * 這是一個修掉的真 bug：`RecipeDef.researchId` 先前**完全沒被檢查**，
+ * 所以「研發解鎖」在自動排程裡形同虛設 —— 只要原料夠、毛利高就會被排進去。
+ */
+describe('配方解鎖條件', () => {
+  it('沒有 researchId 的配方永遠可排', () => {
+    const recipe = RECIPES['make-alloy-plate'];
+    expect(isRecipeUnlocked(recipe, [])).toBe(true);
+    expect(isRecipeUnlocked(recipe, ['consumer-line'])).toBe(true);
+  });
+
+  it('有 researchId 的配方要解鎖後才能排', () => {
+    const recipe = RECIPES['make-hand-tool'];
+    expect(recipe.researchId).toBe('consumer-line');
+    expect(isRecipeUnlocked(recipe, [])).toBe(false);
+    expect(isRecipeUnlocked(recipe, ['其他研究'])).toBe(false);
+    expect(isRecipeUnlocked(recipe, ['consumer-line'])).toBe(true);
+  });
+
+  it('解鎖清單裡的無關項目不影響判定', () => {
+    const recipe = RECIPES['make-pack-module'];
+    expect(isRecipeUnlocked(recipe, ['a', 'b', 'c'])).toBe(false);
   });
 });
