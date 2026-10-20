@@ -50,3 +50,9 @@
 .ops-panel button:disabled {
   opacity: 0.45;
 }
+
+.ops-research-meta {
+  font-size: 0.66rem;
+  color: var(--sys-muted);
+  flex: 1;
+}

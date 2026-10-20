@@ -1,9 +1,11 @@
 import {
   CAMPAIGN_COST,
-  CONSUMER_RESEARCH_ID,
-  RESEARCH_COST,
+  RESEARCH_DEFS,
+  RESEARCH_ORDER,
   STAFF_TABLE,
+  canStartResearch,
   readCommerce,
+  researchDays,
   type ParcelId,
   type StaffRole,
   type WorldState,
@@ -14,7 +16,7 @@ export interface OpsPanelProps {
   state: WorldState;
   onHire: (role: StaffRole, count: number) => void;
   onFire: (role: StaffRole, count: number) => void;
-  onResearch: (parcelId: ParcelId) => void;
+  onResearch: (parcelId: ParcelId, researchId: string) => void;
   onCampaign: (cityId: string) => void;
 }
 
@@ -30,7 +32,6 @@ export function OpsPanel({ state, onHire, onFire, onResearch, onCampaign }: OpsP
       site.factoryTypeId === 'lab',
   );
   const labId = lab ? { value: lab[0] } : null;
-  const unlocked = commerce.unlocked.includes(CONSUMER_RESEARCH_ID);
   const counts: Record<StaffRole, number> = {
     operator: commerce.staff.operators,
     clerk: commerce.staff.clerks,
@@ -67,19 +68,37 @@ export function OpsPanel({ state, onHire, onFire, onResearch, onCampaign }: OpsP
       </ul>
       <div className="ops-block">
         <h3>研發</h3>
-        {unlocked ? null : commerce.research ? (
+        {commerce.research ? (
           <p className="sys-muted">
+            {RESEARCH_DEFS[commerce.research.id as keyof typeof RESEARCH_DEFS]?.nameZh ??
+              commerce.research.id}{' '}
             {commerce.research.progressTicks}/{commerce.research.totalTicks}
           </p>
         ) : (
-          <button
-            type="button"
-            className="sys-btn"
-            disabled={!labId || (player?.cash ?? 0) < RESEARCH_COST}
-            onClick={() => labId && onResearch(labId)}
-          >
-            ${RESEARCH_COST.toLocaleString()}
-          </button>
+          <ul className="ops-staff">
+            {RESEARCH_ORDER.map((id) => {
+              const def = RESEARCH_DEFS[id];
+              const gate = canStartResearch(def, commerce.unlocked, false);
+              const done = commerce.unlocked.includes(id);
+              return (
+                <li key={id}>
+                  <strong>{def.nameZh}</strong>
+                  <span className="ops-research-meta">
+                    {done ? '已完成' : gate.ok ? def.unlocks : gate.reason}
+                    {done ? '' : ` · ${researchDays(def)} 天`}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={!labId || !gate.ok || (player?.cash ?? 0) < def.cost}
+                    onClick={() => labId && onResearch(labId, id)}
+                    title={gate.ok ? '' : gate.reason}
+                  >
+                    ${def.cost.toLocaleString()}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
       <div className="ops-block">
@@ -90,7 +109,9 @@ export function OpsPanel({ state, onHire, onFire, onResearch, onCampaign }: OpsP
             return (
               <li key={city.id}>
                 <strong>{city.name}</strong>
-                <span>{live ? `剩餘 ${live.remainingDays} 天` : `$${CAMPAIGN_COST.toLocaleString()}`}</span>
+                <span>
+                  {live ? `剩餘 ${live.remainingDays} 天` : `$${CAMPAIGN_COST.toLocaleString()}`}
+                </span>
                 <button
                   type="button"
                   disabled={(player?.cash ?? 0) < CAMPAIGN_COST}

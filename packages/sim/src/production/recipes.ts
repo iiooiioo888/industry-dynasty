@@ -33,7 +33,8 @@ export type RecipeId =
   | 'make-hand-tool'
   | 'make-wire-bundle'
   | 'make-pack-module'
-  | 'assemble-precision';
+  | 'assemble-precision'
+  | 'assemble-control';
 
 export interface RecipeDef {
   readonly id: RecipeId;
@@ -332,7 +333,28 @@ export const RECIPES = {
     sourceKind: null,
     reserveCost: 0,
     buildings: ['assembly-plant'],
-    researchId: 'consumer-line',
+    researchId: 'precision-line',
+  },
+  'assemble-control': {
+    id: 'assemble-control',
+    nameZh: '組裝控制單元',
+    // 第四階：精密模組再加工。需要 3 天的「控制模組」研究 ——
+    // 後期關卡的節奏就是靠這件事撐起來的，不是靠調目標數字。
+    inputs: [
+      { itemId: 'precision-module', quantity: 2 },
+      { itemId: 'silica', quantity: 2 },
+    ],
+    outputItemId: 'control-unit',
+    outputQuantity: 1,
+    outputMultiplier: 1,
+    baseCycleTicks: 10,
+    travelTickPerDistance: 1,
+    stage: 'finish',
+    minTechStage: 2,
+    sourceKind: null,
+    reserveCost: 0,
+    buildings: ['assembly-plant'],
+    researchId: 'control-line',
   },
 } as const satisfies Record<RecipeId, RecipeDef>;
 

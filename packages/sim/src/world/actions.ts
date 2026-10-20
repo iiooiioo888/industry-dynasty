@@ -71,7 +71,7 @@ export type WorldAction =
   | { type: 'BID_CONTRACT'; contractId: string; unitPrice: number }
   | { type: 'HIRE_STAFF'; role: StaffRole; count: number }
   | { type: 'FIRE_STAFF'; role: StaffRole; count: number }
-  | { type: 'START_RESEARCH'; parcelId: ParcelId }
+  | { type: 'START_RESEARCH'; parcelId: ParcelId; researchId?: string }
   | { type: 'BUY_CAMPAIGN'; cityId: string }
   | { type: 'ADVANCE_DAY' }
   | { type: 'SET_CLOCK'; paused?: boolean; speed?: ClockSpeed }

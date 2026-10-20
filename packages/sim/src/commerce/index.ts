@@ -88,3 +88,12 @@ export {
   type BidOutcome,
   type ContractBid,
 } from './bidding.js';
+export {
+  canStartResearch,
+  researchDays,
+  RESEARCH_DEFS,
+  RESEARCH_ORDER,
+  RESEARCH_TICKS_PER_DAY,
+  type ResearchDef,
+  type ResearchId,
+} from './research.js';

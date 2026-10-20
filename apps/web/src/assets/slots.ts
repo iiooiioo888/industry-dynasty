@@ -32,6 +32,7 @@ export const ASSET_SLOTS = {
     'wire-bundle': '/assets/item-alloy-plate.png',
     'pack-module': '/assets/item-alloy-plate.png',
     'precision-module': '/assets/item-alloy-plate.png',
+    'control-unit': '/assets/item-alloy-plate.png',
   },
   buildings: {
     workshop: '/assets/bld-workshop.png',

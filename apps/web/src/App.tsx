@@ -234,7 +234,9 @@ export function App() {
               state={state}
               onHire={(role: StaffRole, count) => dispatch({ type: 'HIRE_STAFF', role, count })}
               onFire={(role: StaffRole, count) => dispatch({ type: 'FIRE_STAFF', role, count })}
-              onResearch={(parcelId) => dispatch({ type: 'START_RESEARCH', parcelId })}
+              onResearch={(parcelId, researchId) =>
+                dispatch({ type: 'START_RESEARCH', parcelId, researchId })
+              }
               onCampaign={(cityId) => dispatch({ type: 'BUY_CAMPAIGN', cityId })}
             />
           ) : null}

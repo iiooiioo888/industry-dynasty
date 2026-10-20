@@ -14,7 +14,8 @@ export type ItemId =
   | 'hand-tool'
   | 'wire-bundle'
   | 'pack-module'
-  | 'precision-module';
+  | 'precision-module'
+  | 'control-unit';
 
 export interface ItemDef {
   readonly id: ItemId;
@@ -162,6 +163,12 @@ const V_PACK_MODULE = deriveOutputValue(
  * **需要研發解鎖**（`researchId: 'consumer-line'`）：沒解鎖不會被排程選到。
  * 毛利刻意設得比二階高，否則排程永遠不會選它（見下方 120,000 的說明）。
  */
+/**
+ * 四階產品：把精密模組再組成控制單元。
+ *
+ * 這一階需要「控制模組」研究（3 天）—— 後期關卡的節奏就是靠這件事撐起來的。
+ * 放在 `V_PRECISION_MODULE` 之後，因為它吃精密模組當原料。
+ */
 const V_PRECISION_MODULE = deriveOutputValue(
   [
     { unitValue: V_ALLOY_PLATE, quantity: 2 },
@@ -170,6 +177,15 @@ const V_PRECISION_MODULE = deriveOutputValue(
   1,
   // 每週期毛利 120,000／8 刻 = 15,000，高於熔鑄合金板（8,450）與軋製（10,870）
   120_000,
+);
+const V_CONTROL_UNIT = deriveOutputValue(
+  [
+    { unitValue: V_PRECISION_MODULE, quantity: 2 },
+    { unitValue: V_SILICA, quantity: 2 },
+  ],
+  1,
+  // 每週期毛利 300,000／10 刻 = 30,000，高於精密模組的 15,000
+  300_000,
 );
 
 export const ITEMS = {
@@ -253,6 +269,13 @@ export const ITEMS = {
     unitValue: V_PRECISION_MODULE,
     sellable: true,
   },
+  'control-unit': {
+    id: 'control-unit',
+    nameZh: '控制單元',
+    tier: 'finished',
+    unitValue: V_CONTROL_UNIT,
+    sellable: true,
+  },
 } as const satisfies Record<ItemId, ItemDef>;
 
 const ITEM_ORDER: readonly ItemId[] = [
@@ -270,6 +293,7 @@ const ITEM_ORDER: readonly ItemId[] = [
   'wire-bundle',
   'pack-module',
   'precision-module',
+  'control-unit',
 ];
 
 export const ITEM_LIST: readonly ItemDef[] = ITEM_ORDER.map((id) => ITEMS[id]);

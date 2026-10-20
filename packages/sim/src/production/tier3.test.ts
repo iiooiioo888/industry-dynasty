@@ -35,9 +35,11 @@ describe('第三階加工', () => {
 
   it('需要研發解鎖：未解鎖時不可排', () => {
     const recipe = RECIPES['assemble-precision'];
-    expect(recipe.researchId).toBe('consumer-line');
+    // 第 23 回合把研究拆成鏈：精密模組要「精密加工」，不是最初的「消費品產線」
+    expect(recipe.researchId).toBe('precision-line');
     expect(isRecipeUnlocked(recipe, [])).toBe(false);
-    expect(isRecipeUnlocked(recipe, ['consumer-line'])).toBe(true);
+    expect(isRecipeUnlocked(recipe, ['consumer-line'])).toBe(false);
+    expect(isRecipeUnlocked(recipe, ['precision-line'])).toBe(true);
   });
 
   it('每週期毛利高於二階配方（否則排程永遠不會選它）', () => {

@@ -13,6 +13,7 @@ import {
   type QualityBand,
 } from './quality.js';
 import { rivalBidFor } from './bidding.js';
+import { canStartResearch, RESEARCH_DEFS, type ResearchId } from './research.js';
 import { respondToPlayerShare } from './rivals.js';
 import { clerkCoverage, growStaffSkill, readStaffSkill } from './staff.js';
 import {
@@ -391,7 +392,17 @@ export function applySetShelf(
   };
 }
 
-export function applyStartResearch(state: WorldState, parcelId: ParcelId): WorldState {
+/**
+ * 開始研究。
+ *
+ * 舊版寫死只能做 `consumer-line`；現在依目錄（`commerce/research.ts`）選項，
+ * 並檢查前置研究、是否已有進行中的研究、以及費用。
+ */
+export function applyStartResearch(
+  state: WorldState,
+  parcelId: ParcelId,
+  researchId: ResearchId = CONSUMER_RESEARCH_ID,
+): WorldState {
   const player = state.players[state.localPlayerId];
   const site = state.sites[parcelId.value];
   if (!player || !site || site.phase !== 'complete' || site.ownerId !== player.id) {
@@ -401,23 +412,22 @@ export function applyStartResearch(state: WorldState, parcelId: ParcelId): World
     return state;
   }
   const commerce = readCommerce(state);
-  if (commerce.research || commerce.unlocked.includes(CONSUMER_RESEARCH_ID)) {
-    return state;
-  }
-  if (player.cash < RESEARCH_COST) {
+  const def = RESEARCH_DEFS[researchId];
+  const gate = canStartResearch(def, commerce.unlocked, commerce.research !== null);
+  if (!gate.ok || player.cash < def.cost) {
     return state;
   }
   const job: ResearchJob = {
-    id: CONSUMER_RESEARCH_ID,
+    id: def.id,
     parcelId: parcelId.value,
     progressTicks: 0,
-    totalTicks: RESEARCH_TICKS,
-    spent: RESEARCH_COST,
+    totalTicks: def.ticks,
+    spent: def.cost,
   };
   return writeCommerce(
     state,
     { ...commerce, research: job },
-    { ...player, cash: player.cash - RESEARCH_COST },
+    { ...player, cash: player.cash - def.cost },
   );
 }
 

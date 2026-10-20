@@ -45,6 +45,7 @@ import {
   applySetShelf,
   applyStartResearch,
 } from '../commerce/logic.js';
+import type { ResearchId } from '../commerce/research.js';
 import {
   applyAcceptContract,
   applyAdvanceDay,
@@ -119,7 +120,14 @@ export function applyWorldAction(
     case 'FIRE_STAFF':
       return applyFireStaff(state, action.role, action.count);
     case 'START_RESEARCH':
-      return chargeBuild(state, applyStartResearch(state, action.parcelId));
+      return chargeBuild(
+        state,
+        applyStartResearch(
+          state,
+          action.parcelId,
+          (action.researchId as ResearchId | undefined) ?? undefined,
+        ),
+      );
     case 'BUY_CAMPAIGN':
       return chargeBuild(state, applyBuyCampaign(state, action.cityId));
     case 'ADVANCE_DAY':

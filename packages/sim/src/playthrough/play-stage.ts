@@ -8,6 +8,8 @@ import { quoteSale } from '../sales/sell-logic.js';
 import { netProfit } from '../sales/pnl.js';
 import { craftedValue } from '../production/chain.js';
 import { stageWorldConfig } from '../world/config.js';
+import { RESEARCH_DEFS } from '../commerce/research.js';
+import type { RecipeId } from '../production/recipes.js';
 import { BUILD_MATERIALS } from '../buildings/materials.js';
 import type { StageDef } from '../balance/stages.js';
 
@@ -159,7 +161,10 @@ function startLines(state: WorldState, stage: StageDef): WorldState {
     if (!parcel) {
       continue;
     }
-    if (extractors < stage.recommendedExtractors) {
+    // 第四階需要石英，所以深加工末端多開一條石英產線
+    const wantedExtractors =
+      stage.index >= 21 ? stage.recommendedExtractors + 1 : stage.recommendedExtractors;
+    if (extractors < wantedExtractors) {
       const extraction = extractionRecipeFor(parcel.resource.kind);
       if (extraction) {
         next = applyWorldAction(next, {
@@ -191,28 +196,47 @@ function freeParcelKey(state: WorldState): string | null {
   return parcel?.id.value ?? null;
 }
 
-/** 蓋實驗室、僱研發員、啟動研究，並等它完成。 */
-function buildLabAndResearch(state: WorldState): WorldState {
+/** 已經蓋好、屬於玩家的實驗室（沒有的話 null）。 */
+function existingLabKey(state: WorldState): string | null {
+  const playerId = state.localPlayerId;
+  for (const [key, site] of Object.entries(state.sites)) {
+    if (site.phase === 'complete' && site.ownerId === playerId && site.factoryTypeId === 'lab') {
+      return key;
+    }
+  }
+  return null;
+}
+
+/** 蓋實驗室（若已有就重用）、僱研發員、啟動指定研究，並等到它完成。 */
+function buildLabAndResearch(state: WorldState, researchId: string): WorldState {
   let next = state;
-  if (next.commerce?.unlocked.includes('consumer-line')) {
+  if (next.commerce?.unlocked.includes(researchId)) {
     return next;
   }
-  const key = freeParcelKey(next);
+  // 研究不需要第二間實驗室 —— 沿用既有的那一間
+  const key = existingLabKey(next) ?? freeParcelKey(next);
   if (!key) {
     return next;
   }
-  next = applyWorldAction(next, {
-    type: 'START_BUILD',
-    parcelId: { value: key } as never,
-    factoryTypeId: 'lab',
-  });
-  for (let i = 0; i < 60; i += 1) {
-    next = applyWorldAction(next, { type: 'ADVANCE_BUILD_TICK' });
+  if (existingLabKey(next) === null) {
+    next = applyWorldAction(next, {
+      type: 'START_BUILD',
+      parcelId: { value: key } as never,
+      factoryTypeId: 'lab',
+    });
+    for (let i = 0; i < 60; i += 1) {
+      next = applyWorldAction(next, { type: 'ADVANCE_BUILD_TICK' });
+    }
   }
   next = applyWorldAction(next, { type: 'HIRE_STAFF', role: 'researcher', count: 1 });
-  next = applyWorldAction(next, { type: 'START_RESEARCH', parcelId: { value: key } as never });
-  // 研發需要 16 刻；多推一些確保完成
-  for (let i = 0; i < 40; i += 1) {
+  next = applyWorldAction(next, {
+    type: 'START_RESEARCH',
+    parcelId: { value: key } as never,
+    researchId,
+  });
+  // 研究長度依目錄而定（16／72／144 刻），推到完成為止
+  const needed = RESEARCH_DEFS[researchId as keyof typeof RESEARCH_DEFS]?.ticks ?? 16;
+  for (let i = 0; i < needed + 8; i += 1) {
     next = applyWorldAction(next, { type: 'ADVANCE_SIM_TIME', deltaMs: 1000 });
   }
   return next;
@@ -237,21 +261,39 @@ function buildAssembly(state: WorldState): WorldState {
 }
 
 /**
- * 把組裝廠轉去跑精密模組。
+ * 把組裝廠轉去跑最高階、而且原料齊備的產品。
  *
- * 只有在研發解鎖、而且原料（合金板＋基礎零件）都到位時才切換 ——
- * 太早切會把原本的合金板產線餓死（第 8～13 回合的教訓）。
+ * 順序是「越深越好」：解鎖控制模組就跑控制單元，否則跑精密模組。
+ * 太早切會把上游產線餓死（第 8～13 回合的教訓），所以每一階都要求
+ * 原料至少有 4 個才切換。
  */
 function assignAssemblyLine(state: WorldState): WorldState {
   let next = state;
   const playerId = next.localPlayerId;
-  if (!next.commerce?.unlocked.includes('consumer-line')) {
-    return next;
-  }
+  const unlocked = next.commerce?.unlocked ?? [];
   const stock = next.inventories[playerId] ?? {};
-  if (getItemQty(stock, 'alloy-plate') < 4 || getItemQty(stock, 'basic-part') < 4) {
+
+  const wanted: RecipeId | null = (() => {
+    if (
+      unlocked.includes('control-line') &&
+      getItemQty(stock, 'precision-module') >= 4 &&
+      getItemQty(stock, 'silica') >= 4
+    ) {
+      return 'assemble-control';
+    }
+    if (
+      unlocked.includes('precision-line') &&
+      getItemQty(stock, 'alloy-plate') >= 4 &&
+      getItemQty(stock, 'basic-part') >= 4
+    ) {
+      return 'assemble-precision';
+    }
+    return null;
+  })();
+  if (!wanted) {
     return next;
   }
+
   for (const [key, site] of Object.entries(next.sites)) {
     if (site.phase !== 'complete' || site.ownerId !== playerId) {
       continue;
@@ -266,7 +308,7 @@ function assignAssemblyLine(state: WorldState): WorldState {
     next = applyWorldAction(next, {
       type: 'START_PRODUCTION',
       parcelId: parcel.id,
-      recipeId: 'assemble-precision',
+      recipeId: wanted,
     });
   }
   return next;
@@ -302,11 +344,19 @@ export function playStage(stage: StageDef, options: PlayOptions = {}): PlayResul
     }
   };
 
-  // 深加工路線：先做出基礎零件 → 蓋實驗室研發 → 蓋組裝廠跑精密模組。
-  // 這是第三階唯一真正會被用到的路徑，也是後期的主要成長來源。
+  // 深加工路線：先做出基礎零件 → 蓋實驗室依序研發 → 蓋組裝廠跑高階產品。
+  //
+  // 研究是有長度的（16 / 72 / 144 刻），所以後期關卡不是「第 6 天就摸到天花板」，
+  // 而是必須提早開始研發，時間本身成為一種資源。
   if (wantsDeepChain) {
     advanceDays(3); // 先讓基礎零件累積
-    state = buildLabAndResearch(state);
+    state = buildLabAndResearch(state, 'consumer-line');
+    if (stage.index >= 18) {
+      state = buildLabAndResearch(state, 'precision-line');
+    }
+    if (stage.index >= 21) {
+      state = buildLabAndResearch(state, 'control-line');
+    }
     state = buildAssembly(state);
   }
 
