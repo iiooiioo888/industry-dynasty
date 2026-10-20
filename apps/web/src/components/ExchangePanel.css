@@ -1,0 +1,95 @@
+.exchange-board {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.exchange-board th,
+.exchange-board td {
+  padding: 0.28rem 0.35rem;
+  text-align: right;
+  border-bottom: 1px solid var(--sys-border);
+}
+
+.exchange-board th:first-child,
+.exchange-board td:first-child {
+  text-align: left;
+}
+
+.exchange-board td small {
+  display: block;
+  color: var(--sys-muted);
+  font-size: 0.65rem;
+}
+
+.exchange-board tr.is-on td {
+  background: #1a2433;
+}
+
+.exchange-board tbody tr {
+  cursor: pointer;
+}
+
+.exchange-ticket {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.7rem;
+  align-items: end;
+  margin-top: 0.7rem;
+}
+
+.exchange-ticket label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.7rem;
+  color: var(--sys-muted);
+}
+
+.exchange-ticket input {
+  width: 6rem;
+}
+
+.exchange-books {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin-top: 0.8rem;
+}
+
+.exchange-books h3 {
+  margin: 0 0 0.3rem;
+  font-size: 0.75rem;
+}
+
+.exchange-books ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+}
+
+.exchange-books li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.index-line {
+  width: 100%;
+  height: 36px;
+  color: var(--sys-accent);
+  margin-bottom: 0.4rem;
+}
+
+.quote-rise {
+  color: #ff8b7a;
+}
+
+.quote-fall {
+  color: #7dcea0;
+}

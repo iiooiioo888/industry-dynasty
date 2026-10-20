@@ -49,6 +49,36 @@ export interface PlayerBank {
   readonly lastSettlement: FinanceSettlement | null;
   /** 最近幾期銀行結算，新的在前。 */
   readonly statements: readonly FinanceStatement[];
+  /** 交易所掛單。買方現金已圈存。 */
+  readonly orders: readonly LimitOrder[];
+  /** 最近撮合成交，新的在前。 */
+  readonly fills: readonly MarketFill[];
+}
+
+export type MarketId = StockSymbol | CommodityId;
+
+export type OrderSide = 'buy' | 'sell';
+
+export interface LimitOrder {
+  readonly id: string;
+  readonly marketId: MarketId;
+  readonly side: OrderSide;
+  /** 每股或每手的限價。 */
+  readonly limitPrice: number;
+  /** 剩餘股數或手數。 */
+  readonly quantity: number;
+  /** 買方圈存的現金。賣方為 0。 */
+  readonly escrow: number;
+}
+
+export interface MarketFill {
+  readonly id: string;
+  readonly tick: number;
+  readonly marketId: MarketId;
+  readonly side: OrderSide;
+  readonly quantity: number;
+  readonly price: number;
+  readonly cash: number;
 }
 
 export interface FinanceStatement {

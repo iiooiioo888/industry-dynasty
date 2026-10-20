@@ -2,6 +2,7 @@ import {
   DEFAULT_WORLD_CONFIG,
   marketShareOf,
   readCommerce,
+  type MarketId,
   ticksUntilDayClose,
   type FactoryTypeId,
   type ItemId,
@@ -15,6 +16,7 @@ import { AuctionAlertBanner } from './components/AuctionAlertBanner';
 import { MarketNewsBanner } from './components/MarketNewsBanner';
 import { BankPanel } from './components/BankPanel';
 import { DataReportPanel } from './components/DataReportPanel';
+import { ExchangePanel } from './components/ExchangePanel';
 import { GameMap } from './components/GameMap';
 import { InventoryPanel } from './components/InventoryPanel';
 import { LedgerPanel } from './components/LedgerPanel';
@@ -35,6 +37,7 @@ const PAGES = [
   ['sales', '銷售'],
   ['ops', '經營'],
   ['bank', '銀行'],
+  ['exchange', '金融'],
   ['books', '帳冊'],
 ] as const;
 
@@ -168,6 +171,15 @@ export function App() {
               onSellCommodity={(commodityId, lots) =>
                 dispatch({ type: 'SELL_COMMODITY', commodityId, lots })
               }
+            />
+          ) : null}
+          {page === 'exchange' ? (
+            <ExchangePanel
+              state={state}
+              onPlace={(marketId: MarketId, side, limitPrice, quantity) =>
+                dispatch({ type: 'PLACE_LIMIT', marketId, side, limitPrice, quantity })
+              }
+              onCancel={(orderId) => dispatch({ type: 'CANCEL_LIMIT', orderId })}
             />
           ) : null}
           {page === 'books' ? (

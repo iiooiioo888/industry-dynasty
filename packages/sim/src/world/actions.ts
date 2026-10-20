@@ -1,4 +1,4 @@
-import type { CommodityId, LoanProductId, StockSymbol } from '../bank/types.js';
+import type { CommodityId, LoanProductId, MarketId, OrderSide, StockSymbol } from '../bank/types.js';
 import type { StaffRole } from '../commerce/types.js';
 import type { ItemId } from '../production/items.js';
 import type { ClockSpeed } from './clock.js';
@@ -20,6 +20,14 @@ export type WorldAction =
   | { type: 'SELL_STOCK'; symbol: StockSymbol; shares: number }
   | { type: 'BUY_COMMODITY'; commodityId: CommodityId; lots: number }
   | { type: 'SELL_COMMODITY'; commodityId: CommodityId; lots: number }
+  | {
+      type: 'PLACE_LIMIT';
+      marketId: MarketId;
+      side: OrderSide;
+      limitPrice: number;
+      quantity: number;
+    }
+  | { type: 'CANCEL_LIMIT'; orderId: string }
   | { type: 'START_BUILD'; parcelId: ParcelId; factoryTypeId: FactoryTypeId }
   | { type: 'ADVANCE_BUILD_TICK' }
   | { type: 'CANCEL_BUILD'; parcelId: ParcelId }

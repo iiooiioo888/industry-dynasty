@@ -22,6 +22,8 @@ export {
   emptyPlayerBank,
   nextLoanDue,
   getPlayerBank,
+  applyCancelLimit,
+  applyPlaceLimit,
   previewCoupledWeek,
   settleFinancePeriod,
   summarizeBank,
@@ -36,6 +38,17 @@ export {
   type BankSnapshot,
   type WeekPreview,
 } from './logic.js';
+export {
+  fillOrders,
+  indexSeries,
+  listBoard,
+  freeToSell,
+  placeLimit,
+  quoteBoard,
+  quoteIndex,
+  type BoardQuote,
+  type IndexQuote,
+} from './exchange.js';
 export {
   formatBps,
   interestOn,
@@ -54,6 +67,10 @@ export {
   type FinanceStatement,
   type LoanBook,
   type LoanProductId,
+  type MarketFill,
+  type MarketId,
+  type OrderSide,
+  type LimitOrder,
   type PlayerBank,
   type StockHolding,
   type StockSymbol,

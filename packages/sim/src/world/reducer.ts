@@ -1,6 +1,8 @@
 import {
   applyBuyCommodity,
   applyBuyStock,
+  applyCancelLimit,
+  applyPlaceLimit,
   applyDrawLoan,
   applyOpenSavings,
   applyRepayLoan,
@@ -123,6 +125,10 @@ export function applyWorldAction(
       return applyBuyCommodity(state, action.commodityId, action.lots);
     case 'SELL_COMMODITY':
       return applySellCommodity(state, action.commodityId, action.lots, config.bank);
+    case 'PLACE_LIMIT':
+      return applyPlaceLimit(state, action.marketId, action.side, action.limitPrice, action.quantity);
+    case 'CANCEL_LIMIT':
+      return applyCancelLimit(state, action.orderId);
     case 'START_BUILD':
       return applyStart(state, action.parcelId, action.factoryTypeId);
     case 'ADVANCE_BUILD_TICK':
