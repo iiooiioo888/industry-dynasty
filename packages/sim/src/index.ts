@@ -7,6 +7,7 @@ export * from './npc/index.js';
 export * from './bank/index.js';
 export * from './desk/index.js';
 export * from './world/index.js';
+export * from './persistence/index.js';
 export {
   DEFAULT_ROSTER,
   DEFAULT_SIMULATION,

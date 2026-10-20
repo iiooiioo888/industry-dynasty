@@ -25,6 +25,7 @@ import { MarketPanel } from './components/MarketPanel';
 import { ParcelPlanCard } from './components/ParcelPlanCard';
 import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
+import { SaveControlsBar } from './components/SaveControls';
 import { OpsPanel } from './components/OpsPanel';
 import { ProductionPanel } from './components/ProductionPanel';
 import { SalesPanel } from './components/SalesPanel';
@@ -46,7 +47,7 @@ const PAGES = [
 type PageId = (typeof PAGES)[number][0];
 
 export function App() {
-  const { state, dispatch } = useWorldState();
+  const { state, dispatch, saves } = useWorldState();
   const [selectedParcelId, setSelectedParcelId] = useState<ParcelId | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
@@ -89,39 +90,42 @@ export function App() {
           </button>
         ))}
       </nav>
+      <div className="shell-save">
+        <SaveControlsBar saves={saves} />
+      </div>
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
       <MarketNewsBanner state={state} />
       {page === 'map' ? (
-      <div className="shell-body">
-        <main className="shell-col shell-col-center">
-          <GameMap
-            state={state}
-            selectedParcelId={selectedParcelId}
-            onSelectParcel={setSelectedParcelId}
-            onTogglePause={() => dispatch({ type: 'SET_CLOCK', paused: !state.clock.paused })}
-            onSetSpeed={(speed) => dispatch({ type: 'SET_CLOCK', paused: false, speed })}
-          />
-          <ParcelPlanCard
-            state={state}
-            selectedParcelId={selectedParcelId}
-            pinnedIds={pinnedIds}
-            onTogglePin={togglePin}
-            onBid={(parcelId, amount) => dispatch({ type: 'BID', parcelId, amount })}
-            onSettle={(parcelId) => dispatch({ type: 'SETTLE_AUCTION', parcelId })}
-            onStartBuild={(parcelId, factoryTypeId: FactoryTypeId) =>
-              dispatch({ type: 'START_BUILD', parcelId, factoryTypeId })
-            }
-            onCancelBuild={(parcelId) => dispatch({ type: 'CANCEL_BUILD', parcelId })}
-            onStartProduction={(parcelId, recipeId: RecipeId, machineGradeId?: MachineGradeId) =>
-              dispatch({ type: 'START_PRODUCTION', parcelId, recipeId, machineGradeId })
-            }
-            onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
-              dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
-            }
-            onStopProduction={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
-          />
-        </main>
-      </div>
+        <div className="shell-body">
+          <main className="shell-col shell-col-center">
+            <GameMap
+              state={state}
+              selectedParcelId={selectedParcelId}
+              onSelectParcel={setSelectedParcelId}
+              onTogglePause={() => dispatch({ type: 'SET_CLOCK', paused: !state.clock.paused })}
+              onSetSpeed={(speed) => dispatch({ type: 'SET_CLOCK', paused: false, speed })}
+            />
+            <ParcelPlanCard
+              state={state}
+              selectedParcelId={selectedParcelId}
+              pinnedIds={pinnedIds}
+              onTogglePin={togglePin}
+              onBid={(parcelId, amount) => dispatch({ type: 'BID', parcelId, amount })}
+              onSettle={(parcelId) => dispatch({ type: 'SETTLE_AUCTION', parcelId })}
+              onStartBuild={(parcelId, factoryTypeId: FactoryTypeId) =>
+                dispatch({ type: 'START_BUILD', parcelId, factoryTypeId })
+              }
+              onCancelBuild={(parcelId) => dispatch({ type: 'CANCEL_BUILD', parcelId })}
+              onStartProduction={(parcelId, recipeId: RecipeId, machineGradeId?: MachineGradeId) =>
+                dispatch({ type: 'START_PRODUCTION', parcelId, recipeId, machineGradeId })
+              }
+              onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
+                dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
+              }
+              onStopProduction={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
+            />
+          </main>
+        </div>
       ) : (
         <div className="page-sheet">
           {page === 'produce' ? (
@@ -136,7 +140,9 @@ export function App() {
               onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
             />
           ) : null}
-          {page === 'market' ? <MarketPanel state={state} selectedParcelId={selectedParcelId} /> : null}
+          {page === 'market' ? (
+            <MarketPanel state={state} selectedParcelId={selectedParcelId} />
+          ) : null}
           {page === 'sales' ? (
             <SalesPanel
               state={state}

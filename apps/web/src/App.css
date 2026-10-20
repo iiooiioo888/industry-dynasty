@@ -86,6 +86,16 @@
   border-bottom: 1px solid var(--sys-border);
 }
 
+/* 存檔／讀檔列：緊接在頁籤下方，不搶版面 */
+.shell-save {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  padding: 0.3rem 0.75rem;
+  background: var(--sys-bg);
+  border-bottom: 1px solid var(--sys-border);
+}
+
 .shell-nav button {
   flex: none;
   border: 1px solid transparent;
