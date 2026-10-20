@@ -16,7 +16,7 @@
 .market-place {
   margin: 0.1rem 0 0;
   font-size: 0.8rem;
-  color: #c4cad4;
+  color: var(--sys-text);
 }
 
 .market-stats {
@@ -33,7 +33,7 @@
 
 .market-stats dt {
   font-size: 0.7rem;
-  color: #8b949e;
+  color: var(--sys-muted);
 }
 
 .market-stats dd {

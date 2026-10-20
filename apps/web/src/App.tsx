@@ -67,10 +67,13 @@ export function App() {
   return (
     <div className="shell">
       <header className="shell-titlebar">
-        <span className="brand">產業霸權 · 產業控制台</span>
+        <span className="brand">產業霸權</span>
         <span className="meta" data-clock-readout="true">
-          第 {state.gameDay} 天 · {clockLabel} · 距日結 {ticksUntilDayClose(state.clock.simMs)} 刻 · 市佔 {sharePct}% · $
-          {cash.toLocaleString()}
+          <span>第 {state.gameDay} 天</span>
+          <span>{clockLabel}</span>
+          <span>日結 {ticksUntilDayClose(state.clock.simMs)}</span>
+          <span>市佔 {sharePct}%</span>
+          <span>${cash.toLocaleString()}</span>
         </span>
       </header>
       <nav className="shell-nav" aria-label="頁面">

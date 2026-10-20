@@ -4,7 +4,7 @@
 }
 
 .pnl-net strong.pos {
-  color: #6dd96d;
+  color: var(--sys-fall);
 }
 
 .pnl-net strong.neg {
@@ -43,7 +43,7 @@
 }
 
 .pnl-win {
-  color: #6dd96d;
+  color: var(--sys-fall);
   font-weight: 700;
   font-size: 0.8rem;
 }

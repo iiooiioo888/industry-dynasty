@@ -153,8 +153,10 @@
 }
 
 .sys-btn.danger {
+  background: transparent;
   border-color: #c45c5c;
   color: #f0a8a8;
+  font-weight: 500;
 }
 
 .sys-btn.danger.full {

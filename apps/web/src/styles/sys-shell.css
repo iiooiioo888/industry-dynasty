@@ -1,26 +1,30 @@
 :root {
-  --sys-bg: #141a16;
-  --sys-bg-deep: #101510;
-  --sys-surface: #1c2620;
-  --sys-surface-2: #243028;
-  --sys-border: #3a4a3c;
-  --sys-text: #e7ecdf;
-  --sys-muted: #93a094;
-  --sys-accent: #e0b15a;
-  --sys-warn: #e0b15a;
-  --sys-titlebar: #121814;
+  --sys-bg: #0e1014;
+  --sys-bg-deep: #090a0d;
+  --sys-surface: #16181e;
+  --sys-surface-2: #1e2128;
+  --sys-border: #2c3038;
+  --sys-text: #f3f4f6;
+  --sys-muted: #9aa0ab;
+  --sys-accent: #f3f4f6;
+  --sys-accent-ink: #111214;
+  --sys-warn: #f07178;
+  --sys-rise: #ff7b72;
+  --sys-fall: #3dd68c;
+  --sys-titlebar: rgba(14, 16, 20, 0.88);
   --sys-font: 'Noto Sans TC', 'Segoe UI', system-ui, sans-serif;
-  --sys-display: 'Noto Serif TC', 'Noto Sans TC', serif;
+  --sys-display: 'Noto Sans TC', 'Segoe UI', system-ui, sans-serif;
   --sys-mono: ui-monospace, 'Cascadia Code', monospace;
 }
 
 .sys-panel {
   background: var(--sys-surface);
   border: 1px solid var(--sys-border);
-  border-radius: 4px;
-  padding: 0.55rem 0.65rem;
+  border-radius: 16px;
+  padding: 0.95rem 1.05rem;
   min-width: 0;
   max-width: 100%;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .sys-panel-head {
@@ -38,9 +42,9 @@
   margin: 0;
   min-width: 0;
   font-family: var(--sys-display);
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   line-height: 1.35;
 }
 
@@ -56,11 +60,12 @@
 
 .sys-btn {
   font-size: 0.75rem;
-  padding: 0.4rem 0.55rem;
-  border-radius: 2px;
-  border: 1px solid #8d6a32;
-  background: #2a2418;
-  color: var(--sys-text);
+  font-weight: 600;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--sys-text);
+  color: var(--sys-accent-ink);
   cursor: pointer;
   line-height: 1.35;
   white-space: normal;
@@ -76,7 +81,66 @@ button:focus-visible {
 
 .sys-btn.secondary {
   border-color: var(--sys-border);
+  background: transparent;
+  color: var(--sys-text);
+  font-weight: 500;
+}
+
+.shell input,
+.shell select,
+.shell textarea {
   background: var(--sys-surface-2);
+  color: var(--sys-text);
+  border: 1px solid var(--sys-border);
+  border-radius: 10px;
+  padding: 0.4rem 0.65rem;
+  font: inherit;
+}
+
+.bid-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  margin-top: 0.7rem;
+  font-size: 0.75rem;
+  color: var(--sys-muted);
+}
+
+.bid-field input {
+  width: 10rem;
+}
+
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.panel-actions button,
+.exchange-ticket button,
+.exchange-board button {
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--sys-text);
+  color: var(--sys-accent-ink);
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
+
+.panel-actions button.secondary,
+.exchange-ticket button.secondary,
+.exchange-board button.secondary,
+.panel-actions button:disabled,
+.exchange-board button:disabled {
+  background: transparent;
+  border-color: var(--sys-border);
+  color: var(--sys-text);
+  font-weight: 500;
 }
 
 .sys-btn.block {
