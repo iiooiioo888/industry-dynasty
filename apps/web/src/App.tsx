@@ -180,6 +180,8 @@ export function App() {
                 dispatch({ type: 'PLACE_LIMIT', marketId, side, limitPrice, quantity })
               }
               onCancel={(orderId) => dispatch({ type: 'CANCEL_LIMIT', orderId })}
+              onBuyBond={(bondId, units) => dispatch({ type: 'BUY_BOND', bondId, units })}
+              onSellBond={(bondId, units) => dispatch({ type: 'SELL_BOND', bondId, units })}
             />
           ) : null}
           {page === 'books' ? (

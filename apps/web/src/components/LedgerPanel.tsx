@@ -1,4 +1,4 @@
-import { quoteDesk, type WorldState } from '@industry-dynasty/sim';
+import { formatBps, quoteDesk, quoteRates, type WorldState } from '@industry-dynasty/sim';
 import './LedgerPanel.css';
 
 function money(amount: number): string {
@@ -7,6 +7,7 @@ function money(amount: number): string {
 
 export function LedgerPanel({ state }: { state: WorldState }) {
   const desk = quoteDesk(state);
+  const rates = quoteRates(state.financeTick);
   const plan = desk.cashPlan;
   const bank = desk.bank;
   const creditPct =
@@ -19,6 +20,18 @@ export function LedgerPanel({ state }: { state: WorldState }) {
         <h2>數據</h2>
       </header>
       <dl className="ledger-grid">
+        <div>
+          <dt>政策</dt>
+          <dd>{formatBps(rates.policyAnnualBps)}</dd>
+        </div>
+        <div>
+          <dt>通膨</dt>
+          <dd>{formatBps(rates.inflationAnnualBps)}</dd>
+        </div>
+        <div>
+          <dt>實質</dt>
+          <dd>{formatBps(rates.realAnnualBps)}</dd>
+        </div>
         <div>
           <dt>淨值</dt>
           <dd>{money(bank.netWorth)}</dd>

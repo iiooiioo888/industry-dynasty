@@ -1,10 +1,15 @@
 import {
+  BOND_LIST,
+  formatBps,
   freeToSell,
   getPlayerBank,
   indexSeries,
   listBoard,
+  quoteBond,
   quoteIndex,
+  quoteRates,
   readCommerce,
+  type BondId,
   type MarketId,
   type WorldState,
 } from '@industry-dynasty/sim';
@@ -19,11 +24,14 @@ export interface ExchangePanelProps {
   state: WorldState;
   onPlace: (marketId: MarketId, side: 'buy' | 'sell', limitPrice: number, quantity: number) => void;
   onCancel: (orderId: string) => void;
+  onBuyBond: (bondId: BondId, units: number) => void;
+  onSellBond: (bondId: BondId, units: number) => void;
 }
 
-export function ExchangePanel({ state, onPlace, onCancel }: ExchangePanelProps) {
+export function ExchangePanel({ state, onPlace, onCancel, onBuyBond, onSellBond }: ExchangePanelProps) {
   const events = readCommerce(state).events;
   const board = listBoard(state.financeTick, events);
+  const rates = quoteRates(state.financeTick);
   const index = quoteIndex(state.financeTick);
   const series = indexSeries(state.financeTick);
   const book = getPlayerBank(state, state.localPlayerId);
@@ -45,6 +53,36 @@ export function ExchangePanel({ state, onPlace, onCancel }: ExchangePanelProps) 
           指數 {index.level} {index.delta > 0 ? '▲' : index.delta < 0 ? '▼' : '–'} {Math.abs(index.delta)}
         </p>
       </header>
+      <dl className="rate-strip">
+        <div>
+          <dt>政策</dt>
+          <dd>{formatBps(rates.policyAnnualBps)}</dd>
+        </div>
+        <div>
+          <dt>通膨</dt>
+          <dd>{formatBps(rates.inflationAnnualBps)}</dd>
+        </div>
+        <div>
+          <dt>實質</dt>
+          <dd>{formatBps(rates.realAnnualBps)}</dd>
+        </div>
+        <div>
+          <dt>隔夜</dt>
+          <dd>{formatBps(rates.idleBps)}</dd>
+        </div>
+        <div>
+          <dt>定期</dt>
+          <dd>{formatBps(rates.savingsBps)}</dd>
+        </div>
+        <div>
+          <dt>短債</dt>
+          <dd>{formatBps(rates.billBps)}</dd>
+        </div>
+        <div>
+          <dt>長債</dt>
+          <dd>{formatBps(rates.longBps)}</dd>
+        </div>
+      </dl>
       <IndexLine levels={series} />
       <table className="exchange-board">
         <thead>
@@ -121,6 +159,46 @@ export function ExchangePanel({ state, onPlace, onCancel }: ExchangePanelProps) 
           </button>
         </div>
       ) : null}
+      <table className="exchange-board">
+        <thead>
+          <tr>
+            <th>債券</th>
+            <th>殖利率</th>
+            <th>價格</th>
+            <th>剩餘</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {BOND_LIST.map((bond) => {
+            const quote = quoteBond(bond.id, state.financeTick);
+            const owned = (book.bonds ?? [])
+              .filter((holding) => holding.bondId === bond.id)
+              .reduce((sum, holding) => sum + holding.units, 0);
+            return (
+              <tr key={bond.id}>
+                <td>
+                  {bond.nameZh}
+                  <small>
+                    {owned > 0 ? `${owned} 張` : bond.id}
+                  </small>
+                </td>
+                <td>{formatBps(quote.yieldBps)}</td>
+                <td>{money(quote.price)}</td>
+                <td>{quote.periodsLeft}</td>
+                <td>
+                  <button type="button" onClick={() => onBuyBond(bond.id, 1)}>
+                    買
+                  </button>
+                  <button type="button" className="secondary" disabled={owned < 1} onClick={() => onSellBond(bond.id, 1)}>
+                    賣
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
       <div className="exchange-books">
         <div>
           <h3>掛單</h3>

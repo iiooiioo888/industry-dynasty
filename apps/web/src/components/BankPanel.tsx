@@ -8,6 +8,7 @@ import {
   getPlayerBank,
   interestOn,
   nextLoanDue,
+  quoteRates,
   previewCoupledWeek,
   quoteCommodityAsk,
   quoteCommodityBid,
@@ -134,6 +135,7 @@ export function BankPanel({
   const player = state.players[state.localPlayerId];
   const book = getPlayerBank(state, state.localPlayerId);
   const snapshot = useMemo(() => summarizeBank(state), [state]);
+  const rates = useMemo(() => quoteRates(state.financeTick), [state.financeTick]);
   const preview = useMemo(() => previewCoupledWeek(state), [state]);
 
   function reject(reason: string | undefined) {
@@ -145,7 +147,9 @@ export function BankPanel({
       <header className="sys-panel-head bank-heading">
         <span className="sys-panel-tag">BNK</span>
         <h2>銀行</h2>
-        <p className="bank-kicker">銀行第 {state.financeTick} 期 · 隨日結前進</p>
+        <p className="bank-kicker">
+          第 {state.financeTick} 期 · 政策 {formatBps(rates.policyAnnualBps)} · 實質 {formatBps(rates.realAnnualBps)}
+        </p>
       </header>
 
       <dl className="bank-ledger">
@@ -317,7 +321,8 @@ export function BankPanel({
               <li key={product.id} className="bank-card">
                 <strong>{product.nameZh}</strong>
                 <p>
-                  {formatBps(product.rateBps)} · {product.termTicks} 期 · {product.blurb}
+                  {formatBps(product.id === 'construction' ? rates.constructionBps : rates.workingCapitalBps)} ·{' '}
+                  {product.termTicks} 期
                 </p>
                 <label className="bid-field">
                   <span>撥款金額</span>

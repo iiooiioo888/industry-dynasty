@@ -1,4 +1,4 @@
-import type { CommodityId, LoanProductId, MarketId, OrderSide, StockSymbol } from '../bank/types.js';
+import type { BondId, CommodityId, LoanProductId, MarketId, OrderSide, StockSymbol } from '../bank/types.js';
 import type { StaffRole } from '../commerce/types.js';
 import type { ItemId } from '../production/items.js';
 import type { ClockSpeed } from './clock.js';
@@ -28,6 +28,8 @@ export type WorldAction =
       quantity: number;
     }
   | { type: 'CANCEL_LIMIT'; orderId: string }
+  | { type: 'BUY_BOND'; bondId: BondId; units: number }
+  | { type: 'SELL_BOND'; bondId: BondId; units: number }
   | { type: 'START_BUILD'; parcelId: ParcelId; factoryTypeId: FactoryTypeId }
   | { type: 'ADVANCE_BUILD_TICK' }
   | { type: 'CANCEL_BUILD'; parcelId: ParcelId }

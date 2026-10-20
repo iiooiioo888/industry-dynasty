@@ -22,8 +22,10 @@ export {
   emptyPlayerBank,
   nextLoanDue,
   getPlayerBank,
+  applyBuyBond,
   applyCancelLimit,
   applyPlaceLimit,
+  applySellBond,
   previewCoupledWeek,
   settleFinancePeriod,
   summarizeBank,
@@ -50,6 +52,14 @@ export {
   type IndexQuote,
 } from './exchange.js';
 export {
+  BOND_LIST,
+  BONDS,
+  bondPrice,
+  quoteBond,
+  quoteRates,
+  type RateQuote,
+} from './rates.js';
+export {
   formatBps,
   interestOn,
   quoteCommodityAsk,
@@ -60,6 +70,8 @@ export {
 } from './quotes.js';
 export {
   ZERO_SETTLEMENT,
+  type BondHolding,
+  type BondId,
   type BankCheck,
   type CommodityHolding,
   type CommodityId,
