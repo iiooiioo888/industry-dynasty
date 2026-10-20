@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PLAN_INPUT_BUFFER,
+  hasInputsForRecipe,
   isRecipeUnlocked,
   planProductionSlots,
   extractionRecipeFor,
@@ -11,6 +13,7 @@ import { findOpenLotForParcel } from '../world/state.js';
 import { FACTORY_TYPES } from '../buildings/catalog.js';
 import { ITEMS } from './items.js';
 import { RECIPES } from './recipes.js';
+import type { WorldState } from '../world/state.js';
 
 /**
  * 生產調度的共用規則。
@@ -179,5 +182,70 @@ describe('配方解鎖條件', () => {
         ).toBe(true);
       }
     }
+  });
+});
+
+/**
+ * 排程搶料。
+ *
+ * 先前每座工廠都獨立看**全部庫存**，於是兩座同型工廠會同時判定「原料夠」
+ * 而一起開工 —— 實際上只有一份，第二座隨後餓死，變成閒置（稅金與維護照付）。
+ * 現在排程會把已規劃的原料「預訂」掉，後面的工廠只能看到剩下的。
+ */
+describe('排程搶料', () => {
+  it('庫存不足時不會排入需要該原料的配方（緩衝）', () => {
+    const recipe = RECIPES['make-basic-part'];
+    // 這個配方有多個投入，先湊齊全部、再單獨少一個
+    const full: Record<string, number> = {};
+    for (const input of recipe.inputs) {
+      full[input.itemId] = input.quantity;
+    }
+    expect(hasInputsForRecipe(full, recipe)).toBe(true);
+
+    const shortage = { ...full };
+    const first = recipe.inputs[0]!;
+    shortage[first.itemId] = first.quantity - 1;
+    expect(hasInputsForRecipe(shortage, recipe)).toBe(false);
+
+    // 緩衝 2 週期時，剛好一份原料就不夠了
+    expect(hasInputsForRecipe(full, recipe, 2)).toBe(false);
+    const doubled = Object.fromEntries(
+      recipe.inputs.map((input) => [input.itemId, input.quantity * 2]),
+    );
+    expect(hasInputsForRecipe(doubled, recipe, 2)).toBe(true);
+  });
+
+  it('同一份原料不會被兩座工廠重複規劃', () => {
+    // 三座工坊、兩座要加工，但原料只夠跑一次 → 只有一座能排到加工。
+    const recipe = RECIPES['make-basic-part'];
+    const need = recipe.inputs[0]!;
+    const keys = ['0:0', '1:0', '2:0'];
+    const fake = {
+      localPlayerId: 'p1',
+      gameDay: 0,
+      map: {
+        parcels: keys.map((key, index) => ({
+          id: { value: key },
+          x: index,
+          y: 0,
+          resource: { kind: index === 0 ? 'iron' : 'resin' },
+        })),
+      },
+      sites: Object.fromEntries(
+        keys.map((key) => [key, { factoryTypeId: 'workshop', phase: 'complete', ownerId: 'p1' }]),
+      ),
+      productionLines: {},
+      inventories: { p1: { [need.itemId]: need.quantity } },
+      craftedTotals: { p1: { 'raw-ore': 10, 'basic-part': 10 } },
+      commerce: { unlocked: [] },
+    } as unknown as WorldState;
+
+    const plans = planProductionSlots(fake, 'p1', keys, 1, 1);
+    const processing = plans.filter((plan) => plan.recipeId === recipe.id);
+    expect(processing.length, '同一份原料被重複規劃了').toBeLessThanOrEqual(1);
+  });
+
+  it('緩衝預設值是 1（等於「剛好一份」就能開跑）', () => {
+    expect(PLAN_INPUT_BUFFER).toBe(1);
   });
 });
