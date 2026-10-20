@@ -42,10 +42,15 @@ export function transportCostPerUnit(parcel: Parcel, ratePerTile: number): numbe
  * 而高階品項的絕對金額大，8% 足以讓整條加工鏈由盈轉虧。
  * 波動改由 `wave` 疊加，因此仍保留「哪天賣」的時機決策。
  */
-export function generateNpcBuyOffers(gameDay: number): NpcBuyOffer[] {
+export function generateNpcBuyOffers(
+  gameDay: number,
+  options?: { readonly rawPriceMul?: number },
+): NpcBuyOffer[] {
   const wave = gameDay % 5;
+  const rawPriceMul = options?.rawPriceMul ?? 1;
   return SELLABLE_ITEMS.map((itemId) => {
-    const base = ITEMS[itemId].unitValue;
+    const listed = ITEMS[itemId];
+    const base = Math.round(listed.unitValue * (listed.tier === 'raw' ? rawPriceMul : 1));
     const floorPrice = Math.floor(base * 0.75);
     const unitPrice = Math.floor(base * (1 + (wave - 2) * 0.03));
     return {

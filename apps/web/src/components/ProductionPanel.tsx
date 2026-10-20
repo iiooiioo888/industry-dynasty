@@ -166,6 +166,7 @@ export function ProductionPanel({
                       </span>
                       <span className="chain-meta">
                         {recipe.buildings.map((id) => FACTORY_TYPES[id].nameZh).join('/')}
+                        {recipe.researchId ? ' · 需研發' : ''}
                         {recipe.minTechStage === 0 && recipe.stage === 'finish' ? ' · 捷徑' : ''}
                         {' · '}
                         短路程名目每刻{' '}

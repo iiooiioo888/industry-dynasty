@@ -464,6 +464,14 @@
   box-shadow: inset 0 0 0 3px #6eb5ff;
 }
 
+.map-cell.site-store {
+  box-shadow: inset 0 0 0 3px #e07a3d;
+}
+
+.map-cell.site-lab {
+  box-shadow: inset 0 0 0 3px #b388ff;
+}
+
 .map-cell.market-hub {
   box-shadow: inset 0 0 0 2px #5eb8ff;
 }
@@ -580,6 +588,14 @@
 
 .map-legend .swatch.building-ready {
   background: #6eb5ff;
+}
+
+.map-legend .swatch.site-store {
+  background: #e07a3d;
+}
+
+.map-legend .swatch.site-lab {
+  background: #b388ff;
 }
 
 .map-legend .swatch.worker-travel {

@@ -1,0 +1,90 @@
+import type { ItemId } from '../production/items.js';
+
+export type StaffRole = 'operator' | 'clerk' | 'researcher';
+
+export interface StaffRoster {
+  readonly operators: number;
+  readonly clerks: number;
+  readonly researchers: number;
+}
+
+export interface ShelfListing {
+  readonly parcelId: string;
+  readonly itemId: ItemId;
+  readonly unitPrice: number;
+  readonly quantity: number;
+}
+
+export type ContractStatus = 'open' | 'shipping' | 'fulfilled' | 'lapsed';
+
+export interface CityContract {
+  readonly id: string;
+  readonly cityId: string;
+  readonly cityName: string;
+  readonly itemId: ItemId;
+  readonly quantity: number;
+  readonly unitPrice: number;
+  readonly dueDay: number;
+  readonly status: ContractStatus;
+  readonly penalty: number;
+  readonly penalized: boolean;
+  readonly shipFromParcelId?: string;
+}
+
+export interface ResearchJob {
+  readonly id: string;
+  readonly parcelId: string;
+  readonly progressTicks: number;
+  readonly totalTicks: number;
+  readonly spent: number;
+}
+
+export interface AdCampaign {
+  readonly cityId: string;
+  readonly cityName: string;
+  readonly remainingDays: number;
+  readonly demandBonus: number;
+}
+
+export type WorldEventKind = 'freight-up' | 'city-demand-up' | 'port-raw-down';
+
+export interface WorldEvent {
+  readonly id: string;
+  readonly kind: WorldEventKind;
+  readonly headline: string;
+  readonly remainingDays: number;
+  readonly magnitude: number;
+  readonly cityId?: string;
+  readonly cityName?: string;
+}
+
+export interface RivalOutlet {
+  readonly id: string;
+  readonly nameZh: string;
+  readonly cityId: string;
+  readonly cityName: string;
+  /** 0–1，該城消費品需求裡對手先拿走的比例。 */
+  readonly presence: number;
+}
+
+export interface CommerceState {
+  readonly shelves: readonly ShelfListing[];
+  readonly contracts: readonly CityContract[];
+  readonly staff: StaffRoster;
+  readonly research: ResearchJob | null;
+  readonly unlocked: readonly string[];
+  readonly qualityBand: 0 | 1;
+  readonly campaigns: readonly AdCampaign[];
+  readonly events: readonly WorldEvent[];
+  readonly rivals: readonly RivalOutlet[];
+  readonly consumerRevenue: number;
+  readonly addressableValue: number;
+  readonly wagesPaid: number;
+  readonly penaltiesPaid: number;
+}
+
+export const EMPTY_STAFF: StaffRoster = {
+  operators: 0,
+  clerks: 0,
+  researchers: 0,
+};

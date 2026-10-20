@@ -48,7 +48,10 @@ export function countAdjacentCompleteFactories(
       continue;
     }
     const site = sites[neighborId.value];
-    if (site?.phase === 'complete') {
+    if (
+      site?.phase === 'complete' &&
+      FACTORY_TYPES[site.factoryTypeId].role === 'production'
+    ) {
       count += 1;
     }
   }

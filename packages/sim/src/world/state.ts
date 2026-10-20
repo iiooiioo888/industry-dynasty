@@ -1,3 +1,4 @@
+import type { CommerceState } from '../commerce/types.js';
 import type { PlayerBank } from '../bank/types.js';
 import type { SimClock } from './clock.js';
 import type { ParcelSite } from '../buildings/site.js';
@@ -41,6 +42,8 @@ export interface WorldState {
   readonly clock: SimClock;
   /** 在途出貨。缺省視為沒有，舊狀態仍可開局。到貨才入帳。 */
   readonly shipments?: readonly Shipment[];
+  /** 門市、合約、人力、研發、廣告與對手。舊存檔缺這欄時由讀取端補空帳。 */
+  readonly commerce?: CommerceState;
 }
 
 export function findParcel(state: WorldState, parcelId: ParcelId): Parcel | undefined {

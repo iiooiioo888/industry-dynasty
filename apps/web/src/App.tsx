@@ -1,13 +1,18 @@
 import {
   DEFAULT_WORLD_CONFIG,
+  marketShareOf,
+  readCommerce,
   ticksUntilDayClose,
   type FactoryTypeId,
+  type ItemId,
   type MachineGradeId,
   type ParcelId,
   type RecipeId,
+  type StaffRole,
 } from '@industry-dynasty/sim';
 import { useState } from 'react';
 import { AuctionAlertBanner } from './components/AuctionAlertBanner';
+import { MarketNewsBanner } from './components/MarketNewsBanner';
 import { BankPanel } from './components/BankPanel';
 import { DataReportPanel } from './components/DataReportPanel';
 import { GameMap } from './components/GameMap';
@@ -16,6 +21,7 @@ import { MarketPanel } from './components/MarketPanel';
 import { ParcelPlanCard } from './components/ParcelPlanCard';
 import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
+import { OpsPanel } from './components/OpsPanel';
 import { ProductionPanel } from './components/ProductionPanel';
 import { SalesPanel } from './components/SalesPanel';
 import { useWorldState } from './game/useWorldState';
@@ -27,6 +33,10 @@ export function App() {
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
   const clockLabel = state.clock.paused ? '暫停' : `${state.clock.speed}×`;
+  const commerce = readCommerce(state);
+  const sharePct = Math.round(marketShareOf(commerce) * 100);
+  const verdict =
+    state.scenario.status === 'won' ? '達標' : state.scenario.status === 'lost' ? '未達標' : '進行中';
 
   function togglePin(parcelId: ParcelId) {
     setPinnedIds((current) => {
@@ -45,10 +55,12 @@ export function App() {
           數據報表
         </button>
         <span className="meta" data-clock-readout="true">
-          第 {state.gameDay} 天 · {clockLabel} · 距日結 {ticksUntilDayClose(state.clock.simMs)} 刻
+          第 {state.gameDay} 天 · {clockLabel} · 距日結 {ticksUntilDayClose(state.clock.simMs)} 刻 · 市佔{' '}
+          {sharePct}% · {verdict}
         </span>
       </header>
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
+      <MarketNewsBanner state={state} />
       <div className="shell-body">
         <aside className="shell-col shell-col-left">
           <PnLPanel state={state} />
@@ -70,6 +82,9 @@ export function App() {
             onTogglePin={togglePin}
             onBid={(parcelId, amount) => dispatch({ type: 'BID', parcelId, amount })}
             onSettle={(parcelId) => dispatch({ type: 'SETTLE_AUCTION', parcelId })}
+            onSetShelf={(parcelId, itemId: ItemId, unitPrice, quantity) =>
+              dispatch({ type: 'SET_SHELF', parcelId, itemId, unitPrice, quantity })
+            }
             onStartBuild={(parcelId, factoryTypeId: FactoryTypeId) =>
               dispatch({ type: 'START_BUILD', parcelId, factoryTypeId })
             }
@@ -116,6 +131,19 @@ export function App() {
             onSell={(offerId, quantity, shipFromParcelId) =>
               dispatch({ type: 'SELL_TO_NPC', offerId, quantity, shipFromParcelId })
             }
+            onSetShelf={(parcelId, itemId: ItemId, unitPrice, quantity) =>
+              dispatch({ type: 'SET_SHELF', parcelId, itemId, unitPrice, quantity })
+            }
+            onAcceptContract={(contractId, shipFromParcelId) =>
+              dispatch({ type: 'ACCEPT_CONTRACT', contractId, shipFromParcelId })
+            }
+          />
+          <OpsPanel
+            state={state}
+            onHire={(role: StaffRole, count) => dispatch({ type: 'HIRE_STAFF', role, count })}
+            onFire={(role: StaffRole, count) => dispatch({ type: 'FIRE_STAFF', role, count })}
+            onResearch={(parcelId) => dispatch({ type: 'START_RESEARCH', parcelId })}
+            onCampaign={(cityId) => dispatch({ type: 'BUY_CAMPAIGN', cityId })}
           />
         </aside>
       </div>

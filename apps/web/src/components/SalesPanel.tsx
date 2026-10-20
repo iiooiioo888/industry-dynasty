@@ -1,4 +1,5 @@
 import {
+  CONSUMER_ITEM_IDS,
   findParcel,
   getItemQty,
   getPlayerHoldings,
@@ -7,7 +8,10 @@ import {
   listShipmentViews,
   MARKET_HUB,
   manhattanToMarket,
+  quoteRetailDay,
   quoteSale,
+  readCommerce,
+  type ItemId,
   type ParcelId,
   type WorldState,
 } from '@industry-dynasty/sim';
@@ -19,7 +23,11 @@ export interface SalesPanelProps {
   state: WorldState;
   selectedParcelId: ParcelId | null;
   onSell: (offerId: string, quantity: number, shipFromParcelId: ParcelId) => void;
+  onSetShelf: (parcelId: ParcelId, itemId: ItemId, unitPrice: number, quantity: number) => void;
+  onAcceptContract: (contractId: string, shipFromParcelId: ParcelId) => void;
 }
+
+type SalesTab = 'port' | 'shelf' | 'contract';
 
 function salesDisabledReason(
   state: WorldState,
@@ -50,7 +58,67 @@ function salesDisabledReason(
   return null;
 }
 
-export function SalesPanel({ state, selectedParcelId, onSell }: SalesPanelProps) {
+export function SalesPanel({
+  state,
+  selectedParcelId,
+  onSell,
+  onSetShelf,
+  onAcceptContract,
+}: SalesPanelProps) {
+  const [tab, setTab] = useState<SalesTab>('port');
+
+  return (
+    <section className="sys-panel sales-panel">
+      <header className="sys-panel-head">
+        <span className="sys-panel-tag">SAL</span>
+        <h2>銷售</h2>
+      </header>
+      <div className="sales-tabs" role="tablist">
+        {(
+          [
+            ['port', '港區現貨'],
+            ['shelf', '門市上架'],
+            ['contract', '城市合約'],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            className={tab === id ? 'sales-tab is-on' : 'sales-tab'}
+            onClick={() => setTab(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === 'port' ? (
+        <PortSale state={state} selectedParcelId={selectedParcelId} onSell={onSell} />
+      ) : null}
+      {tab === 'shelf' ? (
+        <ShelfSale state={state} selectedParcelId={selectedParcelId} onSetShelf={onSetShelf} />
+      ) : null}
+      {tab === 'contract' ? (
+        <ContractSale
+          state={state}
+          selectedParcelId={selectedParcelId}
+          onAcceptContract={onAcceptContract}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function PortSale({
+  state,
+  selectedParcelId,
+  onSell,
+}: {
+  state: WorldState;
+  selectedParcelId: ParcelId | null;
+  onSell: SalesPanelProps['onSell'];
+}) {
   const player = state.players[state.localPlayerId];
   const stock = getPlayerInventory(state, player.id);
   const holdings = getPlayerHoldings(state, player.id);
@@ -92,11 +160,7 @@ export function SalesPanel({ state, selectedParcelId, onSell }: SalesPanelProps)
   const canSell = !blockReason && offer && shipParcel;
 
   return (
-    <section className="sys-panel sales-panel">
-      <header className="sys-panel-head">
-        <span className="sys-panel-tag">SAL</span>
-        <h2>出貨運輸</h2>
-      </header>
+    <div>
       <p className="sys-muted sales-guide">
         出貨佔用模擬時間。地圖會畫路線，到港才入帳。出貨點必須從下拉選擇。
       </p>
@@ -204,6 +268,211 @@ export function SalesPanel({ state, selectedParcelId, onSell }: SalesPanelProps)
       >
         派出運輸
       </button>
-    </section>
+    </div>
+  );
+}
+
+function ShelfSale({
+  state,
+  selectedParcelId,
+  onSetShelf,
+}: {
+  state: WorldState;
+  selectedParcelId: ParcelId | null;
+  onSetShelf: SalesPanelProps['onSetShelf'];
+}) {
+  const playerId = state.localPlayerId;
+  const commerce = readCommerce(state);
+  const stores = getPlayerHoldings(state, playerId).filter((parcel) => {
+    const site = state.sites[parcel.id.value];
+    return site?.phase === 'complete' && site.factoryTypeId === 'storefront';
+  });
+  const [storeKey, setStoreKey] = useState(stores[0]?.id.value ?? '');
+  const [itemId, setItemId] = useState<ItemId>('hand-tool');
+  const [qty, setQty] = useState(1);
+  const [price, setPrice] = useState(ITEMS['hand-tool'].unitValue);
+  const store = stores.find((parcel) => parcel.id.value === storeKey) ?? stores[0];
+  const quote = store
+    ? quoteRetailDay({
+        parcel: store,
+        itemId,
+        unitPrice: Math.max(1, Math.round(price) || 1),
+        qualityBand: commerce.qualityBand,
+        clerks: commerce.staff.clerks,
+        activeStores: Math.max(1, commerce.shelves.filter((shelf) => shelf.quantity > 0).length),
+        rivals: commerce.rivals,
+        campaigns: commerce.campaigns,
+        events: commerce.events,
+      })
+    : null;
+
+  useEffect(() => {
+    if (selectedParcelId && stores.some((parcel) => parcel.id.value === selectedParcelId.value)) {
+      setStoreKey(selectedParcelId.value);
+    }
+  }, [selectedParcelId, stores]);
+
+  useEffect(() => {
+    if (quote) {
+      setPrice(quote.referencePrice);
+    }
+  }, [quote?.referencePrice, itemId, storeKey]);
+
+  const stock = getItemQty(getPlayerInventory(state, playerId), itemId);
+  const listing = store
+    ? commerce.shelves.find((shelf) => shelf.parcelId === store.id.value)
+    : undefined;
+
+  return (
+    <div>
+      <p className="sys-muted sales-guide">
+        消費品不走港區全價。門市用你定的價格賣給所在城市，沒有店員就賣不動。
+      </p>
+      {stores.length === 0 ? (
+        <p className="sys-muted">先在人口多的地蓋一座門市。</p>
+      ) : (
+        <>
+          <label className="sales-field">
+            <span>門市</span>
+            <select value={store?.id.value ?? ''} onChange={(event) => setStoreKey(event.target.value)}>
+              {stores.map((parcel) => (
+                <option key={parcel.id.value} value={parcel.id.value}>
+                  ({parcel.x},{parcel.y}) · {parcel.nearestCityName ?? '郊外'}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="sales-field">
+            <span>商品</span>
+            <select value={itemId} onChange={(event) => setItemId(event.target.value as ItemId)}>
+              {CONSUMER_ITEM_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {ITEMS[id].nameZh} · 庫存 {getItemQty(getPlayerInventory(state, playerId), id)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="sales-field">
+            <span>售價</span>
+            <input
+              type="number"
+              min={1}
+              value={price}
+              onChange={(event) => setPrice(Number(event.target.value))}
+            />
+          </label>
+          <label className="sales-field">
+            <span>上架數量</span>
+            <input
+              type="number"
+              min={1}
+              value={qty}
+              onChange={(event) => setQty(Number(event.target.value))}
+            />
+          </label>
+          {quote ? (
+            <p className="sys-muted">
+              基準價 ${quote.referencePrice.toLocaleString()} · 這個價錢預估日銷 {quote.units} 件 ·
+              店員 {commerce.staff.clerks}
+              {commerce.qualityBand > 0 ? ' · 品質加成' : ''}
+            </p>
+          ) : null}
+          {listing ? (
+            <p className="sys-muted">
+              架上 {ITEMS[listing.itemId].nameZh} × {listing.quantity} · ${listing.unitPrice}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className="sys-btn full"
+            disabled={!store || qty <= 0 || stock < qty || price <= 0}
+            onClick={() => store && onSetShelf(store.id, itemId, Math.round(price), qty)}
+          >
+            從庫存上架
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ContractSale({
+  state,
+  selectedParcelId,
+  onAcceptContract,
+}: {
+  state: WorldState;
+  selectedParcelId: ParcelId | null;
+  onAcceptContract: SalesPanelProps['onAcceptContract'];
+}) {
+  const holdings = getPlayerHoldings(state, state.localPlayerId);
+  const commerce = readCommerce(state);
+  const stock = getPlayerInventory(state, state.localPlayerId);
+  const [shipKey, setShipKey] = useState('');
+  const preferred = selectedParcelId ? findParcel(state, selectedParcelId) : undefined;
+
+  useEffect(() => {
+    if (preferred?.ownerId === state.localPlayerId) {
+      setShipKey(preferred.id.value);
+    }
+  }, [preferred?.id.value, preferred?.ownerId, state.localPlayerId]);
+
+  const shipParcel = holdings.find((parcel) => parcel.id.value === shipKey);
+
+  return (
+    <div>
+      <p className="sys-muted sales-guide">
+        城市批發單用固定單價。接單後沿路送達才入帳，超過到期日扣一次違約金。
+      </p>
+      <label className="sales-field">
+        <span>出貨點</span>
+        <select value={shipKey} onChange={(event) => setShipKey(event.target.value)}>
+          <option value="">選擇出貨點</option>
+          {holdings.map((parcel) => (
+            <option key={parcel.id.value} value={parcel.id.value}>
+              ({parcel.x},{parcel.y})
+            </option>
+          ))}
+        </select>
+      </label>
+      <ul className="shipment-list">
+        {commerce.contracts.map((contract) => {
+          const have = getItemQty(stock, contract.itemId);
+          const open = contract.status === 'open';
+          return (
+            <li key={contract.id}>
+              <strong>
+                {contract.cityName} · {ITEMS[contract.itemId].nameZh} × {contract.quantity}
+              </strong>
+              <span>
+                ${contract.unitPrice.toLocaleString()} · 到期第 {contract.dueDay} 天 ·{' '}
+                {contract.status === 'open'
+                  ? '可接'
+                  : contract.status === 'shipping'
+                    ? '運送中'
+                    : contract.status === 'fulfilled'
+                      ? '已完成'
+                      : '已失效'}
+              </span>
+              {open ? (
+                <button
+                  type="button"
+                  className="sys-btn"
+                  disabled={!shipParcel || have < contract.quantity}
+                  onClick={() => shipParcel && onAcceptContract(contract.id, shipParcel.id)}
+                >
+                  接單出貨（庫存 {have}）
+                </button>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+      {commerce.rivals.length > 0 ? (
+        <p className="sys-muted">
+          同業：{commerce.rivals.map((rival) => `${rival.nameZh}（${rival.cityName}）`).join('、')}
+        </p>
+      ) : null}
+    </div>
   );
 }
