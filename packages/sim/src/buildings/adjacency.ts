@@ -1,6 +1,7 @@
-import type { GameMap, Parcel, ParcelId } from '../types/map.js';
+﻿import type { GameMap, Parcel, ParcelId } from '../types/map.js';
 import type { FactoryTypeDef } from './catalog.js';
 import { FACTORY_TYPES } from './catalog.js';
+import { parcelIndex } from '../world/parcel-index.js';
 import type { CompleteSite, ParcelSite } from './site.js';
 
 export interface LogisticsEfficiencyView {
@@ -22,7 +23,11 @@ const CARDINAL_OFFSETS = [
 ];
 
 export function getParcelAt(map: GameMap, x: number, y: number): Parcel | undefined {
-  return map.parcels.find((p) => p.x === x && p.y === y);
+  const { width, height } = map.size;
+  if (x < 0 || y < 0 || x >= width || y >= height) {
+    return undefined;
+  }
+  return parcelIndex(map.parcels, width, height).at(x, y);
 }
 
 export function getAdjacentParcelIds(map: GameMap, parcel: Parcel): ParcelId[] {
