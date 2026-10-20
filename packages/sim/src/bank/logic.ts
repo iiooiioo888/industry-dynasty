@@ -29,6 +29,7 @@ export function emptyPlayerBank(): PlayerBank {
     stocks: [],
     commodities: [],
     lastSettlement: null,
+    statements: [],
   };
 }
 
@@ -56,6 +57,7 @@ export interface BankSnapshot {
   readonly landValue: number;
   readonly factoryValue: number;
   readonly inventoryValue: number;
+  readonly shelfValue: number;
   readonly netWorth: number;
 }
 
@@ -136,6 +138,7 @@ export function summarizeBank(
     return sum + FACTORY_TYPES[site.factoryTypeId].buildCost;
   }, 0);
   const inventoryValue = inventoryBookValue(state.inventories[playerId]);
+  const shelfValue = shelfBookValue(state, playerId);
 
   return {
     financeTick: state.financeTick,
@@ -157,6 +160,7 @@ export function summarizeBank(
     landValue,
     factoryValue,
     inventoryValue,
+    shelfValue,
     netWorth:
       cash +
       book.savingsPrincipal +
@@ -165,9 +169,31 @@ export function summarizeBank(
       commodityBidValue +
       landValue +
       factoryValue +
-      inventoryValue -
+      inventoryValue +
+      shelfValue -
       creditUsed,
   };
+}
+
+export function nextLoanDue(loan: LoanBook): { interest: number; principal: number; total: number } {
+  const interest = interestOn(loan.principal, loan.rateBps);
+  const principal =
+    loan.ticksRemaining <= 1 ? loan.principal : Math.min(loan.installment, loan.principal);
+  return { interest, principal, total: interest + principal };
+}
+
+function shelfBookValue(state: WorldState, playerId: string): number {
+  let total = 0;
+  for (const shelf of state.commerce?.shelves ?? []) {
+    if (state.sites[shelf.parcelId]?.ownerId !== playerId || shelf.quantity <= 0) {
+      continue;
+    }
+    const item = ITEMS[shelf.itemId as keyof typeof ITEMS];
+    if (item) {
+      total += item.unitValue * shelf.quantity;
+    }
+  }
+  return total;
 }
 
 function inventoryBookValue(stock: Readonly<Record<string, number>> | undefined): number {
@@ -342,6 +368,18 @@ function settlePlayerBook(
       savingsUnlockTick,
       loans,
       lastSettlement,
+      statements: [
+        {
+          tick: financeTick,
+          idleInterest,
+          savingsInterest,
+          savingsPayout,
+          loanInterestCharged: interestCharged,
+          loanPrincipalPaid: principalPaid,
+          arrearsAdded,
+        },
+        ...(book.statements ?? []),
+      ].slice(0, 8),
     },
   };
 }

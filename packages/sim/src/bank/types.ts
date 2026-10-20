@@ -47,6 +47,18 @@ export interface PlayerBank {
   readonly stocks: readonly StockHolding[];
   readonly commodities: readonly CommodityHolding[];
   readonly lastSettlement: FinanceSettlement | null;
+  /** 最近幾期銀行結算，新的在前。 */
+  readonly statements: readonly FinanceStatement[];
+}
+
+export interface FinanceStatement {
+  readonly tick: number;
+  readonly idleInterest: number;
+  readonly savingsInterest: number;
+  readonly savingsPayout: number;
+  readonly loanInterestCharged: number;
+  readonly loanPrincipalPaid: number;
+  readonly arrearsAdded: number;
 }
 
 export interface BankCheck {

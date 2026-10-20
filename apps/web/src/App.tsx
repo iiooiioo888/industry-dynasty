@@ -17,6 +17,7 @@ import { BankPanel } from './components/BankPanel';
 import { DataReportPanel } from './components/DataReportPanel';
 import { GameMap } from './components/GameMap';
 import { InventoryPanel } from './components/InventoryPanel';
+import { LedgerPanel } from './components/LedgerPanel';
 import { MarketPanel } from './components/MarketPanel';
 import { ParcelPlanCard } from './components/ParcelPlanCard';
 import { PnLPanel } from './components/PnLPanel';
@@ -171,6 +172,7 @@ export function App() {
           ) : null}
           {page === 'books' ? (
             <>
+              <LedgerPanel state={state} />
               <PnLPanel state={state} />
               <PlayerOverview state={state} />
               <InventoryPanel state={state} />
