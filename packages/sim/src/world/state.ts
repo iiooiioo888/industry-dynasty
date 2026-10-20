@@ -53,6 +53,8 @@ export interface WorldState {
   readonly brand?: number;
   readonly rivals?: RivalBook;
   readonly todayEvent?: MarketEvent;
+  /** 當日城市供貨已交數量。鍵含日期，換日自然換新單。 */
+  readonly orderFills?: Readonly<Record<string, number>>;
 }
 
 export function findParcel(state: WorldState, parcelId: ParcelId): Parcel | undefined {

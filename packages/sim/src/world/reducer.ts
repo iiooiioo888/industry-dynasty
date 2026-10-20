@@ -35,6 +35,7 @@ import { bumpPlayerPnl } from './pnl-helpers.js';
 import { applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
 import { assignStaff, dismissStaff, hireStaff, releaseStaffAt } from '../company/staff.js';
 import { unlockResearch } from '../company/research.js';
+import { fillCityOrder } from '../company/orders.js';
 import { buyAdvert, setShelfPrice } from '../company/retail.js';
 import { applyWithdrawCommodity } from '../supply/intake.js';
 import { findOpenLotForParcel, findParcel, type Player, type WorldState } from './state.js';
@@ -124,6 +125,8 @@ export function applyWorldAction(
       return buyAdvert(state, action.spend);
     case 'WITHDRAW_COMMODITY':
       return applyWithdrawCommodity(state, action.commodityId, action.lots);
+    case 'FILL_CITY_ORDER':
+      return fillCityOrder(state, action.orderId, action.quantity, action.shipFromParcelId);
     default:
       return state;
   }

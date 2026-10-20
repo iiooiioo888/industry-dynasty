@@ -361,6 +361,72 @@
   margin-right: 0.4rem;
 }
 
+.floor-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 0;
+  overflow: auto;
+}
+
+.floor-desk {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.floor-actions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.floor-actions li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #c5ceda;
+}
+
+.floor-actions button,
+.floor-desk > button {
+  flex: none;
+  border: 1px solid #3d4654;
+  background: #1c232d;
+  color: #d5dbe4;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.45rem;
+  cursor: pointer;
+}
+
+.floor-actions button:disabled,
+.floor-desk > button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.map-cell-order-tag {
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  z-index: 4;
+  padding: 0 0.15rem;
+  border-radius: 2px;
+  background: rgba(42, 24, 8, 0.9);
+  color: #ffd58a;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
 .map-cell-auction-tag {
   position: absolute;
   inset: 0;

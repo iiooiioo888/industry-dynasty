@@ -19,10 +19,12 @@ import {
   type WorldState,
 } from '@industry-dynasty/sim';
 import { useState } from 'react';
+import { FloorDesk, type FloorDeskProps } from './FloorDesk';
 
 export interface FactoryFloorProps {
   state: WorldState;
   parcelId: ParcelId;
+  commands: Omit<FloorDeskProps, 'state' | 'parcelId' | 'station'>;
 }
 
 function stationCopy(
@@ -109,7 +111,7 @@ function stationCopy(
   }
 }
 
-export function FactoryFloor({ state, parcelId }: FactoryFloorProps) {
+export function FactoryFloor({ state, parcelId, commands }: FactoryFloorProps) {
   const blocked = enterFloorBlock(state, parcelId);
   const site = getSite(state, parcelId);
   const [pickedId, setPickedId] = useState<string | null>(null);
@@ -168,10 +170,13 @@ export function FactoryFloor({ state, parcelId }: FactoryFloorProps) {
         )}
       </div>
       {picked && copy ? (
-        <p className="floor-detail" data-floor-detail="true">
-          <strong>{picked.nameZh}</strong>
-          {copy.detail}
-        </p>
+        <div className="floor-readout">
+          <p className="floor-detail" data-floor-detail="true">
+            <strong>{picked.nameZh}</strong>
+            {copy.detail}
+          </p>
+          <FloorDesk state={state} parcelId={parcelId} station={picked} {...commands} />
+        </div>
       ) : null}
     </div>
   );

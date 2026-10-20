@@ -2,6 +2,7 @@ import {
   MARKET_HUB,
   PARCEL_RESOURCE_DEFS,
   enterFloorBlock,
+  listCityOrders,
   findOpenLotForParcel,
   listMapActors,
   listShipmentViews,
@@ -20,6 +21,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { ASSET_SLOTS, MAP_ART_SLOT } from '../assets/slots';
 import { cellFeatureArt, resolveMapFeatureArt, type CellFeatureArt } from '../map/map-feature-art';
 import { FactoryFloor } from './FactoryFloor';
+import type { FloorDeskProps } from './FloorDesk';
 import { MapCellFeatureArt } from './MapFeatureSprites';
 import { ParcelFocusCard } from './ParcelFocusCard';
 import './GameMap.css';
@@ -46,6 +48,7 @@ export interface GameMapProps {
   mapView: MapLayer;
   onShowWorld: () => void;
   onShowFloor: () => void;
+  floorCommands: Omit<FloorDeskProps, 'state' | 'parcelId' | 'station'>;
   onSelectParcel: (parcelId: ParcelId) => void;
   onTogglePause: () => void;
   onSetSpeed: (speed: ClockSpeed) => void;
@@ -140,6 +143,7 @@ export function GameMap({
   mapView,
   onShowWorld,
   onShowFloor,
+  floorCommands,
   onSelectParcel,
   onTogglePause,
   onSetSpeed,
@@ -156,6 +160,7 @@ export function GameMap({
     ? enterFloorBlock(state, selectedParcelId)
     : '先在大世界點一棟完工的建物';
   const onFloor = mapView === 'floor' && floorBlock === null && selectedParcelId !== null;
+  const openOrders = listCityOrders(state).filter((order) => order.filled < order.quantity);
 
   return (
     <section className="map-shell" aria-label={onFloor ? '廠房地圖' : '世界地圖'} data-map-layer={onFloor ? 'floor' : 'world'}>
@@ -227,7 +232,9 @@ export function GameMap({
         className={`map-stage${narrow && !onFloor ? ' is-scroll-map' : ''}`}
         style={{ ['--map-cols' as string]: width, ['--map-rows' as string]: height }}
       >
-        {onFloor && selectedParcelId ? <FactoryFloor state={state} parcelId={selectedParcelId} /> : null}
+        {onFloor && selectedParcelId ? (
+          <FactoryFloor state={state} parcelId={selectedParcelId} commands={floorCommands} />
+        ) : null}
         {onFloor ? null : (
         <div className="map-scroll">
           <div
@@ -253,6 +260,19 @@ export function GameMap({
                 !parcel.ownerId &&
                 parcel.state === 'empty';
               const floorReady = enterFloorBlock(state, parcel.id) === null;
+              const orderCity =
+                parcel.role === 'city-hub'
+                  ? state.map.cities.find(
+                      (city) =>
+                        parcel.x >= city.x &&
+                        parcel.x < city.x + city.width &&
+                        parcel.y >= city.y &&
+                        parcel.y < city.y + city.height,
+                    )
+                  : undefined;
+              const hasCityOrder = orderCity
+                ? openOrders.some((order) => order.cityId === orderCity.id)
+                : false;
               return (
                 <button
                   key={parcel.id.value}
@@ -284,6 +304,11 @@ export function GameMap({
                   {floorReady ? (
                     <span className="map-cell-floor-tag" aria-hidden="true">
                       房
+                    </span>
+                  ) : null}
+                  {hasCityOrder ? (
+                    <span className="map-cell-order-tag" aria-hidden="true">
+                      約
                     </span>
                   ) : null}
                   {parcel.role === 'land' && (

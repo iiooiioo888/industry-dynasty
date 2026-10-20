@@ -55,5 +55,6 @@ export {
   type ShelfPrice,
   type StoreDemandQuote,
 } from './retail.js';
+export { CITY_ORDER_PAY_RATE, fillCityOrder, listCityOrders, type CitySupplyOrder } from './orders.js';
 export { companyScore } from './score.js';
 export { applyEventToOffers, applyOperatingClose } from './day.js';

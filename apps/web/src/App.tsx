@@ -87,6 +87,54 @@ export function App() {
                 setMapView('floor');
               }
             }}
+            floorCommands={{
+              onLeave: () => setMapView('world'),
+              onStartProduction: (recipeId, machineGradeId) => {
+                if (selectedParcelId) {
+                  dispatch({ type: 'START_PRODUCTION', parcelId: selectedParcelId, recipeId, machineGradeId });
+                }
+              },
+              onInstallMachine: (machineGradeId) => {
+                if (selectedParcelId) {
+                  dispatch({ type: 'INSTALL_MACHINE', parcelId: selectedParcelId, machineGradeId });
+                }
+              },
+              onStopProduction: () => {
+                if (selectedParcelId) {
+                  dispatch({ type: 'STOP_PRODUCTION', parcelId: selectedParcelId });
+                }
+              },
+              onHire: (candidateId) => dispatch({ type: 'HIRE_STAFF', candidateId }),
+              onDismiss: (staffId) => dispatch({ type: 'DISMISS_STAFF', staffId }),
+              onAssign: (staffId, parcelId) => dispatch({ type: 'ASSIGN_STAFF', staffId, parcelId }),
+              onUnlock: (projectId) => dispatch({ type: 'UNLOCK_RESEARCH', projectId }),
+              onSetShelfPrice: (itemId, unitPrice) => {
+                if (selectedParcelId) {
+                  dispatch({ type: 'SET_SHELF_PRICE', parcelId: selectedParcelId, itemId, unitPrice });
+                }
+              },
+              onBuyAd: (spend) => dispatch({ type: 'BUY_ADVERT', spend }),
+              onSellToPort: (offerId, quantity) => {
+                if (selectedParcelId) {
+                  dispatch({
+                    type: 'SELL_TO_NPC',
+                    offerId,
+                    quantity,
+                    shipFromParcelId: selectedParcelId,
+                  });
+                }
+              },
+              onFillOrder: (orderId, quantity) => {
+                if (selectedParcelId) {
+                  dispatch({
+                    type: 'FILL_CITY_ORDER',
+                    orderId,
+                    quantity,
+                    shipFromParcelId: selectedParcelId,
+                  });
+                }
+              },
+            }}
             onSelectParcel={setSelectedParcelId}
             onTogglePause={() => dispatch({ type: 'SET_CLOCK', paused: !state.clock.paused })}
             onSetSpeed={(speed) => dispatch({ type: 'SET_CLOCK', paused: false, speed })}
@@ -147,7 +195,13 @@ export function App() {
                 onAdvanceProduction={() => dispatch({ type: 'ADVANCE_PRODUCTION_TICK' })}
                 onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
               />
-              <MarketPanel state={state} selectedParcelId={selectedParcelId} />
+              <MarketPanel
+                state={state}
+                selectedParcelId={selectedParcelId}
+                onFillOrder={(orderId, quantity, parcelId) =>
+                  dispatch({ type: 'FILL_CITY_ORDER', orderId, quantity, shipFromParcelId: parcelId })
+                }
+              />
               <SalesPanel
                 state={state}
                 selectedParcelId={selectedParcelId}

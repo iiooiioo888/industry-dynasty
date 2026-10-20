@@ -52,4 +52,5 @@ export type WorldAction =
   | { type: 'UNLOCK_RESEARCH'; projectId: string }
   | { type: 'SET_SHELF_PRICE'; parcelId: ParcelId; itemId: ConsumerItemId; unitPrice: number }
   | { type: 'BUY_ADVERT'; spend: number }
-  | { type: 'WITHDRAW_COMMODITY'; commodityId: CommodityId; lots: number };
+  | { type: 'WITHDRAW_COMMODITY'; commodityId: CommodityId; lots: number }
+  | { type: 'FILL_CITY_ORDER'; orderId: string; quantity: number; shipFromParcelId: ParcelId };
