@@ -325,12 +325,7 @@ function ShelfSale({
 
   return (
     <div>
-      <p className="sys-muted sales-guide">
-        消費品不走港區全價。門市用你定的價格賣給所在城市，沒有店員就賣不動。
-      </p>
-      {stores.length === 0 ? (
-        <p className="sys-muted">先在人口多的地蓋一座門市。</p>
-      ) : (
+      {stores.length === 0 ? null : (
         <>
           <label className="sales-field">
             <span>門市</span>
@@ -370,13 +365,7 @@ function ShelfSale({
               onChange={(event) => setQty(Number(event.target.value))}
             />
           </label>
-          {quote ? (
-            <p className="sys-muted">
-              基準價 ${quote.referencePrice.toLocaleString()} · 這個價錢預估日銷 {quote.units} 件 ·
-              店員 {commerce.staff.clerks}
-              {commerce.qualityBand > 0 ? ' · 品質加成' : ''}
-            </p>
-          ) : null}
+          {quote ? <p className="sys-muted">日銷 {quote.units}</p> : null}
           {listing ? (
             <p className="sys-muted">
               架上 {ITEMS[listing.itemId].nameZh} × {listing.quantity} · ${listing.unitPrice}
@@ -421,9 +410,6 @@ function ContractSale({
 
   return (
     <div>
-      <p className="sys-muted sales-guide">
-        城市批發單用固定單價。接單後沿路送達才入帳，超過到期日扣一次違約金。
-      </p>
       <label className="sales-field">
         <span>出貨點</span>
         <select value={shipKey} onChange={(event) => setShipKey(event.target.value)}>
@@ -445,14 +431,7 @@ function ContractSale({
                 {contract.cityName} · {ITEMS[contract.itemId].nameZh} × {contract.quantity}
               </strong>
               <span>
-                ${contract.unitPrice.toLocaleString()} · 到期第 {contract.dueDay} 天 ·{' '}
-                {contract.status === 'open'
-                  ? '可接'
-                  : contract.status === 'shipping'
-                    ? '運送中'
-                    : contract.status === 'fulfilled'
-                      ? '已完成'
-                      : '已失效'}
+                ${contract.unitPrice.toLocaleString()} · 第 {contract.dueDay} 天
               </span>
               {open ? (
                 <button
@@ -461,18 +440,13 @@ function ContractSale({
                   disabled={!shipParcel || have < contract.quantity}
                   onClick={() => shipParcel && onAcceptContract(contract.id, shipParcel.id)}
                 >
-                  接單出貨（庫存 {have}）
+                  接單 · {have}
                 </button>
               ) : null}
             </li>
           );
         })}
       </ul>
-      {commerce.rivals.length > 0 ? (
-        <p className="sys-muted">
-          同業：{commerce.rivals.map((rival) => `${rival.nameZh}（${rival.cityName}）`).join('、')}
-        </p>
-      ) : null}
     </div>
   );
 }

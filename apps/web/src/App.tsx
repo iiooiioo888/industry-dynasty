@@ -33,10 +33,7 @@ export function App() {
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
   const clockLabel = state.clock.paused ? '暫停' : `${state.clock.speed}×`;
-  const commerce = readCommerce(state);
-  const sharePct = Math.round(marketShareOf(commerce) * 100);
-  const verdict =
-    state.scenario.status === 'won' ? '達標' : state.scenario.status === 'lost' ? '未達標' : '進行中';
+  const sharePct = Math.round(marketShareOf(readCommerce(state)) * 100);
 
   function togglePin(parcelId: ParcelId) {
     setPinnedIds((current) => {
@@ -55,8 +52,7 @@ export function App() {
           數據報表
         </button>
         <span className="meta" data-clock-readout="true">
-          第 {state.gameDay} 天 · {clockLabel} · 距日結 {ticksUntilDayClose(state.clock.simMs)} 刻 · 市佔{' '}
-          {sharePct}% · {verdict}
+          第 {state.gameDay} 天 · {clockLabel} · 距日結 {ticksUntilDayClose(state.clock.simMs)} 刻 · 市佔 {sharePct}%
         </span>
       </header>
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
@@ -82,9 +78,6 @@ export function App() {
             onTogglePin={togglePin}
             onBid={(parcelId, amount) => dispatch({ type: 'BID', parcelId, amount })}
             onSettle={(parcelId) => dispatch({ type: 'SETTLE_AUCTION', parcelId })}
-            onSetShelf={(parcelId, itemId: ItemId, unitPrice, quantity) =>
-              dispatch({ type: 'SET_SHELF', parcelId, itemId, unitPrice, quantity })
-            }
             onStartBuild={(parcelId, factoryTypeId: FactoryTypeId) =>
               dispatch({ type: 'START_BUILD', parcelId, factoryTypeId })
             }

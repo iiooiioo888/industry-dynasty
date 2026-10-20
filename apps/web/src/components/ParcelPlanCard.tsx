@@ -1,10 +1,5 @@
 import {
-  CONSUMER_ITEM_IDS,
   FACTORY_TYPES,
-  ITEMS,
-  getItemQty,
-  getPlayerInventory,
-  quoteRetailDay,
   readCommerce,
   MACHINE_GRADES,
   RECIPE_LIST,
@@ -23,7 +18,6 @@ import {
   recipeBlockReason,
   validateBid,
   type FactoryTypeId,
-  type ItemId,
   type MachineGradeId,
   type Parcel,
   type ParcelId,
@@ -55,90 +49,11 @@ export interface ParcelPlanCardProps {
   ) => void;
   onInstallMachine: (parcelId: ParcelId, machineGradeId: MachineGradeId) => void;
   onStopProduction: (parcelId: ParcelId) => void;
-  onSetShelf: (parcelId: ParcelId, itemId: ItemId, unitPrice: number, quantity: number) => void;
 }
 
 type ParcelPlanBuildProps = {
   onStartBuild: (parcelId: ParcelId, factoryTypeId: FactoryTypeId) => void;
 };
-
-function StoreShelfBox({
-  state,
-  parcel,
-  onSetShelf,
-}: {
-  state: WorldState;
-  parcel: Parcel;
-  onSetShelf: ParcelPlanCardProps['onSetShelf'];
-}) {
-  const commerce = readCommerce(state);
-  const [itemId, setItemId] = useState<ItemId>('hand-tool');
-  const [qty, setQty] = useState(1);
-  const [price, setPrice] = useState(ITEMS['hand-tool'].unitValue);
-  const stock = getItemQty(getPlayerInventory(state, state.localPlayerId), itemId);
-  const quote = quoteRetailDay({
-    parcel,
-    itemId,
-    unitPrice: Math.max(1, Math.round(price) || 1),
-    qualityBand: commerce.qualityBand,
-    clerks: commerce.staff.clerks,
-    activeStores: Math.max(1, commerce.shelves.filter((shelf) => shelf.quantity > 0).length),
-    rivals: commerce.rivals,
-    campaigns: commerce.campaigns,
-    events: commerce.events,
-  });
-  const listing = commerce.shelves.find((shelf) => shelf.parcelId === parcel.id.value);
-
-  return (
-    <div className="plan-build">
-      <h3>門市上架</h3>
-      <p className="panel-hint">
-        基準價 ${quote.referencePrice.toLocaleString('zh-Hant')} · 這個價錢預估日銷 {quote.units} 件 ·
-        店員 {commerce.staff.clerks}
-        {commerce.staff.clerks < 1 ? '。沒有店員就賣不動。' : ''}
-      </p>
-      <label className="sales-field">
-        <span>商品</span>
-        <select value={itemId} onChange={(event) => setItemId(event.target.value as ItemId)}>
-          {CONSUMER_ITEM_IDS.map((id) => (
-            <option key={id} value={id}>
-              {ITEMS[id].nameZh} · 庫存 {getItemQty(getPlayerInventory(state, state.localPlayerId), id)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="sales-field">
-        <span>售價</span>
-        <input
-          type="number"
-          min={1}
-          value={price}
-          onChange={(event) => setPrice(Number(event.target.value))}
-        />
-      </label>
-      <button type="button" className="sys-btn secondary" onClick={() => setPrice(quote.referencePrice)}>
-        用基準價
-      </button>
-      <label className="sales-field">
-        <span>上架數量</span>
-        <input type="number" min={1} value={qty} onChange={(event) => setQty(Number(event.target.value))} />
-      </label>
-      {listing ? (
-        <p className="sys-muted">
-          架上 {ITEMS[listing.itemId].nameZh} × {listing.quantity} · ${listing.unitPrice.toLocaleString('zh-Hant')}
-        </p>
-      ) : null}
-      <button
-        type="button"
-        className="sys-btn full"
-        disabled={qty <= 0 || stock < qty || price <= 0}
-        onClick={() => onSetShelf(parcel.id, itemId, Math.round(price), qty)}
-      >
-        從庫存上架
-      </button>
-    </div>
-  );
-}
 
 function formatProfit(value: number): string {
   return value.toLocaleString('zh-Hant', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
@@ -173,7 +88,6 @@ export function ParcelPlanCard({
   onStartProduction,
   onInstallMachine,
   onStopProduction,
-  onSetShelf,
 }: ParcelPlanCardProps) {
   const player = state.players[state.localPlayerId];
   const selected = selectedParcelId ? findParcel(state, selectedParcelId) : undefined;
@@ -335,12 +249,6 @@ export function ParcelPlanCard({
               onInstall={onInstallMachine}
               onStop={onStopProduction}
             />
-          ) : null}
-          {factoryReady && selected && site?.phase === 'complete' && site.factoryTypeId === 'storefront' ? (
-            <StoreShelfBox state={state} parcel={selected} onSetShelf={onSetShelf} />
-          ) : null}
-          {factoryReady && site?.phase === 'complete' && site.factoryTypeId === 'lab' ? (
-            <p className="panel-hint">這座研發室不排產。到右側「經營」開始消費品產線，並聘研發員。</p>
           ) : null}
         </>
       )}

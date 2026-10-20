@@ -30,9 +30,7 @@ export function PnLPanel({ state }: PnLPanelProps) {
         <li><span>薪資</span><span>-${(pnl.wages ?? 0).toLocaleString()}</span></li>
       </ul>
       <p className="pnl-goal">
-        目標淨利 ${target.toLocaleString()} 或消費品市佔{' '}
-        {Math.round((state.scenario.config.targetShare ?? 0.12) * 100)}% · 第 {state.gameDay}/
-        {state.scenario.config.maxDays} 天
+        ${target.toLocaleString()} · {state.gameDay}/{state.scenario.config.maxDays}
       </p>
       {state.scenario.status === 'won' && <p className="pnl-win">已達標 — 產業霸權起步成功！</p>}
       {state.scenario.status === 'lost' && <p className="pnl-lose">未達標 — 可調整佈局再試</p>}

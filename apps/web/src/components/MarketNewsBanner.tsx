@@ -11,10 +11,7 @@ export function MarketNewsBanner({ state }: { state: WorldState }) {
     <div className="market-news-banner" role="status" aria-live="polite">
       {events.map((event) => (
         <p key={event.id}>
-          <strong>市場新聞</strong>
-          <span>
-            {event.headline} · 剩餘 {event.remainingDays} 天
-          </span>
+          {event.headline} · {event.remainingDays}天
         </p>
       ))}
     </div>

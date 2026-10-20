@@ -1,9 +1,7 @@
 import {
   CAMPAIGN_COST,
   CONSUMER_RESEARCH_ID,
-  FACTORY_TYPES,
   RESEARCH_COST,
-  RESEARCH_TICKS,
   STAFF_TABLE,
   readCommerce,
   type ParcelId,
@@ -67,18 +65,11 @@ export function OpsPanel({ state, onHire, onFire, onResearch, onCampaign }: OpsP
           );
         })}
       </ul>
-      <p className="sys-muted">
-        不聘技師時產線維持原產量。聘了之後，人數要蓋得過正在跑的產線，否則產量下降。門市沒有店員賣不動。研發員不足時研究停滯。
-      </p>
       <div className="ops-block">
         <h3>研發</h3>
-        {unlocked ? (
-          <p className="sys-muted">消費品產線已解鎖，品質提高售價並略拉長週期。</p>
-        ) : commerce.research ? (
+        {unlocked ? null : commerce.research ? (
           <p className="sys-muted">
-            消費品產線 {commerce.research.progressTicks}/{commerce.research.totalTicks || RESEARCH_TICKS}{' '}
-            刻
-            {commerce.staff.researchers < 1 ? ' · 等待研發員' : ''}
+            {commerce.research.progressTicks}/{commerce.research.totalTicks}
           </p>
         ) : (
           <button
@@ -87,7 +78,7 @@ export function OpsPanel({ state, onHire, onFire, onResearch, onCampaign }: OpsP
             disabled={!labId || (player?.cash ?? 0) < RESEARCH_COST}
             onClick={() => labId && onResearch(labId)}
           >
-            {labId ? `開始研發（$${RESEARCH_COST.toLocaleString()}）` : '先蓋研發室'}
+            ${RESEARCH_COST.toLocaleString()}
           </button>
         )}
       </div>
@@ -112,24 +103,6 @@ export function OpsPanel({ state, onHire, onFire, onResearch, onCampaign }: OpsP
           })}
         </ul>
       </div>
-      <div className="ops-block">
-        <h3>新聞</h3>
-        {commerce.events.length === 0 ? (
-          <p className="sys-muted">今天沒有特別的市場消息。</p>
-        ) : (
-          <ul className="ops-news">
-            {commerce.events.map((event) => (
-              <li key={event.id}>
-                {event.headline}
-                <span>剩餘 {event.remainingDays} 天</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <p className="sys-muted">
-        建築：{FACTORY_TYPES.storefront.nameZh}、{FACTORY_TYPES.lab.nameZh} 不跑產線。
-      </p>
     </section>
   );
 }

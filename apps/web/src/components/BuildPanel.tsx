@@ -87,9 +87,7 @@ export function BuildPanel({
                 <p className="factory-meta">
                   {def.role === 'production'
                     ? `基礎物流 ${def.baseLogisticsEfficiency.toFixed(2)}× · 每鄰 +${(def.adjacencyEfficiencyBonus * 100).toFixed(0)}%`
-                    : def.role === 'retail'
-                      ? `不生產。每日維持 $${def.dailyUpkeep}，上架後才有營收。`
-                      : `不生產。每日維持 $${def.dailyUpkeep}，用來解鎖消費品。`}
+                    : `$${def.dailyUpkeep}/日`}
                 </p>
                 <button
                   type="button"
