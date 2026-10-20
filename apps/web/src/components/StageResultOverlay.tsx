@@ -1,14 +1,18 @@
 import {
+  diagnoseLoss,
   isFinalStage,
   nextStage,
   stageById,
   type ScenarioProgress,
   type ScenarioState,
   type StageDef,
+  type WorldState,
 } from '@industry-dynasty/sim';
+import { useMemo } from 'react';
 import './StageResultOverlay.css';
 
 export interface StageResultOverlayProps {
+  state: WorldState;
   scenario: ScenarioState;
   progress: ScenarioProgress;
   onNextStage: (stage: StageDef) => void;
@@ -20,13 +24,34 @@ export interface StageResultOverlayProps {
  *
  * 通關或失敗時蓋在畫面上，顯示三條勝利路線各自的達成狀況，
  * 並提供「下一關」（最後一關則顯示完成全部關卡）與「重玩本關」。
+ *
+ * 失敗時會多一段**敗因診斷**（見 `guidance/diagnosis.ts`）——
+ * 原本只寫「時間到，未達標」，玩家不知道自己做錯了什麼。
  */
 export function StageResultOverlay({
+  state,
   scenario,
   progress,
   onNextStage,
   onReplay,
 }: StageResultOverlayProps) {
+  const diagnoses = useMemo(
+    () =>
+      scenario.status === 'lost'
+        ? diagnoseLoss({
+            state,
+            scenario,
+            context: {
+              craftedValue: progress.craftedValue,
+              commerce: progress.commerce,
+              debtRepaid: progress.debtRepaid,
+              outstandingDebt: progress.outstandingDebt,
+            },
+          })
+        : [],
+    [scenario, state, progress],
+  );
+
   if (scenario.status === 'playing') {
     return null;
   }
@@ -74,6 +99,20 @@ export function StageResultOverlay({
             </strong>
           </li>
         </ul>
+
+        {!won && diagnoses.length > 0 && (
+          <div className="stage-diagnosis">
+            <h3>為什麼沒達標</h3>
+            <ul>
+              {diagnoses.slice(0, 4).map((reason) => (
+                <li key={reason.id}>
+                  <strong>{reason.headline}</strong>
+                  <span>{reason.hint}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <p className="stage-hint">
           {won

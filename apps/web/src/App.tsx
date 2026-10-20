@@ -272,6 +272,7 @@ export function App() {
         />
       ) : null}
       <StageResultOverlay
+        state={state}
         scenario={state.scenario}
         progress={stageProgress}
         onNextStage={(next) => startStage(next.id)}
