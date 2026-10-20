@@ -57,8 +57,39 @@
 - **其他 21 關**：目前只驗證第一關。要擴充的話，把 `STAGE_ID` 參數化，
   用各關的建議規模跑一輪即可。
 
+## 第 19 回合：擴到全部 22 關後發現的問題
+
+把 `playStage()` 套用到 22 關，結果**每一關都在第 2 天就通關**。
+
+不是腳本作弊（第一版我把起始資金調到 90 萬，那才是作弊，已改回關卡原值），
+而是：
+
+> **關卡目標是照 `reports/full-loop.ts` 的產出校準的，但那個 harness 嚴重低估產能。**
+
+原因在供料策略：harness 每天把原料賣掉、只保留少量緩衝，
+所以它的加工廠常常在等料。實測 harness 跑第一關 25 天只做出
+**39,000** 的加工產值；同樣的 3 塊地、用玩家動作跑，**2 天就有 338,000**。
+
+差了將近一個量級。也就是說：
+
+- 22 關的「建議規模」與目標值，都是建立在**低估的產能**上
+- `docs/stage-curve.md` 的結論（規模 3→4→6、第 11 關跳躍、第 20 關需要二階）
+  在真實玩法下未必成立
+- 目前難度曲線整體偏鬆，玩家主流打法會太快通關
+
+## 這件事還沒修
+
+重新校準需要：
+
+1. 用 `playStage()` 量出每關「合理打法下的實際產出」
+2. 依那個數字重設目標（而不是依 harness）
+3. 重跑 `docs/stage-curve.md` 的規模掃描
+
+在完成之前，`reports/full-loop.ts` 的數字只能當「保守下限」看，
+不能當「可達成上限」。
+
 ## 怎麼跑
 
 ```
-pnpm --filter @industry-dynasty/sim exec vitest run src/playthrough/first-stage.test.ts
+pnpm --filter @industry-dynasty/sim exec vitest run src/playthrough
 ```
