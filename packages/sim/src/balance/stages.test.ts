@@ -89,10 +89,17 @@ describe('關卡表', () => {
     }
   });
 
-  it('第一關的目標等於原本的單局設計值', () => {
-    expect(FIRST_STAGE.targets.netProfit).toBe(BALANCE.targetNetProfit);
-    expect(FIRST_STAGE.targets.craftedValue).toBe(BALANCE.targetCraftedValue);
-    expect(FIRST_STAGE.targets.debtRepaid).toBe(BALANCE.targetDebtRepaid);
+  /**
+   * 第 20 回合重新校準後，第一關的目標不再等於 `BALANCE` 的舊單局值。
+   *
+   * 舊值（30,000／36,000）是照 `full-loop` harness 訂的，而那個 harness
+   * 低估產能約 30 倍 —— 目標照它訂，結果就是兩天速通。
+   * 現在改用玩家動作量測（見 `reports/stage-winnability.test.ts`）。
+   */
+  it('第一關目標是照「玩家動作」校準的，比舊單局值高一個量級', () => {
+    expect(FIRST_STAGE.targets.netProfit).toBeGreaterThan(BALANCE.targetNetProfit * 10);
+    expect(FIRST_STAGE.targets.craftedValue).toBeGreaterThan(BALANCE.targetCraftedValue * 10);
+    // `DEFAULT_SCENARIO` 仍是舊的單局設定（給報表 harness 用），不跟著改
     expect(DEFAULT_SCENARIO.stageId).toBe(FIRST_STAGE.id);
   });
 
@@ -153,10 +160,12 @@ describe('關卡表', () => {
     expect(config.startingCash).toBe(FIRST_STAGE.startingCash);
   });
 
-  it('每關的目標都高於 0 且天數足以回本', () => {
+  it('每關的目標都高於 0 且天數合理', () => {
+    // 天數從 25–33 縮到 12–18：實測經濟在第 12 天見頂（之後稅金與維護
+    // 繼續扣、銷售封頂），原本的長度有一半時間在走下坡。
     for (const stage of STAGES) {
-      expect(stage.maxDays).toBeGreaterThanOrEqual(20);
-      expect(stage.maxDays).toBeLessThanOrEqual(40);
+      expect(stage.maxDays).toBeGreaterThanOrEqual(12);
+      expect(stage.maxDays).toBeLessThanOrEqual(18);
       expect(stage.targets.netProfit).toBeGreaterThan(0);
       expect(stage.targets.craftedValue).toBeGreaterThan(0);
       expect(stage.targets.debtRepaid).toBeGreaterThan(0);

@@ -178,7 +178,17 @@ function startLines(state: WorldState, stage: StageDef): WorldState {
   return next;
 }
 
-export function playStage(stage: StageDef): PlayResult {
+export interface PlayOptions {
+  /**
+   * 打滿整個天數上限，即使中途通關也不停。
+   *
+   * 校準用：要知道「這一關的天數預算內，玩家最多能做到多少」，
+   * 就不能讓它在通關那一刻停下來。
+   */
+  readonly playFullHorizon?: boolean;
+}
+
+export function playStage(stage: StageDef, options: PlayOptions = {}): PlayResult {
   // 用關卡**原始**起始資金 —— 加錢會讓每關都變成兩天速通，那就不是驗證了。
   let state = createInitialWorld(stageWorldConfig(stage.id));
 
@@ -187,7 +197,7 @@ export function playStage(stage: StageDef): PlayResult {
   state = startLines(state, stage);
 
   for (let day = 0; day < stage.maxDays; day += 1) {
-    if (state.scenario.status !== 'playing') {
+    if (!options.playFullHorizon && state.scenario.status !== 'playing') {
       break;
     }
     for (let tick = 0; tick < TICKS_PER_DAY; tick += 1) {

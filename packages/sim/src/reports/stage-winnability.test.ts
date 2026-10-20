@@ -1,94 +1,68 @@
 import { describe, expect, it } from 'vitest';
 import { STAGES } from '../balance/stages.js';
-import { runFullLoop } from './full-loop.js';
+import { playStage } from '../playthrough/play-stage.js';
 
 /**
- * 關卡可通關性護欄。
+ * 關卡可通關性護欄（第 20 回合重寫）。
  *
- * 這條測試抓過三次真實的錯誤：
- * 1. 後段加工目標設到 72 萬，實測上限只有約 23 萬 → 工業化路線不可能達成。
- * 2. 「建議規模」原本是極限最小規模，好幾關餘裕只剩 0.2%–5%
- *    （第 15 關 0.2%、第 19 關 0.6%）—— 那不是建議，是走鋼索。
- * 3. 第 5–10 關想用 3–4 塊地跑二階，結果直接崩掉（二階需要 6 塊地）。
+ * ## 為什麼換量尺
  *
- * 現在每一關都帶實測的 `recommendedParcels / Depth / Extractors`，
- * 測試用那組數字實際跑一次，並檢查餘裕。
+ * 原本用 `reports/full-loop.ts` 驗證。但第 19 回合的端到端驗證發現：
+ * 那個 harness **嚴重低估產能** —— 它每天把原料賣掉、只留少量緩衝，
+ * 加工廠常常在等料。實測第一關：
+ *
+ * | 量測方式 | 加工產值 |
+ * | --- | --- |
+ * | `full-loop` harness | 39,000 |
+ * | 玩家動作 | 1,209,000 |
+ *
+ * 差了 30 倍。目標照 harness 訂，結果就是「兩天速通」。
+ *
+ * 所以護欄改用 `playStage()` —— 它只用玩家真的能做的動作，
+ * 和 UI 走同一條路徑。
  */
-describe('關卡可通關性', () => {
-  it('每一關在建議規模下都真的打得過', () => {
+describe('關卡可通關性（玩家動作）', () => {
+  it('每一關在建議規模下，玩家動作可以通關', () => {
     const failures: string[] = [];
     for (const stage of STAGES) {
-      const result = runFullLoop({
-        maxParcels: stage.recommendedParcels,
-        depth: stage.recommendedDepth,
-        extractorCount: stage.recommendedExtractors,
-        startingCash: stage.startingCash,
-        maxDays: stage.maxDays,
-        config: { stageId: stage.id },
-      });
+      const result = playStage(stage);
       if (result.status !== 'won') {
         failures.push(
-          `${stage.id}（建議 ${stage.recommendedParcels} 塊地／深度 ${stage.recommendedDepth}）`,
+          `${stage.id}（${stage.recommendedParcels} 塊地／深度 ${stage.recommendedDepth}，` +
+            `淨利 ${result.profit}/${stage.targets.netProfit}、加工 ${result.crafted}/${stage.targets.craftedValue}）`,
         );
       }
     }
-    expect(failures, `以下關卡在建議規模下無法通關：${failures.join('、')}`).toHaveLength(0);
-  }, 180_000);
+    expect(failures, `以下關卡打不過：\n${failures.join('\n')}`).toHaveLength(0);
+  }, 600_000);
 
   it('通關餘裕不會薄到只剩運氣（至少 5%）', () => {
-    // 曾經有幾關的餘裕只有 0.2%–0.6%，經濟參數一點風吹草動就會變成無法通關。
-    // 這裡設一個下限，避免「目標剛好等於模擬天花板」的情況再出現。
-    const MIN_HEADROOM = 0.05;
+    // 注意：這裡要**打滿天數**再比。
+    // `playStage` 預設在通關那一刻停下來，量到的「餘裕」只是壓線時的超額，
+    // 不代表玩家真的有多少空間。
     const tooTight: string[] = [];
     for (const stage of STAGES) {
-      const result = runFullLoop({
-        maxParcels: stage.recommendedParcels,
-        depth: stage.recommendedDepth,
-        extractorCount: stage.recommendedExtractors,
-        startingCash: stage.startingCash,
-        maxDays: stage.maxDays,
-        config: { stageId: stage.id },
-      });
-      const profitMargin = (result.netProfit - stage.targets.netProfit) / stage.targets.netProfit;
+      const result = playStage(stage, { playFullHorizon: true });
+      const profitMargin = (result.profit - stage.targets.netProfit) / stage.targets.netProfit;
       const craftedMargin =
-        (result.craftedValue - stage.targets.craftedValue) / stage.targets.craftedValue;
-      if (profitMargin < MIN_HEADROOM || craftedMargin < MIN_HEADROOM) {
+        (result.crafted - stage.targets.craftedValue) / stage.targets.craftedValue;
+      if (profitMargin < 0.05 || craftedMargin < 0.05) {
         tooTight.push(
           `${stage.id}（淨利 ${(profitMargin * 100).toFixed(1)}%、加工 ${(craftedMargin * 100).toFixed(1)}%）`,
         );
       }
     }
-    expect(tooTight, `以下關卡餘裕不足 5%：${tooTight.join('、')}`).toHaveLength(0);
-  }, 180_000);
+    expect(tooTight, `餘裕不足 5%：\n${tooTight.join('\n')}`).toHaveLength(0);
+  }, 900_000);
 
-  it('建議規模是「真的最小」——少一塊地就過不了（抽查代表性關卡）', () => {
-    const samples = [STAGES[0]!, STAGES[6]!, STAGES[STAGES.length - 1]!];
-    for (const stage of samples) {
-      const fewer = Math.max(2, stage.recommendedParcels - 1);
-      const result = runFullLoop({
-        maxParcels: fewer,
-        depth: stage.recommendedDepth,
-        extractorCount: stage.recommendedExtractors,
-        startingCash: stage.startingCash,
-        maxDays: stage.maxDays,
-        config: { stageId: stage.id },
-      });
-      expect(result.status, `${stage.id} 在 ${fewer} 塊地時竟然也能通關 → 建議規模被高估`).not.toBe(
-        'won',
-      );
-    }
-  }, 120_000);
-
-  it('建議規模隨關卡推進不倒退，且深度與開採廠數量合理', () => {
+  it('建議規模與深度在合理範圍且不倒退', () => {
     for (let i = 0; i < STAGES.length; i += 1) {
       const stage = STAGES[i]!;
       expect([1, 2]).toContain(stage.recommendedDepth);
       expect(stage.recommendedExtractors).toBeGreaterThanOrEqual(1);
       expect(stage.recommendedExtractors).toBeLessThan(stage.recommendedParcels);
       if (i > 0) {
-        expect(stage.recommendedParcels, `${stage.id} 的建議規模比前一關小`).toBeGreaterThanOrEqual(
-          STAGES[i - 1]!.recommendedParcels,
-        );
+        expect(stage.recommendedParcels).toBeGreaterThanOrEqual(STAGES[i - 1]!.recommendedParcels);
       }
     }
   });

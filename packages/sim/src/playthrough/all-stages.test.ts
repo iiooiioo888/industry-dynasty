@@ -23,19 +23,22 @@ describe('端到端可玩性（玩家動作）', () => {
   }, 120_000);
 
   /**
-   * 把「太快通關」固定成測試。
+   * 節奏：通關不該在前 30% 天數就發生，也不該拖過期限。
    *
-   * 如果哪天關卡目標被重新校準到合理的節奏，這條會失敗 ——
-   * 那時應該把它改成「合理天數內通關」，而不是把目標改回去。
+   * 第 19 回合量到「每關第 2 天就通關」—— 目標照低估 30 倍的 harness 訂。
+   * 第 20 回合依 `playStage` 實測重新校準後，第一關是第 9/12 天通關。
+   * 這條測試守住那個節奏，避免目標又被調回去。
    */
-  it('第一關目前太快通關（目標偏低，待重新校準）', () => {
+  it('第一關的通關節奏合理（在期限的 30%–100% 之間）', () => {
     const stage = STAGES[0]!;
     const result = playStage(stage);
     expect(result.status).toBe('won');
+    const ratio = result.gameDay / stage.maxDays;
     expect(
-      result.gameDay,
-      `第一關在第 ${result.gameDay} 天就通關了 —— 目標相對實際產能偏低`,
-    ).toBeLessThanOrEqual(3);
+      ratio,
+      `第一關在第 ${result.gameDay}/${stage.maxDays} 天通關（${(ratio * 100).toFixed(0)}%）`,
+    ).toBeGreaterThan(0.3);
+    expect(ratio).toBeLessThanOrEqual(1);
   }, 120_000);
 
   it('每一關都能被玩家的動作玩完（不論輸贏）', () => {

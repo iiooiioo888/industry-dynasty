@@ -34,7 +34,7 @@ import { DEFAULT_WORLD_CONFIG, type WorldConfig } from '../world/config.js';
 import { getPlayerHoldings, type WorldState } from '../world/state.js';
 import { craftedValue } from '../production/chain.js';
 import { scenarioProgress } from '../sales/scenario.js';
-import { DEFAULT_SCENARIO } from '../sales/scenario.js';
+import { DEFAULT_SCENARIO, createScenarioState } from '../sales/scenario.js';
 import { recognizeDispatchedShipments } from './settle-shipments.js';
 
 export interface FullLoopOptions {
@@ -470,6 +470,11 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
   const extractorCount = options.extractorCount ?? 2;
 
   let state = createInitialWorld(config);
+  // 報表量的是**經濟本身**，不是關卡進度 —— 所以用舊的單局目標（DEFAULT_SCENARIO），
+  // 而不是 createInitialWorld 依 stageId 帶進來的關卡目標。
+  // 第 20 回合把關卡目標重新校準到百萬級之後，若沿用關卡目標，
+  // 所有歷史報表的門檻都會一次失效。
+  state = { ...state, scenario: createScenarioState(DEFAULT_SCENARIO) };
   // 量測迴圈不蓋實驗室、不跑研究，所以「研究解鎖後才可用的配方」在量測裡
   // 永遠不會出現。要評估這類內容，得能直接把解鎖狀態塞進來。
   if (options.unlockedResearch && options.unlockedResearch.length > 0 && state.commerce) {
@@ -590,9 +595,12 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
 
     record();
 
-    if (state.scenario.status !== 'playing') {
-      break;
-    }
+    // 注意：這裡**不因為 `scenario.status` 變成 lost 就提早結束**。
+    //
+    // 這個 harness 是量測工具，目的是「跑滿指定天數看能賺多少」。
+    // 第 20 回合把關卡天數從 25 縮到 12 之後，這裡若照狀態中斷，
+    // 所有報表的數字會跟著變，讓「平衡有沒有變」變得無法比較。
+    // 要不要看通關與否，由呼叫端自己判斷 `status`。
   }
 
   const playerId = state.localPlayerId;
