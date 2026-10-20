@@ -18,13 +18,11 @@ export {
   createScenarioState,
   DEFAULT_SCENARIO,
   evaluateScenario,
+  resolveScenarioConfig,
+  scenarioProgress,
   type ScenarioConfig,
+  type ScenarioProgress,
   type ScenarioState,
   type ScenarioStatus,
 } from './scenario.js';
-export {
-  executeSellToNpc,
-  findOfferById,
-  quoteSale,
-  type SellQuote,
-} from './sell-logic.js';
+export { executeSellToNpc, findOfferById, quoteSale, type SellQuote } from './sell-logic.js';

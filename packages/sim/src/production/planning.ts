@@ -81,6 +81,43 @@ function bestReadyRecipe(
   return candidates[0]?.recipe.id ?? null;
 }
 
+export interface SlotPlan {
+  /** 這座工廠的 parcel key */
+  readonly parcelKey: string;
+  /** 這一格（工廠）被指派的配方 */
+  readonly recipeId: RecipeId;
+  /** 是否為加工（相對於開採） */
+  readonly processing: boolean;
+}
+
+/**
+ * 目前深度下，可販售加工配方會吃到的原料品項。
+ *
+ * 用來決定「哪些工廠必須去開採」。先前是取前 N 座工廠當礦場，
+ * **完全沒看礦脈** —— 於是兩座礦場可能都在鐵脈上，樹脂那塊地反而被派去加工，
+ * 結果永遠缺料（實測 3 塊地跑 25 天只做出 2 個基礎零件）。
+ */
+function rawItemsNeededByProcessing(depth: 0 | 1 | 2): ReadonlySet<string> {
+  const needed = new Set<string>();
+  for (const recipe of Object.values(RECIPES)) {
+    if (recipe.inputs.length === 0) {
+      continue;
+    }
+    if (!ITEMS[recipe.outputItemId].sellable) {
+      continue;
+    }
+    if (recipe.stage === 'process' ? depth < 1 : depth < 2) {
+      continue;
+    }
+    for (const input of recipe.inputs) {
+      if (ITEMS[input.itemId].tier === 'raw') {
+        needed.add(input.itemId);
+      }
+    }
+  }
+  return needed;
+}
+
 export function planProductionSlots(
   state: WorldState,
   playerId: string,
@@ -90,7 +127,37 @@ export function planProductionSlots(
 ): SlotPlan[] {
   const ordered = [...factoryKeys].sort();
   const workshops = ordered.filter((key) => state.sites[key]?.factoryTypeId === 'workshop');
-  const extractorKeys = new Set(workshops.slice(0, Math.max(1, extractorCount)));
+  const slots = Math.max(1, extractorCount);
+  const needRaw = rawItemsNeededByProcessing(depth);
+
+  // 礦場要「按礦脈」挑：每種加工需要的原料，先各指派一座，再用其餘工廠補滿。
+  const extractorKeys = new Set<string>();
+  const covered = new Set<string>();
+  for (const key of workshops) {
+    if (extractorKeys.size >= slots) {
+      break;
+    }
+    const parcel = state.map.parcels.find((p) => p.id.value === key);
+    if (!parcel) {
+      continue;
+    }
+    const extractionId = extractionRecipeFor(parcel.resource.kind);
+    if (!extractionId) {
+      continue;
+    }
+    const outputItemId = RECIPES[extractionId].outputItemId;
+    if (needRaw.has(outputItemId) && !covered.has(outputItemId)) {
+      covered.add(outputItemId);
+      extractorKeys.add(key);
+    }
+  }
+  for (const key of workshops) {
+    if (extractorKeys.size >= slots) {
+      break;
+    }
+    extractorKeys.add(key);
+  }
+
   const depthTwo =
     depth >= 2 && ordered.some((key) => state.sites[key]?.factoryTypeId === 'assembly-plant');
 
@@ -114,20 +181,20 @@ export function planProductionSlots(
     if (wanted) {
       const picked = bestReadyRecipe(state, playerId, site.factoryTypeId, wanted);
       if (picked) {
-        plans.push({ recipeId: picked, processing: true });
+        plans.push({ parcelKey: key, recipeId: picked, processing: true });
         continue;
       }
       if (wanted === 'finish') {
         const feeder = bestReadyRecipe(state, playerId, site.factoryTypeId, 'process');
         if (feeder) {
-          plans.push({ recipeId: feeder, processing: true });
+          plans.push({ parcelKey: key, recipeId: feeder, processing: true });
           continue;
         }
       }
     }
 
     if (extraction) {
-      plans.push({ recipeId: extraction, processing: false });
+      plans.push({ parcelKey: key, recipeId: extraction, processing: false });
     }
   }
   return plans;
@@ -177,13 +244,10 @@ export function runProductionPlan(
   extractorCount: number,
 ): WorldState {
   const plans = planProductionSlots(state, playerId, factoryKeys, depth, extractorCount);
+  // 以 parcelKey 對應，而不是陣列下標 —— 沒抽到計畫的工廠不會讓後面全部錯位。
   const map = new Map<string, RecipeId>();
-  const ordered = [...factoryKeys].sort();
-  for (const [index, key] of ordered.entries()) {
-    const plan = plans[index];
-    if (plan) {
-      map.set(key, plan.recipeId);
-    }
+  for (const plan of plans) {
+    map.set(plan.parcelKey, plan.recipeId);
   }
   return applyProductionPlans({ ...state, localPlayerId: playerId }, map);
 }

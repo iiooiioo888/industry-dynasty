@@ -19,6 +19,7 @@ import {
 } from '../sales/index.js';
 import { TRANSPORT_RATE_PER_TILE } from '../sales/sell-logic.js';
 import { HOLDING } from '../balance/targets.js';
+import { craftedValue } from '../production/chain.js';
 import { MACHINE_GRADES } from '../production/machines.js';
 import type { ParcelId } from '../types/map.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
@@ -93,7 +94,13 @@ export function applyAcceptContract(
   const commerce = readCommerce(state);
   const contract = commerce.contracts.find((entry) => entry.id === contractId);
   const parcel = findParcel(state, shipFromParcelId);
-  if (!player || !contract || contract.status !== 'open' || !parcel || parcel.ownerId !== player.id) {
+  if (
+    !player ||
+    !contract ||
+    contract.status !== 'open' ||
+    !parcel ||
+    parcel.ownerId !== player.id
+  ) {
     return state;
   }
   const city = state.map.cities.find((entry) => entry.id === contract.cityId);
@@ -184,9 +191,14 @@ export function applyAdvanceDay(
   pnl = aggregateProductionIdleLoss(next, playerId, pnl);
   const book = readCommerce(next);
 
+  // 兩條勝利路線一起評估：工業化（淨利 ＋ 加工產值）與商業（營收 ＋ 需求佔比）。
+  // 見 `sales/scenario.ts`。
   const scenario = evaluateScenario(next.scenario, gameDay, pnl, {
-    share: marketShareOf(book),
-    consumerRevenue: book.consumerRevenue,
+    craftedValue: craftedValue(next.craftedTotals[playerId]),
+    commerce: {
+      share: marketShareOf(book),
+      consumerRevenue: book.consumerRevenue,
+    },
   });
 
   return expandNpcBlocks({

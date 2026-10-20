@@ -1,4 +1,5 @@
 import { marketShareOf, noteContractRevenue, readCommerce } from '../commerce/logic.js';
+import { craftedValue } from '../production/chain.js';
 import { ITEMS } from '../production/items.js';
 import type { Shipment } from '../sales/shipment.js';
 import { addPnL, emptyPnL, evaluateScenario } from '../sales/index.js';
@@ -105,8 +106,11 @@ export function settleArrivedShipments(state: WorldState): WorldState {
     ...settled,
     scenario: localPnl
       ? evaluateScenario(state.scenario, state.gameDay, localPnl, {
-          share: marketShareOf(commerce),
-          consumerRevenue: commerce.consumerRevenue,
+          craftedValue: craftedValue(state.craftedTotals[state.localPlayerId]),
+          commerce: {
+            share: marketShareOf(commerce),
+            consumerRevenue: commerce.consumerRevenue,
+          },
         })
       : state.scenario,
   };

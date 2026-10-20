@@ -13,6 +13,27 @@ export function craftedByTier(crafted: PlayerStock | undefined, tier: ItemTier):
   return sum;
 }
 
+/**
+ * 累計加工產值：所有**非原料**產出的帳面價值總和。
+ *
+ * 這是「工業化程度」的度量，用來判斷玩家是否真的把原料變成產品，
+ * 而不只是挖礦轉賣。開採配方產出的是 `raw` 階，不計入；
+ * 加工程序（含中間財）與成品都計入。
+ *
+ * 之所以用「產值」而不是「件數」，是因為不同配方產出量差很大
+ * （開採每週期 6 件、加工 1～2 件），用件數會讓開採看起來更努力。
+ */
+export function craftedValue(crafted: PlayerStock | undefined): number {
+  let sum = 0;
+  for (const item of Object.values(ITEMS)) {
+    if (item.tier === 'raw') {
+      continue;
+    }
+    sum += getItemQty(crafted ?? {}, item.id) * item.unitValue;
+  }
+  return sum;
+}
+
 /** 入庫累計。起始庫存不算，所以買地建廠不會被技術擋住。 */
 export function techStage(crafted: PlayerStock | undefined): 0 | 1 | 2 {
   if (craftedByTier(crafted, 'intermediate') >= TECH_GATES.finishCraftedIntermediate) {

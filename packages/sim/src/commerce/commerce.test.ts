@@ -66,7 +66,9 @@ describe('門市價格與人力', () => {
     const rivalHeavy = quoteRetailDay({
       ...shared,
       clerks: 1,
-      rivals: [{ id: 'r', nameZh: '北岸聯號', cityId: 'xiwan', cityName: '西灣市', presence: 0.75 }],
+      rivals: [
+        { id: 'r', nameZh: '北岸聯號', cityId: 'xiwan', cityName: '西灣市', presence: 0.75 },
+      ],
     });
     const unstaffed = quoteRetailDay({ ...shared, clerks: 0, rivals: [] });
     expect(staffed.units).toBeGreaterThan(1);
@@ -272,9 +274,13 @@ describe('門市日結', () => {
 describe('市佔通關與舊賣礦路徑', () => {
   it('淨利未達標時，市佔與消費品營收仍可過關', () => {
     const scenario = createScenarioState();
-    const won = evaluateScenario(scenario, 3, emptyPnL(), { share: 0.2, consumerRevenue: 25_000 });
+    const won = evaluateScenario(scenario, 3, emptyPnL(), {
+      commerce: { share: 0.2, consumerRevenue: 25_000 },
+    });
     expect(won.status).toBe('won');
-    const playing = evaluateScenario(scenario, 3, emptyPnL(), { share: 0.5, consumerRevenue: 100 });
+    const playing = evaluateScenario(scenario, 3, emptyPnL(), {
+      commerce: { share: 0.5, consumerRevenue: 100 },
+    });
     expect(playing.status).toBe('playing');
   });
 
