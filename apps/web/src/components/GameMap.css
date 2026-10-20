@@ -448,6 +448,24 @@
   white-space: nowrap;
 }
 
+.map-cell.npc-block {
+  box-shadow: inset 0 0 0 3px #c47b4a;
+}
+
+.npc-block-tag {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  z-index: 2;
+  font-size: 0.45rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffd7b0;
+  text-align: center;
+  pointer-events: none;
+}
+
 .city-label i {
   display: block;
   font-style: normal;
@@ -595,6 +613,10 @@
 
 .map-legend .swatch.building-ready {
   background: #6eb5ff;
+}
+
+.map-legend .swatch.npc-block {
+  background: #c47b4a;
 }
 
 .map-legend .swatch.site-store {

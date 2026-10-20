@@ -3,6 +3,7 @@ import { getItemQty } from '../production/items.js';
 import { applyWorldAction } from '../world/reducer.js';
 import { createInitialWorld } from '../world/create-world.js';
 import { buildNpcDeals } from './deals.js';
+import { NPC_BLOCK_CAP, npcBlockCount } from './expand.js';
 
 describe('NPC', () => {
   it('開局有原料商、港區收購和在城裡的掌櫃', () => {
@@ -41,6 +42,38 @@ describe('NPC', () => {
     const next = applyWorldAction(state, { type: 'ACCEPT_NPC_DEAL', dealId: deal.id });
     expect(next.players[state.localPlayerId]!.cash).toBe(10_000 + deal.unitPrice * deal.quantity);
     expect(next.pnl[state.localPlayerId]!.revenue).toBe(deal.unitPrice * deal.quantity);
+  });
+
+  it('掌櫃每天在自己城邊占一塊商業地，不動玩家現金，也不搶已出價的地', () => {
+    const state = createInitialWorld({ startingCash: 100_000 });
+    const cash = state.players[state.localPlayerId]!.cash;
+    const city = state.map.cities.find((item) => item.id === 'xiwan')!;
+    const nearest = state.map.parcels
+      .filter((parcel) => parcel.role === 'land' && parcel.ownerId === null)
+      .sort(
+        (a, b) =>
+          Math.abs(a.x - city.x) + Math.abs(a.y - city.y) - (Math.abs(b.x - city.x) + Math.abs(b.y - city.y)) ||
+          a.y - b.y ||
+          a.x - b.x,
+      )[0]!;
+    const lot = state.auctionLots.find((item) => item.parcelId.value === nearest.id.value)!;
+    const bid = applyWorldAction(state, { type: 'BID', parcelId: nearest.id, amount: lot.minPrice });
+    const expanded = applyWorldAction(state, { type: 'ADVANCE_DAY' });
+    expect(npcBlockCount(expanded, 'jiang-bei')).toBe(1);
+    expect(npcBlockCount(expanded, 'lin-kou')).toBe(1);
+    expect(npcBlockCount(expanded, 'he-zhan')).toBe(1);
+    expect(expanded.players[state.localPlayerId]!.cash - cash).toBe(500);
+    const guarded = applyWorldAction(bid, { type: 'ADVANCE_DAY' });
+    expect(guarded.map.parcels.find((parcel) => parcel.id.value === nearest.id.value)?.ownerId).toBeNull();
+    expect(npcBlockCount(guarded, 'jiang-bei')).toBe(1);
+  });
+
+  it('商業版圖有上限', () => {
+    let state = createInitialWorld();
+    for (let day = 0; day < NPC_BLOCK_CAP + 2; day += 1) {
+      state = applyWorldAction(state, { type: 'ADVANCE_DAY' });
+    }
+    expect(npcBlockCount(state, 'jiang-bei')).toBe(NPC_BLOCK_CAP);
   });
 
   it('換日會換成另一筆貨', () => {

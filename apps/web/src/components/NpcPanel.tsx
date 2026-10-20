@@ -1,6 +1,7 @@
 import {
   ITEMS,
   NPCS,
+  npcBlockCount,
   getItemQty,
   getPlayerInventory,
   listNpcDeals,
@@ -48,6 +49,7 @@ export function NpcPanel({
                   {npc.nameZh}
                   <small>
                     {npc.roleZh} · {npc.placeZh}
+                    {npc.roleZh === '掌櫃' ? ` · 版圖 ${npcBlockCount(state, npc.id)}` : ''}
                   </small>
                 </td>
                 <td>

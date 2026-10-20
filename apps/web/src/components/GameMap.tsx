@@ -2,6 +2,7 @@ import {
   FACTORY_TYPES,
   MARKET_HUB,
   npcAtCity,
+  npcById,
   PARCEL_RESOURCE_DEFS,
   findOpenLotForParcel,
   listMapActors,
@@ -80,6 +81,8 @@ function cellClass(
   if (parcel.role === 'land') {
     if (parcel.state === 'building') {
       classes.push('under-construction');
+    } else if (parcel.state === 'building-ready' && !isLocalOwner && parcel.ownerId) {
+      classes.push('npc-block');
     } else if (parcel.state === 'building-ready') {
       classes.push('building-ready');
     } else if (isLocalOwner) {
@@ -247,6 +250,9 @@ export function GameMap({
                   aria-label={ariaLabel(state, parcel)}
                 >
                   <MapCellFeatureArt art={art} road={road} />
+                  {parcel.ownerId && npcById(parcel.ownerId) ? (
+                    <span className="npc-block-tag">{npcById(parcel.ownerId)?.nameZh}</span>
+                  ) : null}
                   {city ? (
                     <span className="city-label">
                       {city.name}
@@ -364,6 +370,9 @@ export function GameMap({
         </span>
         <span>
           <i className="swatch building-ready" /> 工廠運營
+        </span>
+        <span>
+          <i className="swatch npc-block" /> 對手版圖
         </span>
         <span>
           <i className="swatch site-store" /> 門市
