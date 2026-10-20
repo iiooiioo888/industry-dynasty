@@ -146,3 +146,30 @@
   padding-left: 1.1rem;
   font-size: 0.75rem;
 }
+
+.contract-bid-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.contract-bid-row input {
+  width: 5.5rem;
+  border: 1px solid var(--sys-border);
+  border-radius: 4px;
+  background: var(--sys-bg);
+  color: inherit;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.contract-advice {
+  font-size: 0.66rem;
+  color: var(--sys-warn);
+}
+
+.contract-advice.is-good {
+  color: var(--sys-accent);
+}

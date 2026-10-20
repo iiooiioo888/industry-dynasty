@@ -1,5 +1,6 @@
 import {
   CONSUMER_ITEM_IDS,
+  contractBoard,
   findParcel,
   getItemQty,
   getPlayerHoldings,
@@ -25,6 +26,8 @@ export interface SalesPanelProps {
   onSell: (offerId: string, quantity: number, shipFromParcelId: ParcelId) => void;
   onSetShelf: (parcelId: ParcelId, itemId: ItemId, unitPrice: number, quantity: number) => void;
   onAcceptContract: (contractId: string, shipFromParcelId: ParcelId) => void;
+  /** 合約競標：出價 */
+  onBidContract: (contractId: string, unitPrice: number) => void;
 }
 
 type SalesTab = 'port' | 'shelf' | 'contract';
@@ -64,6 +67,7 @@ export function SalesPanel({
   onSell,
   onSetShelf,
   onAcceptContract,
+  onBidContract,
 }: SalesPanelProps) {
   const [tab, setTab] = useState<SalesTab>('port');
 
@@ -104,6 +108,7 @@ export function SalesPanel({
           state={state}
           selectedParcelId={selectedParcelId}
           onAcceptContract={onAcceptContract}
+          onBidContract={onBidContract}
         />
       ) : null}
     </section>
@@ -329,7 +334,10 @@ function ShelfSale({
         <>
           <label className="sales-field">
             <span>門市</span>
-            <select value={store?.id.value ?? ''} onChange={(event) => setStoreKey(event.target.value)}>
+            <select
+              value={store?.id.value ?? ''}
+              onChange={(event) => setStoreKey(event.target.value)}
+            >
               {stores.map((parcel) => (
                 <option key={parcel.id.value} value={parcel.id.value}>
                   ({parcel.x},{parcel.y}) · {parcel.nearestCityName ?? '郊外'}
@@ -389,15 +397,19 @@ function ContractSale({
   state,
   selectedParcelId,
   onAcceptContract,
+  onBidContract,
 }: {
   state: WorldState;
   selectedParcelId: ParcelId | null;
   onAcceptContract: SalesPanelProps['onAcceptContract'];
+  onBidContract: SalesPanelProps['onBidContract'];
 }) {
   const holdings = getPlayerHoldings(state, state.localPlayerId);
+  const board = contractBoard(state);
   const commerce = readCommerce(state);
   const stock = getPlayerInventory(state, state.localPlayerId);
   const [shipKey, setShipKey] = useState('');
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const preferred = selectedParcelId ? findParcel(state, selectedParcelId) : undefined;
 
   useEffect(() => {
@@ -421,28 +433,62 @@ function ContractSale({
           ))}
         </select>
       </label>
+
+      {board.rows.length > 0 ? (
+        <p className="panel-hint">
+          合約要競標：出價必須壓到<strong>行情價</strong>以下才標得到， 出太低會被底價擋下。
+          {board.readyToAccept > 0 ? `目前有 ${board.readyToAccept} 張可接。` : ''}
+        </p>
+      ) : null}
+
       <ul className="shipment-list">
-        {commerce.contracts.map((contract) => {
-          const have = getItemQty(stock, contract.itemId);
-          const open = contract.status === 'open';
+        {board.rows.map((row) => {
+          const contract = commerce.contracts.find((entry) => entry.id === row.id);
+          const have = contract ? getItemQty(stock, contract.itemId) : row.stock;
+          const draft = drafts[row.id] ?? String(row.myBid ?? row.suggestedBid);
           return (
-            <li key={contract.id}>
+            <li key={row.id}>
               <strong>
-                {contract.cityName} · {ITEMS[contract.itemId].nameZh} × {contract.quantity}
+                {row.cityName} · {row.itemName} × {row.quantity}
               </strong>
               <span>
-                ${contract.unitPrice.toLocaleString()} · 第 {contract.dueDay} 天
+                面價 ${row.faceUnitPrice.toLocaleString()} · 行情 $
+                {row.rivalUnitPrice.toLocaleString()} · 剩 {row.daysLeft} 天
               </span>
-              {open ? (
+              <span className="contract-bid-row">
+                <input
+                  type="number"
+                  min={1}
+                  value={draft}
+                  aria-label={`${row.cityName} ${row.itemName} 出價`}
+                  onChange={(event) =>
+                    setDrafts((prev) => ({ ...prev, [row.id]: event.target.value }))
+                  }
+                />
                 <button
                   type="button"
                   className="sys-btn"
-                  disabled={!shipParcel || have < contract.quantity}
-                  onClick={() => shipParcel && onAcceptContract(contract.id, shipParcel.id)}
+                  onClick={() => {
+                    const value = Number(draft);
+                    if (Number.isFinite(value) && value >= 1) {
+                      onBidContract(row.id, value);
+                    }
+                  }}
+                >
+                  出價
+                </button>
+                <button
+                  type="button"
+                  className="sys-btn"
+                  disabled={!shipParcel || !row.wouldWin || have < row.quantity}
+                  onClick={() => shipParcel && onAcceptContract(row.id, shipParcel.id)}
                 >
                   接單 · {have}
                 </button>
-              ) : null}
+              </span>
+              <span className={row.wouldWin ? 'contract-advice is-good' : 'contract-advice'}>
+                {row.advice}
+              </span>
             </li>
           );
         })}

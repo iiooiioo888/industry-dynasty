@@ -211,6 +211,9 @@ export function App() {
               onAcceptContract={(contractId, shipFromParcelId) =>
                 dispatch({ type: 'ACCEPT_CONTRACT', contractId, shipFromParcelId })
               }
+              onBidContract={(contractId, unitPrice) =>
+                dispatch({ type: 'BID_CONTRACT', contractId, unitPrice })
+              }
             />
           ) : null}
           {page === 'people' ? (

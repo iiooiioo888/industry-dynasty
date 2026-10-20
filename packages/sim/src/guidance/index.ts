@@ -19,3 +19,4 @@ export {
   type LineStatus,
   type ProductionSummary,
 } from './status.js';
+export { contractBoard, type ContractBoard, type ContractRow } from './contracts.js';
