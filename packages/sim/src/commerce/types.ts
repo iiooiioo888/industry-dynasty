@@ -7,6 +7,11 @@ export interface StaffRoster {
   readonly operators: number;
   readonly clerks: number;
   readonly researchers: number;
+  /**
+   * 各職種熟練度（0–100）。舊存檔沒有這個欄位，讀取時視為 0。
+   * 在職就會累積，效果見 `commerce/staff.ts`。
+   */
+  readonly skill?: Readonly<Record<StaffRole, number>>;
 }
 
 export interface ShelfListing {

@@ -65,3 +65,14 @@ export type {
   WorldEvent,
   WorldEventKind,
 } from './types.js';
+export {
+  CLERK_SKILL_MAX_BONUS,
+  OPERATOR_SKILL_MAX_BONUS,
+  STAFF_SKILL_MAX,
+  STAFF_SKILL_PER_DAY,
+  emptyStaffSkill,
+  growStaffSkill,
+  readStaffSkill,
+  skillRatio,
+  type StaffSkill,
+} from './staff.js';

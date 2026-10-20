@@ -13,6 +13,7 @@ import {
   type QualityBand,
 } from './quality.js';
 import { respondToPlayerShare } from './rivals.js';
+import { clerkCoverage, growStaffSkill, readStaffSkill } from './staff.js';
 import {
   EMPTY_STAFF,
   type AdCampaign,
@@ -154,26 +155,12 @@ export function priceVolumeMultiplier(priceRatio: number): number {
   return Math.max(0, 1 - (priceRatio - 1) * 1.6);
 }
 
-export function clerkCoverage(clerks: number, activeStores: number): number {
-  if (activeStores <= 0) {
-    return 1;
-  }
-  if (clerks <= 0) {
-    return 0;
-  }
-  return Math.min(1, clerks / activeStores);
-}
-
 /**
- * 沒有技師時維持原產量，賣礦給港區不必先雇人。
- * 一旦雇了人，產量係數改看技師是否蓋得過正在跑的產線。
+ * 門市覆蓋率與產線吞吐係數都移到 `commerce/staff.ts`，
+ * 因為它們現在要吃「員工熟練度」。這裡保留 re-export，
+ * 既有呼叫端不必全部改。
  */
-export function operatorThroughputFactor(operators: number, runningLines: number): number {
-  if (operators <= 0 || runningLines <= 0) {
-    return 1;
-  }
-  return Math.min(1.2, Math.max(0.45, operators / runningLines));
-}
+export { clerkCoverage, operatorThroughputFactor } from './staff.js';
 
 export interface RetailQuote {
   readonly referencePrice: number;
@@ -193,6 +180,8 @@ export function quoteRetailDay(args: {
   unitPrice: number;
   qualityBand: QualityBand;
   clerks: number;
+  /** 店員熟練度（0–100），見 `commerce/staff.ts` */
+  clerksSkill?: number;
   activeStores: number;
   rivals: readonly RivalOutlet[];
   campaigns: readonly AdCampaign[];
@@ -233,7 +222,7 @@ export function quoteRetailDay(args: {
   if (args.parcel.cityProximity <= 0 && args.parcel.populationDensity < 20) {
     units *= 0.15;
   }
-  const coverage = clerkCoverage(args.clerks, args.activeStores);
+  const coverage = clerkCoverage(args.clerks, args.activeStores, args.clerksSkill ?? 0);
   units *= coverage;
   return {
     referencePrice,
@@ -551,6 +540,7 @@ export function applyCommerceDay(state: WorldState, gameDay: number): CommerceDa
       unitPrice: shelf.unitPrice,
       qualityBand: commerce.qualityBand,
       clerks: commerce.staff.clerks,
+      clerksSkill: readStaffSkill(commerce.staff).clerk,
       activeStores,
       rivals: commerce.rivals,
       campaigns: commerce.campaigns,
@@ -605,8 +595,12 @@ export function applyCommerceDay(state: WorldState, gameDay: number): CommerceDa
   });
   const rivalResponse = respondToPlayerShare(commerce.rivals, shareNow);
 
+  // 在職訓練：員工每天累積熟練度（見 `commerce/staff.ts`）
+  const grownSkill = growStaffSkill(commerce.staff);
+
   const nextCommerce: CommerceState = {
     ...commerce,
+    staff: { ...commerce.staff, skill: grownSkill },
     shelves,
     contracts: refreshContracts(
       { ...commerce, contracts, qualityBand: commerce.qualityBand },
