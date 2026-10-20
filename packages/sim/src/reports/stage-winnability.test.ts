@@ -7,66 +7,67 @@ import { runFullLoop } from './full-loop.js';
  *
  * 關卡表光看數字是沒用的 —— 目標必須在**實際模擬**裡打得過。
  * 我第一版把後段加工目標設到 72 萬，實測上限只有約 23 萬，
- * 也就是後半段的工業化路線根本不可能達成。這條測試就是為了抓這種事：
+ * 也就是後半段的工業化路線根本不可能達成。這條測試就是為了抓這種事。
  *
- * 對每一關，用「起始資金 ＋ 該關天數 ＋ 該關目標」跑一次完整迴圈
- * （8 塊地、二階加工），要求至少有一種配置能通關。
- *
- * 如果日後調整了配方、成本或關卡目標而讓某關變成不可能，
- * 這條測試會直接指出是哪一關。
+ * 現在每一關都帶 `recommendedParcels / Depth / Extractors`（實測值），
+ * 測試就用那組數字實際跑一次，要求**每一關都能通關**。
+ * 好處是：關卡卡片顯示的「建議規模」不是文案，而是被驗證過的事實。
  */
 describe('關卡可通關性', () => {
-  it('每一關都至少有一種配置能通關', () => {
+  it('每一關在建議規模下都真的打得過', () => {
     const failures: string[] = [];
     for (const stage of STAGES) {
-      let won = false;
-      for (const depth of [1, 2] as const) {
-        for (const maxParcels of [6, 8]) {
-          const result = runFullLoop({
-            maxParcels,
-            depth,
-            extractorCount: 3,
-            startingCash: stage.startingCash,
-            maxDays: stage.maxDays,
-            config: { stageId: stage.id },
-          });
-          if (result.status === 'won') {
-            won = true;
-            break;
-          }
-        }
-        if (won) {
-          break;
-        }
-      }
-      if (!won) {
-        failures.push(`${stage.id}（${stage.nameZh}）`);
+      const result = runFullLoop({
+        maxParcels: stage.recommendedParcels,
+        depth: stage.recommendedDepth,
+        extractorCount: stage.recommendedExtractors,
+        startingCash: stage.startingCash,
+        maxDays: stage.maxDays,
+        config: { stageId: stage.id },
+      });
+      if (result.status !== 'won') {
+        failures.push(
+          `${stage.id}（建議 ${stage.recommendedParcels} 塊地／深度 ${stage.recommendedDepth}／開採 ${stage.recommendedExtractors}）`,
+        );
       }
     }
-    expect(failures, `以下關卡無法通關：${failures.join('、')}`).toHaveLength(0);
+    expect(failures, `以下關卡在建議規模下無法通關：${failures.join('、')}`).toHaveLength(0);
+  }, 180_000);
+
+  it('建議規模隨關卡推進不倒退', () => {
+    for (let i = 1; i < STAGES.length; i += 1) {
+      expect(
+        STAGES[i]!.recommendedParcels,
+        `${STAGES[i]!.id} 的建議規模比前一關小`,
+      ).toBeGreaterThanOrEqual(STAGES[i - 1]!.recommendedParcels);
+    }
+  });
+
+  it('建議規模是「真的最小」——少一塊地就過不了（抽查代表性關卡）', () => {
+    // 全部 22 關都做「少一塊地」驗證會太慢，所以抽三關：
+    // 一階的起點、一階的上限、二階的代表。
+    const samples = [STAGES[0]!, STAGES[6]!, STAGES[STAGES.length - 1]!];
+    for (const stage of samples) {
+      const fewer = Math.max(2, stage.recommendedParcels - 1);
+      const result = runFullLoop({
+        maxParcels: fewer,
+        depth: stage.recommendedDepth,
+        extractorCount: stage.recommendedExtractors,
+        startingCash: stage.startingCash,
+        maxDays: stage.maxDays,
+        config: { stageId: stage.id },
+      });
+      expect(result.status, `${stage.id} 在 ${fewer} 塊地時竟然也能通關 → 建議規模被高估`).not.toBe(
+        'won',
+      );
+    }
   }, 120_000);
 
-  it('最後一關不只是「剛好壓線」—— 最佳配置要留餘裕', () => {
-    // 注意：不是每一種配置都會更好。實測「8 塊地二階」在資金充裕時
-    // 反而會過度投資而虧錢（−4,291），所以這裡取**所有配置的最好成績**。
-    const last = STAGES[STAGES.length - 1]!;
-    let bestProfit = Number.NEGATIVE_INFINITY;
-    let bestCrafted = Number.NEGATIVE_INFINITY;
-    for (const depth of [1, 2] as const) {
-      for (const maxParcels of [6, 8]) {
-        const result = runFullLoop({
-          maxParcels,
-          depth,
-          extractorCount: 3,
-          startingCash: last.startingCash,
-          maxDays: last.maxDays,
-          config: { stageId: last.id },
-        });
-        bestProfit = Math.max(bestProfit, result.netProfit);
-        bestCrafted = Math.max(bestCrafted, result.craftedValue);
-      }
+  it('建議的加工深度與開採廠數量在合理範圍', () => {
+    for (const stage of STAGES) {
+      expect([1, 2]).toContain(stage.recommendedDepth);
+      expect(stage.recommendedExtractors).toBeGreaterThanOrEqual(1);
+      expect(stage.recommendedExtractors).toBeLessThan(stage.recommendedParcels);
     }
-    expect(bestCrafted).toBeGreaterThan(last.targets.craftedValue);
-    expect(bestProfit).toBeGreaterThan(last.targets.netProfit);
-  }, 60_000);
+  });
 });

@@ -50,6 +50,10 @@ export function StageSelect({ progress, currentStageId, onPick, onClose }: Stage
             const done = cleared.has(stage.id);
             const current = stage.id === currentStageId;
             const best = bestScoreFor(progress, stage.id);
+            // 建議規模來自實測（見 `reports/stage-winnability.test.ts`），不是文案
+            const scaleNote = `建議 ${stage.recommendedParcels} 塊地 · ${
+              stage.recommendedDepth === 1 ? '一階加工' : '二階加工'
+            }`;
             const bestNote = best
               ? `｜最佳：淨利 ${best.netProfit.toLocaleString()}、加工 ${best.craftedValue.toLocaleString()}、第 ${best.day} 天`
               : '';
@@ -83,6 +87,7 @@ export function StageSelect({ progress, currentStageId, onPick, onClose }: Stage
                     {best.craftedValue.toLocaleString()}／第 {best.day} 天
                   </p>
                 )}
+                <p className="stage-scale">{scaleNote}</p>
               </li>
             );
           })}

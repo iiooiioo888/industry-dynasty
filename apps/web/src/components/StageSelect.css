@@ -121,3 +121,10 @@
   font-size: 0.62rem;
   color: var(--sys-muted);
 }
+
+.stage-scale {
+  margin: 0.1rem 0 0.25rem 2.3rem;
+  font-size: 0.62rem;
+  color: var(--sys-accent);
+  opacity: 0.8;
+}
