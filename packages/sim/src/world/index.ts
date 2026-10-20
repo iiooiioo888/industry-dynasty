@@ -29,6 +29,15 @@ export {
 } from './workers.js';
 export { quoteParcelPlan, type ParcelPlanQuote } from './parcel-plan.js';
 export {
+  enterFloorBlock,
+  floorPlanFor,
+  stationAt,
+  type FloorPlan,
+  type FloorStation,
+  type FloorStationRole,
+  type MapLayer,
+} from './floor-map.js';
+export {
   listShipmentViews,
   listShipments,
   shipmentTravelTicks,

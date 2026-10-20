@@ -6,6 +6,7 @@ import {
   RECIPES,
   chainMarginCue,
   createProductionLine,
+  enterFloorBlock,
   findOpenLotForParcel,
   findParcel,
   getProductionLine,
@@ -52,6 +53,7 @@ export interface ParcelPlanCardProps {
   onInstallMachine: (parcelId: ParcelId, machineGradeId: MachineGradeId) => void;
   onStopProduction: (parcelId: ParcelId) => void;
   onSetShelfPrice: (parcelId: ParcelId, itemId: ConsumerItemId, unitPrice: number) => void;
+  onEnterFloor: () => void;
 }
 
 type ParcelPlanBuildProps = {
@@ -92,6 +94,7 @@ export function ParcelPlanCard({
   onInstallMachine,
   onStopProduction,
   onSetShelfPrice,
+  onEnterFloor,
 }: ParcelPlanCardProps) {
   const player = state.players[state.localPlayerId];
   const selected = selectedParcelId ? findParcel(state, selectedParcelId) : undefined;
@@ -116,6 +119,7 @@ export function ParcelPlanCard({
   const price = lot ? (lot.highBidderId === player?.id ? lot.highBid : minNextBid(lot)) : 0;
   const canBuy = Boolean(player && buyable && player.cash >= price);
   const pinned = selected ? pinnedIds.includes(selected.id.value) : false;
+  const canEnterFloor = selected ? enterFloorBlock(state, selected.id) === null : false;
 
   function purchase(parcel: Parcel) {
     const open = findOpenLotForParcel(state, parcel.id);
@@ -150,6 +154,11 @@ export function ParcelPlanCard({
             <button type="button" className="secondary" onClick={() => onTogglePin(selected.id)}>
               {pinned ? '取消釘選' : '釘選比較'}
             </button>
+            {canEnterFloor ? (
+              <button type="button" className="sys-btn" onClick={onEnterFloor}>
+                進入廠房
+              </button>
+            ) : null}
           </div>
           {columns.length > 0 ? (
             <table className="plan-table">

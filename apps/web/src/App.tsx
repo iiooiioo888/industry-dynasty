@@ -1,14 +1,16 @@
 import {
   DEFAULT_WORLD_CONFIG,
   companyScore,
+  enterFloorBlock,
   ticksUntilDayClose,
   type ConsumerItemId,
   type FactoryTypeId,
   type MachineGradeId,
+  type MapLayer,
   type ParcelId,
   type RecipeId,
 } from '@industry-dynasty/sim';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AuctionAlertBanner } from './components/AuctionAlertBanner';
 import { BankPanel } from './components/BankPanel';
 import { DataReportPanel } from './components/DataReportPanel';
@@ -32,8 +34,16 @@ export function App() {
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
   const [rightTab, setRightTab] = useState<RightTab>('ops');
+  const [mapView, setMapView] = useState<MapLayer>('world');
   const clockLabel = state.clock.paused ? '暫停' : `${state.clock.speed}×`;
   const event = state.todayEvent;
+  const floorBlock = selectedParcelId ? enterFloorBlock(state, selectedParcelId) : '先點一棟完工的建物';
+
+  useEffect(() => {
+    if (mapView === 'floor' && floorBlock) {
+      setMapView('world');
+    }
+  }, [mapView, floorBlock]);
 
   function togglePin(parcelId: ParcelId) {
     setPinnedIds((current) => {
@@ -70,6 +80,13 @@ export function App() {
           <GameMap
             state={state}
             selectedParcelId={selectedParcelId}
+            mapView={mapView}
+            onShowWorld={() => setMapView('world')}
+            onShowFloor={() => {
+              if (selectedParcelId && enterFloorBlock(state, selectedParcelId) === null) {
+                setMapView('floor');
+              }
+            }}
             onSelectParcel={setSelectedParcelId}
             onTogglePause={() => dispatch({ type: 'SET_CLOCK', paused: !state.clock.paused })}
             onSetSpeed={(speed) => dispatch({ type: 'SET_CLOCK', paused: false, speed })}
@@ -95,6 +112,7 @@ export function App() {
             onSetShelfPrice={(parcelId, itemId: ConsumerItemId, unitPrice) =>
               dispatch({ type: 'SET_SHELF_PRICE', parcelId, itemId, unitPrice })
             }
+            onEnterFloor={() => setMapView('floor')}
           />
         </main>
         <aside className="shell-col shell-col-right">

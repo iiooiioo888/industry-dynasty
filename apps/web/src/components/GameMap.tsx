@@ -1,6 +1,7 @@
 import {
   MARKET_HUB,
   PARCEL_RESOURCE_DEFS,
+  enterFloorBlock,
   findOpenLotForParcel,
   listMapActors,
   listShipmentViews,
@@ -9,6 +10,7 @@ import {
   roadNamesAt,
   roadPresentationAt,
   type ClockSpeed,
+  type MapLayer,
   type Parcel,
   type ParcelId,
   type RoadLinks,
@@ -17,6 +19,7 @@ import {
 import { useEffect, useState, type CSSProperties } from 'react';
 import { ASSET_SLOTS, MAP_ART_SLOT } from '../assets/slots';
 import { cellFeatureArt, resolveMapFeatureArt, type CellFeatureArt } from '../map/map-feature-art';
+import { FactoryFloor } from './FactoryFloor';
 import { MapCellFeatureArt } from './MapFeatureSprites';
 import { ParcelFocusCard } from './ParcelFocusCard';
 import './GameMap.css';
@@ -40,6 +43,9 @@ function useNarrowMap(): boolean {
 export interface GameMapProps {
   state: WorldState;
   selectedParcelId: ParcelId | null;
+  mapView: MapLayer;
+  onShowWorld: () => void;
+  onShowFloor: () => void;
   onSelectParcel: (parcelId: ParcelId) => void;
   onTogglePause: () => void;
   onSetSpeed: (speed: ClockSpeed) => void;
@@ -131,6 +137,9 @@ const CLOCK_SPEED_OPTIONS = [1, 2, 4] as const satisfies readonly ClockSpeed[];
 export function GameMap({
   state,
   selectedParcelId,
+  mapView,
+  onShowWorld,
+  onShowFloor,
   onSelectParcel,
   onTogglePause,
   onSetSpeed,
@@ -143,11 +152,35 @@ export function GameMap({
   const featureArt = resolveMapFeatureArt(state);
   const actors = listMapActors(state);
   const routes = listShipmentViews(state);
+  const floorBlock = selectedParcelId
+    ? enterFloorBlock(state, selectedParcelId)
+    : '先在大世界點一棟完工的建物';
+  const onFloor = mapView === 'floor' && floorBlock === null && selectedParcelId !== null;
 
   return (
-    <section className="map-shell" aria-label="世界地圖">
+    <section className="map-shell" aria-label={onFloor ? '廠房地圖' : '世界地圖'} data-map-layer={onFloor ? 'floor' : 'world'}>
       <div className="map-toolbar">
-        <span>地圖 · {cityNames || '點選土地'}</span>
+        <div className="map-layer-switch" role="group" aria-label="地圖層">
+          <button
+            type="button"
+            className={`clock-btn${onFloor ? '' : ' on'}`}
+            aria-pressed={!onFloor}
+            onClick={onShowWorld}
+          >
+            大世界
+          </button>
+          <button
+            type="button"
+            className={`clock-btn${onFloor ? ' on' : ''}`}
+            aria-pressed={onFloor}
+            disabled={floorBlock !== null}
+            title={floorBlock ?? '進入這棟建物'}
+            onClick={onShowFloor}
+          >
+            廠房
+          </button>
+        </div>
+        <span>{onFloor ? '廠房裡的作業、機械與人員' : `地圖 · ${cityNames || '點選土地'}`}</span>
         {openCount > 0 && <span className="map-auction-chip">拍賣中 {openCount}</span>}
         <span className="map-market-cue" title={`港區市場 (${MARKET_HUB.x}, ${MARKET_HUB.y})`}>
           <img
@@ -191,9 +224,11 @@ export function GameMap({
         </div>
       </div>
       <div
-        className={`map-stage${narrow ? ' is-scroll-map' : ''}`}
+        className={`map-stage${narrow && !onFloor ? ' is-scroll-map' : ''}`}
         style={{ ['--map-cols' as string]: width, ['--map-rows' as string]: height }}
       >
+        {onFloor && selectedParcelId ? <FactoryFloor state={state} parcelId={selectedParcelId} /> : null}
+        {onFloor ? null : (
         <div className="map-scroll">
           <div
             className="map-grid"
@@ -217,11 +252,13 @@ export function GameMap({
                 !isLocalOwner &&
                 !parcel.ownerId &&
                 parcel.state === 'empty';
+              const floorReady = enterFloorBlock(state, parcel.id) === null;
               return (
                 <button
                   key={parcel.id.value}
                   type="button"
-                  className={`${cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids, road?.joint ?? null)}${isMarket ? ' market-hub' : ''}`}
+                  className={`${cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids, road?.joint ?? null)}${isMarket ? ' market-hub' : ''}${floorReady ? ' floor-ready' : ''}`}
+                  data-floor-ready={floorReady ? 'true' : undefined}
                   style={
                     showDensity
                       ? { backgroundColor: densityColor(parcel.populationDensity) }
@@ -234,8 +271,8 @@ export function GameMap({
                   data-road-links={road ? roadLinkCode(road.links) : undefined}
                   data-road-rotation={road?.mode === 'tile' ? road.rotation : undefined}
                   onClick={() => onSelectParcel(parcel.id)}
-                  title={ariaLabel(state, parcel)}
-                  aria-label={ariaLabel(state, parcel)}
+                  title={floorReady ? `${ariaLabel(state, parcel)}，可進入廠房` : ariaLabel(state, parcel)}
+                  aria-label={floorReady ? `${ariaLabel(state, parcel)}，可進入廠房` : ariaLabel(state, parcel)}
                 >
                   <MapCellFeatureArt art={art} road={road} />
                   {city ? <span className="city-label">{city.name}</span> : null}
@@ -244,6 +281,11 @@ export function GameMap({
                       拍
                     </span>
                   )}
+                  {floorReady ? (
+                    <span className="map-cell-floor-tag" aria-hidden="true">
+                      房
+                    </span>
+                  ) : null}
                   {parcel.role === 'land' && (
                     <span
                       className="map-cell-resource-dot"
@@ -325,10 +367,21 @@ export function GameMap({
             })}
           </div>
         </div>
+        )}
       </div>
       <p className="map-strategy">
-        靠近人口密集區、城市與道路，收購量與單價較高。道路與城市核心不出售。工人分去程、樞紐、回程、作業，出貨沿路線走到港才入帳。
+        {onFloor
+          ? '大世界管買地與運路；廠房管這棟建物裡的作業、機械與人員。點站點看目前狀態。'
+          : '靠近人口密集區、城市與道路，收購量與單價較高。道路與城市核心不出售。標著「房」的完工建物可以進入廠房。'}
       </p>
+      {onFloor ? (
+        <div className="map-legend">
+          <span>廠門進出</span>
+          <span>作業與加工機</span>
+          <span>班長、研發或店長席</span>
+          <span>貨架與收銀台只出現在門市</span>
+        </div>
+      ) : (
       <div className="map-legend">
         <span>
           <i className="swatch auction-live" /> 拍賣中（閃爍）
@@ -402,7 +455,8 @@ export function GameMap({
           </span>
         )}
       </div>
-      {narrow ? (
+      )}
+      {narrow && !onFloor ? (
         <ParcelFocusCard
           state={state}
           selectedParcelId={selectedParcelId}
