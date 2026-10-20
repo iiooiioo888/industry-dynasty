@@ -9,6 +9,7 @@ export * from './desk/index.js';
 export * from './world/index.js';
 export * from './persistence/index.js';
 export * from './guidance/index.js';
+export * from './presentation/index.js';
 export {
   FIRST_STAGE,
   STAGES,

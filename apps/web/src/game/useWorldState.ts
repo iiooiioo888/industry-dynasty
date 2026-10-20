@@ -1,11 +1,14 @@
 import {
   applyWorldAction,
   createInitialWorld,
+  cueForAction,
+  cueForBuildCompletion,
   stageWorldConfig,
   type WorldAction,
   type WorldState,
 } from '@industry-dynasty/sim';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isMuted, playCue, toggleMuted } from '../audio/player';
 import { clearSave, loadGame, readSaveInfo, saveGame, type StoredSaveInfo } from './save-storage';
 
 export interface SaveControls {
@@ -17,10 +20,16 @@ export interface SaveControls {
   readonly reset: () => void;
 }
 
+export interface SoundControls {
+  readonly muted: boolean;
+  readonly toggleMute: () => void;
+}
+
 export function useWorldState(): {
   state: WorldState;
   dispatch: (action: WorldAction) => void;
   saves: SaveControls;
+  sound: SoundControls;
   /** 以指定關卡開新局（跨局推進用） */
   startStage: (stageId: string) => void;
 } {
@@ -30,6 +39,13 @@ export function useWorldState(): {
     const loaded = loadGame();
     return loaded.ok ? loaded.state : createInitialWorld();
   });
+  // 用 ref 保存「最新狀態」，讓 dispatch 能算出動作前後的差異來決定音效。
+  // 不在 setState 的 updater 裡播聲音 —— StrictMode 會重複呼叫 updater，
+  // 那樣同一個動作會響兩次。
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
   const [info, setInfo] = useState<StoredSaveInfo | null>(() => readSaveInfo());
   const [message, setMessage] = useState<string | null>(() => {
     const loaded = loadGame();
@@ -38,10 +54,29 @@ export function useWorldState(): {
     }
     return null;
   });
+  const [muted, setMutedState] = useState(() => isMuted());
 
   const dispatch = useCallback((action: WorldAction) => {
-    setState((prev) => applyWorldAction(prev, action));
+    const before = stateRef.current;
+    const after = applyWorldAction(before, action);
+    stateRef.current = after;
+    setState(after);
+    // 建造完工比一般動作更值得通知，優先播它
+    const cue = cueForBuildCompletion(before, after) ?? cueForAction(action, before, after);
+    if (cue) {
+      playCue(cue);
+    }
   }, []);
+
+  const sound = useMemo<SoundControls>(
+    () => ({
+      muted,
+      toggleMute: () => {
+        setMutedState(toggleMuted());
+      },
+    }),
+    [muted],
+  );
 
   const save = useCallback(() => {
     setState((current) => {
@@ -101,7 +136,7 @@ export function useWorldState(): {
   );
 
   return useMemo(
-    () => ({ state, dispatch, saves, startStage }),
-    [state, dispatch, saves, startStage],
+    () => ({ state, dispatch, saves, sound, startStage }),
+    [state, dispatch, saves, sound, startStage],
   );
 }

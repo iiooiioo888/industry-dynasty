@@ -3,6 +3,7 @@ import {
   marketShareOf,
   readCommerce,
   type MarketId,
+  STAGES,
   ticksUntilDayClose,
   type FactoryTypeId,
   type ItemId,
@@ -52,7 +53,7 @@ const PAGES = [
 type PageId = (typeof PAGES)[number][0];
 
 export function App() {
-  const { state, dispatch, saves, startStage } = useWorldState();
+  const { state, dispatch, saves, sound, startStage } = useWorldState();
   const [selectedParcelId, setSelectedParcelId] = useState<ParcelId | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
@@ -121,14 +122,13 @@ export function App() {
         ))}
       </nav>
       <div className="shell-save">
-        <button
-          type="button"
-          className="stage-select-open"
-          onClick={() => setStageSelectOpen(true)}
-        >
-          選關（{campaign.clearedStageIds.length}/22）
-        </button>
-        <SaveControlsBar saves={saves} />
+        <SaveControlsBar
+          saves={saves}
+          sound={sound}
+          onOpenStages={() => setStageSelectOpen(true)}
+          clearedStages={campaign.clearedStageIds.length}
+          totalStages={STAGES.length}
+        />
       </div>
       <GuidanceBanner state={state} />
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
