@@ -11,7 +11,7 @@ import {
   type RecipeId,
   type StaffRole,
 } from '@industry-dynasty/sim';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AuctionAlertBanner } from './components/AuctionAlertBanner';
 import { MarketNewsBanner } from './components/MarketNewsBanner';
 import { NpcPanel } from './components/NpcPanel';
@@ -27,7 +27,10 @@ import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
 import { SaveControlsBar } from './components/SaveControls';
 import { StageResultOverlay } from './components/StageResultOverlay';
+import { StageSelect } from './components/StageSelect';
+import { GuidanceBanner } from './components/GuidanceBanner';
 import { computeStageProgress, currentStage } from './game/stage-progress';
+import { loadProgress, markStageCleared } from './game/campaign-storage';
 import { OpsPanel } from './components/OpsPanel';
 import { ProductionPanel } from './components/ProductionPanel';
 import { SalesPanel } from './components/SalesPanel';
@@ -60,6 +63,23 @@ export function App() {
   // 關卡資訊與結算（見 `game/stage-progress.ts`）
   const stage = currentStage(state);
   const stageProgress = useMemo(() => computeStageProgress(state), [state]);
+  // 戰役進度（跨局保留）與關卡選擇
+  const [campaign, setCampaign] = useState(() => loadProgress());
+  const [stageSelectOpen, setStageSelectOpen] = useState(false);
+
+  // 通關就把這一關記進戰役進度，並自動解鎖下一關
+  useEffect(() => {
+    if (state.scenario.status !== 'won') {
+      return;
+    }
+    const stageId = state.scenario.config.stageId;
+    if (!stageId) {
+      return;
+    }
+    setCampaign((prev) =>
+      prev.clearedStageIds.includes(stageId) ? prev : markStageCleared(stageId),
+    );
+  }, [state.scenario.status, state.scenario.config.stageId]);
 
   function togglePin(parcelId: ParcelId) {
     setPinnedIds((current) => {
@@ -101,8 +121,16 @@ export function App() {
         ))}
       </nav>
       <div className="shell-save">
+        <button
+          type="button"
+          className="stage-select-open"
+          onClick={() => setStageSelectOpen(true)}
+        >
+          選關（{campaign.clearedStageIds.length}/22）
+        </button>
         <SaveControlsBar saves={saves} />
       </div>
+      <GuidanceBanner state={state} />
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
       <MarketNewsBanner state={state} />
       {page === 'map' ? (
@@ -238,6 +266,17 @@ export function App() {
         onNextStage={(next) => startStage(next.id)}
         onReplay={() => startStage(state.scenario.config.stageId ?? 'stage-01')}
       />
+      {stageSelectOpen && (
+        <StageSelect
+          progress={campaign}
+          currentStageId={state.scenario.config.stageId ?? null}
+          onPick={(picked) => {
+            setStageSelectOpen(false);
+            startStage(picked.id);
+          }}
+          onClose={() => setStageSelectOpen(false)}
+        />
+      )}
     </div>
   );
 }

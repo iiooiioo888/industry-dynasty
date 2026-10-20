@@ -76,6 +76,17 @@
   padding: 0.15rem 0.55rem;
 }
 
+.stage-select-open {
+  border: 1px solid var(--sys-accent);
+  background: transparent;
+  color: var(--sys-accent);
+  border-radius: 4px;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+  margin-right: auto;
+}
+
 .stage-chip {
   margin-left: 0.6rem;
   padding: 0.1rem 0.45rem;
