@@ -1,5 +1,6 @@
 import { netProfit, type PnLSummary } from './pnl.js';
 import { BALANCE } from '../balance/targets.js';
+import { FIRST_STAGE, stageById } from '../balance/stages.js';
 import { SHARE_MIN_REVENUE, SHARE_TARGET } from '../commerce/logic.js';
 
 /**
@@ -31,6 +32,8 @@ export interface ScenarioConfig {
   readonly minConsumerRevenue?: number;
   /** 累計清償貸款門檻 */
   readonly targetDebtRepaid: number;
+  /** 目前進行中的關卡（見 `balance/stages.ts`） */
+  readonly stageId?: string;
 }
 
 export const DEFAULT_SCENARIO: ScenarioConfig = {
@@ -40,7 +43,27 @@ export const DEFAULT_SCENARIO: ScenarioConfig = {
   targetShare: SHARE_TARGET,
   minConsumerRevenue: SHARE_MIN_REVENUE,
   targetDebtRepaid: BALANCE.targetDebtRepaid,
+  stageId: FIRST_STAGE.id,
 };
+
+/**
+ * 由關卡表產生一份關卡設定。
+ *
+ * 關卡只調整**輸入**（起始資金、天數、目標組），不新增規則，
+ * 所以既有的平衡護欄仍然適用。
+ */
+export function scenarioForStage(stageId: string): ScenarioConfig {
+  const stage = stageById(stageId) ?? FIRST_STAGE;
+  return {
+    targetNetProfit: stage.targets.netProfit,
+    targetCraftedValue: stage.targets.craftedValue,
+    maxDays: stage.maxDays,
+    targetShare: SHARE_TARGET,
+    minConsumerRevenue: SHARE_MIN_REVENUE,
+    targetDebtRepaid: stage.targets.debtRepaid,
+    stageId: stage.id,
+  };
+}
 
 export type ScenarioStatus = 'playing' | 'won' | 'lost';
 
@@ -61,6 +84,7 @@ export function resolveScenarioConfig(config: Partial<ScenarioConfig>): Scenario
     targetShare: config.targetShare ?? SHARE_TARGET,
     minConsumerRevenue: config.minConsumerRevenue ?? SHARE_MIN_REVENUE,
     targetDebtRepaid: config.targetDebtRepaid ?? BALANCE.targetDebtRepaid,
+    stageId: config.stageId ?? FIRST_STAGE.id,
   };
 }
 

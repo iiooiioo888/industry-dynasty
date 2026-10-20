@@ -11,7 +11,7 @@ import {
   type RecipeId,
   type StaffRole,
 } from '@industry-dynasty/sim';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AuctionAlertBanner } from './components/AuctionAlertBanner';
 import { MarketNewsBanner } from './components/MarketNewsBanner';
 import { NpcPanel } from './components/NpcPanel';
@@ -26,6 +26,8 @@ import { ParcelPlanCard } from './components/ParcelPlanCard';
 import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
 import { SaveControlsBar } from './components/SaveControls';
+import { StageResultOverlay } from './components/StageResultOverlay';
+import { computeStageProgress, currentStage } from './game/stage-progress';
 import { OpsPanel } from './components/OpsPanel';
 import { ProductionPanel } from './components/ProductionPanel';
 import { SalesPanel } from './components/SalesPanel';
@@ -47,7 +49,7 @@ const PAGES = [
 type PageId = (typeof PAGES)[number][0];
 
 export function App() {
-  const { state, dispatch, saves } = useWorldState();
+  const { state, dispatch, saves, startStage } = useWorldState();
   const [selectedParcelId, setSelectedParcelId] = useState<ParcelId | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
@@ -55,6 +57,9 @@ export function App() {
   const clockLabel = state.clock.paused ? '暫停' : `${state.clock.speed}×`;
   const sharePct = Math.round(marketShareOf(readCommerce(state)) * 100);
   const cash = state.players[state.localPlayerId]?.cash ?? 0;
+  // 關卡資訊與結算（見 `game/stage-progress.ts`）
+  const stage = currentStage(state);
+  const stageProgress = useMemo(() => computeStageProgress(state), [state]);
 
   function togglePin(parcelId: ParcelId) {
     setPinnedIds((current) => {
@@ -69,6 +74,11 @@ export function App() {
     <div className="shell">
       <header className="shell-titlebar">
         <span className="brand">產業霸權</span>
+        {stage && (
+          <span className="stage-chip">
+            {stage.nameZh}｜{stage.eraLabel}
+          </span>
+        )}
         <span className="meta" data-clock-readout="true">
           <span>第 {state.gameDay} 天</span>
           <span>{clockLabel}</span>
@@ -222,6 +232,12 @@ export function App() {
           startingCash={DEFAULT_WORLD_CONFIG.startingCash}
         />
       ) : null}
+      <StageResultOverlay
+        scenario={state.scenario}
+        progress={stageProgress}
+        onNextStage={(next) => startStage(next.id)}
+        onReplay={() => startStage(state.scenario.config.stageId ?? 'stage-01')}
+      />
     </div>
   );
 }

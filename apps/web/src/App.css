@@ -76,6 +76,16 @@
   padding: 0.15rem 0.55rem;
 }
 
+.stage-chip {
+  margin-left: 0.6rem;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--sys-border);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  color: var(--sys-muted);
+  white-space: nowrap;
+}
+
 .shell-nav {
   display: flex;
   gap: 0.3rem;

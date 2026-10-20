@@ -36,7 +36,7 @@ export {
 } from './shipments.js';
 export type { Shipment } from '../sales/shipment.js';
 export { applyBidToLot, minNextBid, settleLot, validateBid } from './auction-logic.js';
-export { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
+export { DEFAULT_WORLD_CONFIG, stageWorldConfig, type WorldConfig } from './config.js';
 export { createInitialWorld } from './create-world.js';
 export {
   DEMAND_BASE_UNIT_PRICE,

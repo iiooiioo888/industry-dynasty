@@ -1,6 +1,7 @@
 import {
   applyWorldAction,
   createInitialWorld,
+  stageWorldConfig,
   type WorldAction,
   type WorldState,
 } from '@industry-dynasty/sim';
@@ -20,6 +21,8 @@ export function useWorldState(): {
   state: WorldState;
   dispatch: (action: WorldAction) => void;
   saves: SaveControls;
+  /** 以指定關卡開新局（跨局推進用） */
+  startStage: (stageId: string) => void;
 } {
   const [state, setState] = useState(() => {
     // 開場先嘗試讀取存檔：玩到一半關掉瀏覽器不該全部重來。
@@ -69,6 +72,14 @@ export function useWorldState(): {
     setMessage('已清除存檔並開新局');
   }, []);
 
+  // 跨局推進：以關卡表裡的起始資金與目標重開一局
+  const startStage = useCallback((stageId: string) => {
+    clearSave();
+    setState(createInitialWorld(stageWorldConfig(stageId)));
+    setInfo(null);
+    setMessage('已進入下一關');
+  }, []);
+
   useEffect(() => {
     let frame = 0;
     let last = performance.now();
@@ -89,5 +100,8 @@ export function useWorldState(): {
     [info, message, save, load, reset],
   );
 
-  return useMemo(() => ({ state, dispatch, saves }), [state, dispatch, saves]);
+  return useMemo(
+    () => ({ state, dispatch, saves, startStage }),
+    [state, dispatch, saves, startStage],
+  );
 }
