@@ -42,23 +42,19 @@ export {
 } from './logic.js';
 export {
   fillOrders,
+  indexHistory,
   indexSeries,
   listBoard,
+  marketSeries,
   freeToSell,
   placeLimit,
   quoteBoard,
   quoteIndex,
   type BoardQuote,
+  type ChartPoint,
   type IndexQuote,
 } from './exchange.js';
-export {
-  BOND_LIST,
-  BONDS,
-  bondPrice,
-  quoteBond,
-  quoteRates,
-  type RateQuote,
-} from './rates.js';
+export { BOND_LIST, BONDS, bondPrice, quoteBond, quoteRates, type RateQuote } from './rates.js';
 export {
   formatBps,
   interestOn,
