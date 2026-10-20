@@ -448,6 +448,13 @@
   white-space: nowrap;
 }
 
+.city-label i {
+  display: block;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 0.85em;
+}
+
 .map-cell.owned {
   box-shadow: inset 0 0 0 3px #3dd68c;
 }

@@ -30,6 +30,7 @@ export type WorldAction =
   | { type: 'CANCEL_LIMIT'; orderId: string }
   | { type: 'BUY_BOND'; bondId: BondId; units: number }
   | { type: 'SELL_BOND'; bondId: BondId; units: number }
+  | { type: 'ACCEPT_NPC_DEAL'; dealId: string }
   | { type: 'START_BUILD'; parcelId: ParcelId; factoryTypeId: FactoryTypeId }
   | { type: 'ADVANCE_BUILD_TICK' }
   | { type: 'CANCEL_BUILD'; parcelId: ParcelId }

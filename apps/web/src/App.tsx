@@ -14,6 +14,7 @@ import {
 import { useState } from 'react';
 import { AuctionAlertBanner } from './components/AuctionAlertBanner';
 import { MarketNewsBanner } from './components/MarketNewsBanner';
+import { NpcPanel } from './components/NpcPanel';
 import { BankPanel } from './components/BankPanel';
 import { DataReportPanel } from './components/DataReportPanel';
 import { ExchangePanel } from './components/ExchangePanel';
@@ -35,6 +36,7 @@ const PAGES = [
   ['produce', '生產'],
   ['market', '市場'],
   ['sales', '銷售'],
+  ['people', '人物'],
   ['ops', '經營'],
   ['bank', '銀行'],
   ['exchange', '金融'],
@@ -145,6 +147,12 @@ export function App() {
               onAcceptContract={(contractId, shipFromParcelId) =>
                 dispatch({ type: 'ACCEPT_CONTRACT', contractId, shipFromParcelId })
               }
+            />
+          ) : null}
+          {page === 'people' ? (
+            <NpcPanel
+              state={state}
+              onAccept={(dealId) => dispatch({ type: 'ACCEPT_NPC_DEAL', dealId })}
             />
           ) : null}
           {page === 'ops' ? (

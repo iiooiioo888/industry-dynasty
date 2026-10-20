@@ -1,6 +1,7 @@
 import {
   FACTORY_TYPES,
   MARKET_HUB,
+  npcAtCity,
   PARCEL_RESOURCE_DEFS,
   findOpenLotForParcel,
   listMapActors,
@@ -246,7 +247,12 @@ export function GameMap({
                   aria-label={ariaLabel(state, parcel)}
                 >
                   <MapCellFeatureArt art={art} road={road} />
-                  {city ? <span className="city-label">{city.name}</span> : null}
+                  {city ? (
+                    <span className="city-label">
+                      {city.name}
+                      {npcAtCity(city.id) ? <i>{npcAtCity(city.id)?.nameZh}</i> : null}
+                    </span>
+                  ) : null}
                   {hasOpenAuction && (
                     <span className="map-cell-auction-tag" aria-hidden="true">
                       拍
