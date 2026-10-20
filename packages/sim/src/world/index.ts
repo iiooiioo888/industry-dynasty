@@ -87,3 +87,13 @@ export {
   type ParcelResource,
   type ParcelResourceKind,
 } from './parcel-resources.js';
+export {
+  MAX_HISTORY_DAYS,
+  appendSnapshot,
+  makeSnapshot,
+  readHistory,
+  recentHistory,
+  seriesDelta,
+  type DaySnapshot,
+  type SnapshotInput,
+} from './history.js';

@@ -9,6 +9,7 @@ export {
 } from './save.js';
 export {
   PROGRESS_VERSION,
+  bestScoreFor,
   completionPercent,
   emptyProgress,
   isCampaignComplete,
@@ -19,5 +20,6 @@ export {
   recordStageClear,
   serializeProgress,
   type CampaignProgress,
+  type StageBest,
   type ProgressParseResult,
 } from './progress.js';

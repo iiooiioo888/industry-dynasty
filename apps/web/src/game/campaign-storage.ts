@@ -4,6 +4,7 @@ import {
   recordStageClear,
   serializeProgress,
   type CampaignProgress,
+  type StageBest,
 } from '@industry-dynasty/sim';
 
 /**
@@ -42,8 +43,8 @@ export function saveProgress(progress: CampaignProgress): void {
   }
 }
 
-export function markStageCleared(stageId: string): CampaignProgress {
-  const next = recordStageClear(loadProgress(), stageId);
+export function markStageCleared(stageId: string, score?: StageBest): CampaignProgress {
+  const next = recordStageClear(loadProgress(), stageId, score);
   saveProgress(next);
   return next;
 }

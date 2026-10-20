@@ -1,4 +1,5 @@
 import type { CommerceState } from '../commerce/types.js';
+import type { DaySnapshot } from './history.js';
 import type { NpcDeal } from '../npc/roster.js';
 import type { PlayerBank } from '../bank/types.js';
 import type { SimClock } from './clock.js';
@@ -48,6 +49,13 @@ export interface WorldState {
   readonly commerce?: CommerceState;
   /** 今日 NPC 開價。換日整批換新。 */
   readonly npcDeals?: readonly NpcDeal[];
+  /**
+   * 每日快照（現金／淨利／營收／市佔）。
+   *
+   * `pnl` 是累計值，看不出哪一天開始賺 —— 資料面板需要時間序列。
+   * 舊存檔沒有這個欄位，視為空陣列（見 `world/history.ts`）。
+   */
+  readonly history?: readonly DaySnapshot[];
 }
 
 export function findParcel(state: WorldState, parcelId: ParcelId): Parcel | undefined {

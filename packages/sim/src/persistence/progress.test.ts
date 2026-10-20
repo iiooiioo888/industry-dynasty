@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   PROGRESS_VERSION,
+  bestScoreFor,
   completionPercent,
   emptyProgress,
   isCampaignComplete,
@@ -115,6 +116,119 @@ describe('戰役進度', () => {
     if (result.ok) {
       expect(result.progress.clearedStageIds).toEqual(['stage-01', 'stage-02']);
       expect(result.warnings.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('關卡最佳成績', () => {
+  it('沒打過的關卡沒有成績', () => {
+    expect(bestScoreFor(emptyProgress(), STAGES[0]!.id)).toBeUndefined();
+  });
+
+  it('第一次通關會記下成績', () => {
+    const progress = recordStageClear(emptyProgress(), STAGES[0]!.id, {
+      netProfit: 50_000,
+      craftedValue: 40_000,
+      day: 20,
+    });
+    expect(bestScoreFor(progress, STAGES[0]!.id)).toEqual({
+      netProfit: 50_000,
+      craftedValue: 40_000,
+      day: 20,
+    });
+  });
+
+  it('重打更好時會更新', () => {
+    const first = recordStageClear(emptyProgress(), STAGES[0]!.id, {
+      netProfit: 50_000,
+      craftedValue: 40_000,
+      day: 20,
+    });
+    const second = recordStageClear(first, STAGES[0]!.id, {
+      netProfit: 70_000,
+      craftedValue: 55_000,
+      day: 22,
+    });
+    expect(bestScoreFor(second, STAGES[0]!.id)?.netProfit).toBe(70_000);
+  });
+
+  it('重打更差時保留舊紀錄', () => {
+    const first = recordStageClear(emptyProgress(), STAGES[0]!.id, {
+      netProfit: 70_000,
+      craftedValue: 55_000,
+      day: 22,
+    });
+    const second = recordStageClear(first, STAGES[0]!.id, {
+      netProfit: 10_000,
+      craftedValue: 5_000,
+      day: 30,
+    });
+    expect(second).toBe(first);
+    expect(bestScoreFor(second, STAGES[0]!.id)?.netProfit).toBe(70_000);
+  });
+
+  it('淨利相同時比天數（越早越好）', () => {
+    const first = recordStageClear(emptyProgress(), STAGES[0]!.id, {
+      netProfit: 50_000,
+      craftedValue: 40_000,
+      day: 20,
+    });
+    const faster = recordStageClear(first, STAGES[0]!.id, {
+      netProfit: 50_000,
+      craftedValue: 40_000,
+      day: 15,
+    });
+    expect(bestScoreFor(faster, STAGES[0]!.id)?.day).toBe(15);
+
+    const slower = recordStageClear(faster, STAGES[0]!.id, {
+      netProfit: 50_000,
+      craftedValue: 40_000,
+      day: 25,
+    });
+    expect(bestScoreFor(slower, STAGES[0]!.id)?.day).toBe(15);
+  });
+
+  it('第一次通關即使成績不怎樣也會記錄', () => {
+    const progress = recordStageClear(emptyProgress(), STAGES[0]!.id, {
+      netProfit: 1,
+      craftedValue: 1,
+      day: 99,
+    });
+    expect(isStageUnlocked(progress, STAGES[1]!.id)).toBe(true);
+    expect(bestScoreFor(progress, STAGES[0]!.id)?.netProfit).toBe(1);
+  });
+
+  it('成績表可以序列化並還原', () => {
+    const progress = recordStageClear(emptyProgress(), STAGES[0]!.id, {
+      netProfit: 50_000,
+      craftedValue: 40_000,
+      day: 20,
+    });
+    const parsed = parseProgress(serializeProgress(progress));
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(bestScoreFor(parsed.progress, STAGES[0]!.id)).toEqual(
+        bestScoreFor(progress, STAGES[0]!.id),
+      );
+    }
+  });
+
+  it('壞掉的成績資料被忽略，不會讓整份進度讀不進來', () => {
+    const result = parseProgress(
+      JSON.stringify({
+        version: PROGRESS_VERSION,
+        clearedStageIds: [STAGES[0]!.id],
+        bestScores: {
+          [STAGES[0]!.id]: { netProfit: 'x', craftedValue: 1, day: 2 },
+          [STAGES[1]!.id]: 42,
+          不存在: { netProfit: 1, craftedValue: 1, day: 1 },
+        },
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.progress.clearedStageIds).toEqual([STAGES[0]!.id]);
+      expect(result.progress.bestScores).toEqual({});
     }
   });
 });

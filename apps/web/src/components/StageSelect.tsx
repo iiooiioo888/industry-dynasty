@@ -1,5 +1,6 @@
 import {
   STAGES,
+  bestScoreFor,
   isStageUnlocked,
   type CampaignProgress,
   type StageDef,
@@ -48,6 +49,10 @@ export function StageSelect({ progress, currentStageId, onPick, onClose }: Stage
             const unlocked = isStageUnlocked(progress, stage.id);
             const done = cleared.has(stage.id);
             const current = stage.id === currentStageId;
+            const best = bestScoreFor(progress, stage.id);
+            const bestNote = best
+              ? `｜最佳：淨利 ${best.netProfit.toLocaleString()}、加工 ${best.craftedValue.toLocaleString()}、第 ${best.day} 天`
+              : '';
             return (
               <li
                 key={stage.id}
@@ -64,7 +69,7 @@ export function StageSelect({ progress, currentStageId, onPick, onClose }: Stage
                   type="button"
                   disabled={!unlocked}
                   onClick={() => onPick(stage)}
-                  title={unlocked ? stage.briefing : '先通過前一關'}
+                  title={unlocked ? `${stage.briefing}${bestNote}` : '先通過前一關'}
                 >
                   <span className="stage-no">{String(stage.index).padStart(2, '0')}</span>
                   <span className="stage-name">{stage.nameZh}</span>
@@ -72,6 +77,12 @@ export function StageSelect({ progress, currentStageId, onPick, onClose }: Stage
                   <span className="stage-diff">{DIFFICULTY_LABEL[stage.difficulty] ?? ''}</span>
                   <span className="stage-mark">{done ? '✔' : unlocked ? '▶' : '🔒'}</span>
                 </button>
+                {best && (
+                  <p className="stage-best">
+                    最佳 淨利 {best.netProfit.toLocaleString()}／加工{' '}
+                    {best.craftedValue.toLocaleString()}／第 {best.day} 天
+                  </p>
+                )}
               </li>
             );
           })}

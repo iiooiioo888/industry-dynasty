@@ -23,6 +23,7 @@ import { findBid, resolveBid, upsertBid } from '../commerce/bidding.js';
 import { debtOf, getPlayerBank } from '../bank/logic.js';
 import { craftedValue } from '../production/chain.js';
 import { MACHINE_GRADES } from '../production/machines.js';
+import { appendSnapshot, makeSnapshot } from './history.js';
 import type { ParcelId } from '../types/map.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
 import { findPath } from './pathfinding.js';
@@ -255,6 +256,18 @@ export function applyAdvanceDay(
     outstandingDebt: debt.principal + debt.arrears,
   });
 
+  // 每日快照：資料面板的趨勢圖靠這條序列（見 `world/history.ts`）
+  const history = appendSnapshot(
+    next.history,
+    makeSnapshot({
+      day: gameDay,
+      cash: nextPlayer.cash,
+      pnl,
+      consumerRevenue: book.consumerRevenue,
+      share: marketShareOf(book),
+    }),
+  );
+
   return expandNpcBlocks({
     ...next,
     gameDay,
@@ -263,6 +276,7 @@ export function applyAdvanceDay(
     npcBuyOffers: generateNpcBuyOffers(gameDay, { rawPriceMul: rawPortMultiplier(book.events) }),
     npcDeals: buildNpcDeals(next.map.cities, gameDay),
     scenario,
+    history,
   });
 }
 

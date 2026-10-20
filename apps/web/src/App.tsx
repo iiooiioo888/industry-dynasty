@@ -26,6 +26,7 @@ import { MarketPanel } from './components/MarketPanel';
 import { ParcelPlanCard } from './components/ParcelPlanCard';
 import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
+import { TrendPanel } from './components/TrendPanel';
 import { SaveControlsBar } from './components/SaveControls';
 import { StageResultOverlay } from './components/StageResultOverlay';
 import { StageSelect } from './components/StageSelect';
@@ -68,7 +69,7 @@ export function App() {
   const [campaign, setCampaign] = useState(() => loadProgress());
   const [stageSelectOpen, setStageSelectOpen] = useState(false);
 
-  // 通關就把這一關記進戰役進度，並自動解鎖下一關
+  // 通關就把這一關記進戰役進度（含最佳成績），並自動解鎖下一關
   useEffect(() => {
     if (state.scenario.status !== 'won') {
       return;
@@ -77,10 +78,20 @@ export function App() {
     if (!stageId) {
       return;
     }
-    setCampaign((prev) =>
-      prev.clearedStageIds.includes(stageId) ? prev : markStageCleared(stageId),
+    setCampaign(
+      markStageCleared(stageId, {
+        netProfit: Math.round(stageProgress.netProfit),
+        craftedValue: Math.round(stageProgress.craftedValue),
+        day: state.gameDay,
+      }),
     );
-  }, [state.scenario.status, state.scenario.config.stageId]);
+  }, [
+    state.scenario.status,
+    state.scenario.config.stageId,
+    state.gameDay,
+    stageProgress.netProfit,
+    stageProgress.craftedValue,
+  ]);
 
   function togglePin(parcelId: ParcelId) {
     setPinnedIds((current) => {
@@ -244,6 +255,7 @@ export function App() {
               <LedgerPanel state={state} />
               <PnLPanel state={state} />
               <PlayerOverview state={state} />
+              <TrendPanel state={state} />
               <InventoryPanel state={state} />
               <button type="button" className="report-launch" onClick={() => setReportOpen(true)}>
                 數據報表
