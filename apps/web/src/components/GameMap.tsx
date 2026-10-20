@@ -1,4 +1,5 @@
 import {
+  FACTORY_TYPES,
   MARKET_HUB,
   PARCEL_RESOURCE_DEFS,
   findOpenLotForParcel,
@@ -208,6 +209,13 @@ export function GameMap({
               const hasOpenAuction = lot !== undefined && !parcel.ownerId && parcel.role === 'land';
               const hasBids = lot?.highBidderId != null;
               const isMarket = parcel.x === MARKET_HUB.x && parcel.y === MARKET_HUB.y;
+              const site = state.sites[parcel.id.value];
+              const siteClass =
+                site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].role === 'retail'
+                  ? ' site-store'
+                  : site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].role === 'research'
+                    ? ' site-lab'
+                    : '';
               const road = roadPresentationAt(state.map.parcels, parcel, state.map.size);
               const art = cellFeatureArt(featureArt, parcel.x, parcel.y);
               const city = state.map.cities.find((hub) => hub.x === parcel.x && hub.y === parcel.y);
@@ -221,7 +229,7 @@ export function GameMap({
                 <button
                   key={parcel.id.value}
                   type="button"
-                  className={`${cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids, road?.joint ?? null)}${isMarket ? ' market-hub' : ''}`}
+                  className={`${cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids, road?.joint ?? null)}${isMarket ? ' market-hub' : ''}${siteClass}`}
                   style={
                     showDensity
                       ? { backgroundColor: densityColor(parcel.populationDensity) }
@@ -350,6 +358,12 @@ export function GameMap({
         </span>
         <span>
           <i className="swatch building-ready" /> 工廠運營
+        </span>
+        <span>
+          <i className="swatch site-store" /> 門市
+        </span>
+        <span>
+          <i className="swatch site-lab" /> 研發室
         </span>
         <span>
           <i className="swatch worker-travel" /> 工人趕路

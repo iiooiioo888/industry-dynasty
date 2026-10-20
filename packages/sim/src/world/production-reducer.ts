@@ -1,4 +1,5 @@
 import { getSiteLogisticsView } from '../buildings/adjacency.js';
+import { operatorThroughputFactor, QUALITY_CYCLE_STRETCH, readCommerce } from '../commerce/logic.js';
 import { SIM_MS_PER_TICK } from './clock.js';
 import type { CompleteSite } from '../buildings/site.js';
 import { getSiteForParcel } from '../buildings/build-logic.js';
@@ -51,6 +52,7 @@ export function applyStartProduction(
       resourceKind: parcel.resource.kind,
       factoryTypeId: site.factoryTypeId,
       crafted: state.craftedTotals[player.id],
+      unlockedResearch: readCommerce(state).unlocked,
     })
   ) {
     return state;
@@ -65,8 +67,13 @@ export function applyStartProduction(
   if (player.cash < due) {
     return state;
   }
+  const drafted = createProductionLine(recipe, parcel, logistics.factor, state.clock.simMs, mounted);
+  const researchId = 'researchId' in recipe ? recipe.researchId : undefined;
+  const qualityStretch =
+    researchId && readCommerce(state).qualityBand > 0 ? QUALITY_CYCLE_STRETCH : 1;
   const line = {
-    ...createProductionLine(recipe, parcel, logistics.factor, state.clock.simMs, mounted),
+    ...drafted,
+    cycleTicks: Math.max(drafted.cycleTicks, Math.ceil(drafted.cycleTicks * qualityStretch)),
     machinePaid: grade ? machineCreditAfter(previousPaid, grade.installCost) : 0,
   };
 
@@ -161,6 +168,8 @@ export function applyProductionTick(state: WorldState): WorldState {
   let craftedTotals = { ...state.craftedTotals };
   const productionLines = { ...state.productionLines };
   let map = state.map;
+  const runningLines = Object.values(productionLines).filter((line) => line.status !== 'stopped').length;
+  const staffFactor = operatorThroughputFactor(readCommerce(state).staff.operators, runningLines);
 
   for (const [key, line] of Object.entries(productionLines)) {
     if (line.status === 'stopped') {
@@ -179,7 +188,9 @@ export function applyProductionTick(state: WorldState): WorldState {
     // （`inventories` 在迴圈內被重新賦值，這裡讀到的一定是累積結果。）
     const stock = inventories[ownerId] ?? {};
     const beforeQty = getItemQty(stock, recipe.outputItemId);
-    const result = tickProductionLine(line, recipe, stock, parcel);
+    const paced =
+      staffFactor === 1 ? line : { ...line, throughputFactor: line.throughputFactor * staffFactor };
+    const result = tickProductionLine(paced, recipe, stock, parcel);
     const stalled = result.line.status === 'waiting_inputs';
     const stallTicks = stalled
       ? line.status === 'waiting_inputs'
@@ -198,7 +209,12 @@ export function applyProductionTick(state: WorldState): WorldState {
         [ownerId]: addItem(craftedTotals[ownerId] ?? {}, recipe.outputItemId, granted),
       };
     }
-    productionLines[key] = { ...result.line, progressAnchorMs, stallTicks };
+    productionLines[key] = {
+      ...result.line,
+      throughputFactor: line.throughputFactor,
+      progressAnchorMs,
+      stallTicks,
+    };
     map = {
       ...map,
       parcels: map.parcels.map((p) => (p.id.value === key ? result.parcel : p)),

@@ -1,6 +1,8 @@
 import {
   applyBuyCommodity,
   applyBuyStock,
+  applyCancelLimit,
+  applyPlaceLimit,
   applyDrawLoan,
   applyOpenSavings,
   applyRepayLoan,
@@ -32,8 +34,35 @@ import { advanceSimClock, setSimClock, stepOneSimTick } from './clock-advance.js
 import { quoteLandSale } from './land-sale.js';
 import { applyTaxTickWithPnl } from './day-reducer.js';
 import { bumpPlayerPnl } from './pnl-helpers.js';
-import { applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
+import {
+  applyBuyCampaign,
+  applyFireStaff,
+  applyHireStaff,
+  applySetShelf,
+  applyStartResearch,
+} from '../commerce/logic.js';
+import { applyAcceptContract, applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
 import { findOpenLotForParcel, findParcel, type Player, type WorldState } from './state.js';
+
+function cashOf(state: WorldState): number {
+  return state.players[state.localPlayerId]?.cash ?? 0;
+}
+
+function chargeWages(before: WorldState, after: WorldState): WorldState {
+  const spent = cashOf(before) - cashOf(after);
+  if (spent <= 0) {
+    return after;
+  }
+  return { ...after, pnl: bumpPlayerPnl(after, before.localPlayerId, { wages: spent }) };
+}
+
+function chargeBuild(before: WorldState, after: WorldState): WorldState {
+  const spent = cashOf(before) - cashOf(after);
+  if (spent <= 0) {
+    return after;
+  }
+  return { ...after, pnl: bumpPlayerPnl(after, before.localPlayerId, { buildSpend: spent }) };
+}
 
 function updateParcelInMap(map: WorldState['map'], parcel: Parcel): WorldState['map'] {
   return {
@@ -64,6 +93,18 @@ export function applyWorldAction(
       return applyTaxTickWithPnl(state, config);
     case 'SELL_TO_NPC':
       return applySellToNpc(state, action.offerId, action.quantity, action.shipFromParcelId);
+    case 'SET_SHELF':
+      return applySetShelf(state, action.parcelId, action.itemId, action.unitPrice, action.quantity);
+    case 'ACCEPT_CONTRACT':
+      return applyAcceptContract(state, action.contractId, action.shipFromParcelId);
+    case 'HIRE_STAFF':
+      return chargeWages(state, applyHireStaff(state, action.role, action.count));
+    case 'FIRE_STAFF':
+      return applyFireStaff(state, action.role, action.count);
+    case 'START_RESEARCH':
+      return chargeBuild(state, applyStartResearch(state, action.parcelId));
+    case 'BUY_CAMPAIGN':
+      return chargeBuild(state, applyBuyCampaign(state, action.cityId));
     case 'ADVANCE_DAY':
       return applyAdvanceDay(state, config);
     case 'ADVANCE_FINANCE_TICK':
@@ -84,6 +125,10 @@ export function applyWorldAction(
       return applyBuyCommodity(state, action.commodityId, action.lots);
     case 'SELL_COMMODITY':
       return applySellCommodity(state, action.commodityId, action.lots, config.bank);
+    case 'PLACE_LIMIT':
+      return applyPlaceLimit(state, action.marketId, action.side, action.limitPrice, action.quantity);
+    case 'CANCEL_LIMIT':
+      return applyCancelLimit(state, action.orderId);
     case 'START_BUILD':
       return applyStart(state, action.parcelId, action.factoryTypeId);
     case 'ADVANCE_BUILD_TICK':

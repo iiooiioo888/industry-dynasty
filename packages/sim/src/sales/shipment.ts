@@ -15,4 +15,8 @@ export interface Shipment {
   readonly departSimMs: number;
   readonly arriveSimMs: number;
   readonly travelTicks: number;
+  /** 缺省時運往港區。合約出貨改指向城市。 */
+  readonly toX?: number;
+  readonly toY?: number;
+  readonly contractId?: string;
 }

@@ -1,5 +1,6 @@
 import {
   FACTORY_TYPES,
+  readCommerce,
   MACHINE_GRADES,
   RECIPE_LIST,
   RECIPES,
@@ -16,6 +17,7 @@ import {
   quoteParcelPlan,
   recipeBlockReason,
   validateBid,
+  type FactoryTypeId,
   type MachineGradeId,
   type Parcel,
   type ParcelId,
@@ -50,7 +52,7 @@ export interface ParcelPlanCardProps {
 }
 
 type ParcelPlanBuildProps = {
-  onStartBuild: (parcelId: ParcelId, factoryTypeId: 'workshop' | 'assembly-plant') => void;
+  onStartBuild: (parcelId: ParcelId, factoryTypeId: FactoryTypeId) => void;
 };
 
 function formatProfit(value: number): string {
@@ -236,7 +238,7 @@ export function ParcelPlanCard({
               onCancelBuild={onCancelBuild}
             />
           ) : null}
-          {factoryReady && selected && site?.phase === 'complete' ? (
+          {factoryReady && selected && site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].role === 'production' ? (
             <FactorySchedule
               state={state}
               parcel={selected}
@@ -360,7 +362,7 @@ function FactorySchedule({
 }: {
   state: WorldState;
   parcel: Parcel;
-  factoryTypeId: 'workshop' | 'assembly-plant';
+  factoryTypeId: 'workshop' | 'assembly-plant' | 'storefront' | 'lab';
   line: ReturnType<typeof getProductionLine>;
   cash: number;
   onStart: (parcelId: ParcelId, recipeId: RecipeId, machineGradeId?: MachineGradeId) => void;
@@ -414,7 +416,7 @@ function FactorySchedule({
   }
 
   const crafted = state.craftedTotals[state.localPlayerId];
-  const options = RECIPE_LIST.filter((recipe) => {
+  const ranked = RECIPE_LIST.filter((recipe) => {
     if (!(recipe.buildings as readonly string[]).includes(factoryTypeId)) {
       return false;
     }
@@ -426,6 +428,7 @@ function FactorySchedule({
       resourceKind: parcel.resource.kind,
       factoryTypeId,
       crafted,
+      unlockedResearch: readCommerce(state).unlocked,
     });
   })
     .map((recipe) => {
@@ -441,8 +444,14 @@ function FactorySchedule({
         mounted,
       };
     })
-    .sort((a, b) => b.profit - a.profit || a.recipe.id.localeCompare(b.recipe.id))
-    .slice(0, MAX_RECIPES);
+    .sort((a, b) => b.profit - a.profit || a.recipe.id.localeCompare(b.recipe.id));
+  const options = [
+    ...ranked.filter((option) => option.recipe.stage === 'extract'),
+    ...ranked
+      .filter((option) => option.recipe.stage !== 'extract' && !option.recipe.researchId)
+      .slice(0, MAX_RECIPES),
+    ...ranked.filter((option) => option.recipe.researchId),
+  ];
   const profitByGrade = Object.fromEntries(
     (['anvil-bench', 'balance-press', 'neighbor-kiln'] as const).map((grade) => [
       grade,

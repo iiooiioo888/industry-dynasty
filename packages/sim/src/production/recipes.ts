@@ -29,7 +29,10 @@ export type RecipeId =
   | 'smelt-copper'
   | 'fire-silica'
   | 'make-alloy-plate'
-  | 'roll-alloy';
+  | 'roll-alloy'
+  | 'make-hand-tool'
+  | 'make-wire-bundle'
+  | 'make-pack-module';
 
 export interface RecipeDef {
   readonly id: RecipeId;
@@ -48,6 +51,8 @@ export interface RecipeDef {
   readonly sourceKind: ParcelResourceKind | null;
   readonly reserveCost: number;
   readonly buildings: readonly FactoryTypeId[];
+  /** 有值時，研發室解鎖前不能排產。港區不收購這些產出。 */
+  readonly researchId?: string;
 }
 
 export const TECH_GATES = {
@@ -253,6 +258,60 @@ export const RECIPES = {
     reserveCost: 0,
     buildings: ['assembly-plant'],
   },
+  'make-hand-tool': {
+    id: 'make-hand-tool',
+    nameZh: '組裝手工具',
+    inputs: [
+      { itemId: 'iron-ingot', quantity: 1 },
+      { itemId: 'basic-part', quantity: 1 },
+    ],
+    outputItemId: 'hand-tool',
+    outputQuantity: 1,
+    outputMultiplier: 1,
+    baseCycleTicks: 4,
+    travelTickPerDistance: 1,
+    stage: 'finish',
+    minTechStage: 2,
+    sourceKind: null,
+    reserveCost: 0,
+    buildings: ['assembly-plant'],
+    researchId: 'consumer-line',
+  },
+  'make-wire-bundle': {
+    id: 'make-wire-bundle',
+    nameZh: '絞製導電線束',
+    inputs: [{ itemId: 'copper-ingot', quantity: 1 }],
+    outputItemId: 'wire-bundle',
+    outputQuantity: 1,
+    outputMultiplier: 1,
+    baseCycleTicks: 3,
+    travelTickPerDistance: 1,
+    stage: 'finish',
+    minTechStage: 2,
+    sourceKind: null,
+    reserveCost: 0,
+    buildings: ['assembly-plant'],
+    researchId: 'consumer-line',
+  },
+  'make-pack-module': {
+    id: 'make-pack-module',
+    nameZh: '封裝模組',
+    inputs: [
+      { itemId: 'silica', quantity: 1 },
+      { itemId: 'resin', quantity: 1 },
+    ],
+    outputItemId: 'pack-module',
+    outputQuantity: 1,
+    outputMultiplier: 1,
+    baseCycleTicks: 4,
+    travelTickPerDistance: 1,
+    stage: 'finish',
+    minTechStage: 2,
+    sourceKind: null,
+    reserveCost: 0,
+    buildings: ['assembly-plant'],
+    researchId: 'consumer-line',
+  },
 } as const satisfies Record<RecipeId, RecipeDef>;
 
 export const RECIPE_LIST: readonly RecipeDef[] = [
@@ -267,6 +326,9 @@ export const RECIPE_LIST: readonly RecipeDef[] = [
   RECIPES['fire-silica'],
   RECIPES['make-alloy-plate'],
   RECIPES['roll-alloy'],
+  RECIPES['make-hand-tool'],
+  RECIPES['make-wire-bundle'],
+  RECIPES['make-pack-module'],
 ];
 
 export const CHAIN_STAGES = [

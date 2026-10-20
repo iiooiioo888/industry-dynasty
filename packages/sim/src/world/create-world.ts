@@ -1,4 +1,5 @@
 import { emptyPlayerBank } from '../bank/logic.js';
+import { createOpeningContracts, emptyCommerce, seedRivals } from '../commerce/logic.js';
 import { initialSimClock } from './clock.js';
 import type { AuctionLot } from '../types/auction.js';
 import { DEFAULT_STARTING_STOCK } from '../production/items.js';
@@ -44,6 +45,9 @@ export function createInitialWorld(config: Partial<WorldConfig> = {}): WorldStat
   };
 
   const map = buildMap(merged);
+  const commerce = emptyCommerce();
+  const rivals = seedRivals(map.cities);
+  const contracts = createOpeningContracts(map.cities, 0, 0);
 
   return {
     map,
@@ -66,6 +70,7 @@ export function createInitialWorld(config: Partial<WorldConfig> = {}): WorldStat
     scenario: createScenarioState(),
     clock: initialSimClock(),
     shipments: [],
+    commerce: { ...commerce, rivals, contracts },
   };
 }
 

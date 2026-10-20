@@ -85,8 +85,9 @@ export function BuildPanel({
                   {def.footprint.width}×{def.footprint.height}
                 </p>
                 <p className="factory-meta">
-                  基礎物流 {def.baseLogisticsEfficiency.toFixed(2)}× · 每鄰 +
-                  {(def.adjacencyEfficiencyBonus * 100).toFixed(0)}%
+                  {def.role === 'production'
+                    ? `基礎物流 ${def.baseLogisticsEfficiency.toFixed(2)}× · 每鄰 +${(def.adjacencyEfficiencyBonus * 100).toFixed(0)}%`
+                    : `$${def.dailyUpkeep}/日`}
                 </p>
                 <button
                   type="button"

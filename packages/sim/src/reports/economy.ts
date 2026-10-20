@@ -26,6 +26,8 @@ export const TIME_PLANNING_SPAN = 0.7;
 export const FACTORY_BASE_YIELD: Record<FactoryTypeId, number> = {
   workshop: 3_200,
   'assembly-plant': 7_200,
+  storefront: 0,
+  lab: 0,
 };
 
 /** 最大份額達此值視為該局出現主導者 */

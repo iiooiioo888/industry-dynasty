@@ -45,6 +45,7 @@ export function recipeBlockReason(args: {
   resourceKind: ParcelResourceKind;
   factoryTypeId: FactoryTypeId;
   crafted: PlayerStock | undefined;
+  unlockedResearch?: readonly string[];
 }): string | null {
   const { recipe, resourceKind, factoryTypeId, crafted } = args;
   if (!(recipe.buildings as readonly string[]).includes(factoryTypeId)) {
@@ -53,6 +54,9 @@ export function recipeBlockReason(args: {
   }
   if (recipe.sourceKind && recipe.sourceKind !== resourceKind) {
     return `需建在${PARCEL_RESOURCE_DEFS[recipe.sourceKind].nameZh}`;
+  }
+  if (recipe.researchId && !(args.unlockedResearch ?? []).includes(recipe.researchId)) {
+    return '需在研發室完成消費品產線';
   }
   if (techStage(crafted) < recipe.minTechStage) {
     return unitsUntilNextStage(crafted);

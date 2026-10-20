@@ -5,6 +5,7 @@ import type { WorldConfig } from '../world/config.js';
 import { DEFAULT_WORLD_CONFIG } from '../world/config.js';
 import { quoteAuctionMinPrice } from '../world/demand.js';
 import { COMMODITIES, LOAN_PRODUCTS, STOCKS } from './catalog.js';
+import { cancelLimit, fillOrders, placeLimit } from './exchange.js';
 import { DEFAULT_BANK_CONFIG, type BankConfig } from './config.js';
 import { interestOn, quoteCommodityAsk, quoteCommodityBid, quoteStock } from './quotes.js';
 import {
@@ -15,6 +16,8 @@ import {
   type FinanceSettlement,
   type LoanBook,
   type LoanProductId,
+  type MarketId,
+  type OrderSide,
   type PlayerBank,
   type StockHolding,
   type StockSymbol,
@@ -29,6 +32,9 @@ export function emptyPlayerBank(): PlayerBank {
     stocks: [],
     commodities: [],
     lastSettlement: null,
+    statements: [],
+    orders: [],
+    fills: [],
   };
 }
 
@@ -56,6 +62,7 @@ export interface BankSnapshot {
   readonly landValue: number;
   readonly factoryValue: number;
   readonly inventoryValue: number;
+  readonly shelfValue: number;
   readonly netWorth: number;
 }
 
@@ -136,6 +143,7 @@ export function summarizeBank(
     return sum + FACTORY_TYPES[site.factoryTypeId].buildCost;
   }, 0);
   const inventoryValue = inventoryBookValue(state.inventories[playerId]);
+  const shelfValue = shelfBookValue(state, playerId);
 
   return {
     financeTick: state.financeTick,
@@ -157,6 +165,7 @@ export function summarizeBank(
     landValue,
     factoryValue,
     inventoryValue,
+    shelfValue,
     netWorth:
       cash +
       book.savingsPrincipal +
@@ -165,9 +174,31 @@ export function summarizeBank(
       commodityBidValue +
       landValue +
       factoryValue +
-      inventoryValue -
+      inventoryValue +
+      shelfValue -
       creditUsed,
   };
+}
+
+export function nextLoanDue(loan: LoanBook): { interest: number; principal: number; total: number } {
+  const interest = interestOn(loan.principal, loan.rateBps);
+  const principal =
+    loan.ticksRemaining <= 1 ? loan.principal : Math.min(loan.installment, loan.principal);
+  return { interest, principal, total: interest + principal };
+}
+
+function shelfBookValue(state: WorldState, playerId: string): number {
+  let total = 0;
+  for (const shelf of state.commerce?.shelves ?? []) {
+    if (state.sites[shelf.parcelId]?.ownerId !== playerId || shelf.quantity <= 0) {
+      continue;
+    }
+    const item = ITEMS[shelf.itemId as keyof typeof ITEMS];
+    if (item) {
+      total += item.unitValue * shelf.quantity;
+    }
+  }
+  return total;
 }
 
 function inventoryBookValue(stock: Readonly<Record<string, number>> | undefined): number {
@@ -342,6 +373,18 @@ function settlePlayerBook(
       savingsUnlockTick,
       loans,
       lastSettlement,
+      statements: [
+        {
+          tick: financeTick,
+          idleInterest,
+          savingsInterest,
+          savingsPayout,
+          loanInterestCharged: interestCharged,
+          loanPrincipalPaid: principalPaid,
+          arrearsAdded,
+        },
+        ...(book.statements ?? []),
+      ].slice(0, 8),
     },
   };
 }
@@ -359,12 +402,59 @@ export function settleFinancePeriod(
     players = { ...players, [player.id]: settled.player };
     bank = { ...bank, [player.id]: settled.bank };
   }
-  return {
+  const ticked: WorldState = {
     ...state,
     players,
     bank,
     financeTick: state.financeTick + 1,
   };
+  return matchOpenOrders(ticked);
+}
+
+function matchOpenOrders(state: WorldState): WorldState {
+  const events = state.commerce?.events ?? [];
+  let players = state.players;
+  let bank = state.bank;
+  for (const player of Object.values(players)) {
+    const book = bank[player.id] ?? emptyPlayerBank();
+    if ((book.orders ?? []).length === 0) {
+      continue;
+    }
+    const filled = fillOrders(player, book, state.financeTick, events);
+    players = { ...players, [player.id]: filled.player };
+    bank = { ...bank, [player.id]: filled.book };
+  }
+  return { ...state, players, bank };
+}
+
+export function applyPlaceLimit(
+  state: WorldState,
+  marketId: MarketId,
+  side: OrderSide,
+  limitPrice: number,
+  quantity: number,
+): WorldState {
+  const player = localPlayer(state);
+  if (!player) {
+    return state;
+  }
+  const placed = placeLimit(player, getPlayerBank(state, player.id), marketId, side, limitPrice, quantity);
+  if (!placed.ok) {
+    return state;
+  }
+  return writeBook(state, placed.player, placed.book);
+}
+
+export function applyCancelLimit(state: WorldState, orderId: string): WorldState {
+  const player = localPlayer(state);
+  if (!player) {
+    return state;
+  }
+  const cancelled = cancelLimit(player, getPlayerBank(state, player.id), orderId);
+  if (!cancelled.ok) {
+    return state;
+  }
+  return writeBook(state, cancelled.player, cancelled.book);
 }
 
 export function validateOpenSavings(

@@ -1,32 +1,57 @@
 import {
   DEFAULT_WORLD_CONFIG,
+  marketShareOf,
+  readCommerce,
+  type MarketId,
   ticksUntilDayClose,
   type FactoryTypeId,
+  type ItemId,
   type MachineGradeId,
   type ParcelId,
   type RecipeId,
+  type StaffRole,
 } from '@industry-dynasty/sim';
 import { useState } from 'react';
 import { AuctionAlertBanner } from './components/AuctionAlertBanner';
+import { MarketNewsBanner } from './components/MarketNewsBanner';
 import { BankPanel } from './components/BankPanel';
 import { DataReportPanel } from './components/DataReportPanel';
+import { ExchangePanel } from './components/ExchangePanel';
 import { GameMap } from './components/GameMap';
 import { InventoryPanel } from './components/InventoryPanel';
+import { LedgerPanel } from './components/LedgerPanel';
 import { MarketPanel } from './components/MarketPanel';
 import { ParcelPlanCard } from './components/ParcelPlanCard';
 import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
+import { OpsPanel } from './components/OpsPanel';
 import { ProductionPanel } from './components/ProductionPanel';
 import { SalesPanel } from './components/SalesPanel';
 import { useWorldState } from './game/useWorldState';
 import './App.css';
+
+const PAGES = [
+  ['map', '地圖'],
+  ['produce', '生產'],
+  ['market', '市場'],
+  ['sales', '銷售'],
+  ['ops', '經營'],
+  ['bank', '銀行'],
+  ['exchange', '金融'],
+  ['books', '帳冊'],
+] as const;
+
+type PageId = (typeof PAGES)[number][0];
 
 export function App() {
   const { state, dispatch } = useWorldState();
   const [selectedParcelId, setSelectedParcelId] = useState<ParcelId | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
+  const [page, setPage] = useState<PageId>('map');
   const clockLabel = state.clock.paused ? '暫停' : `${state.clock.speed}×`;
+  const sharePct = Math.round(marketShareOf(readCommerce(state)) * 100);
+  const cash = state.players[state.localPlayerId]?.cash ?? 0;
 
   function togglePin(parcelId: ParcelId) {
     setPinnedIds((current) => {
@@ -41,20 +66,28 @@ export function App() {
     <div className="shell">
       <header className="shell-titlebar">
         <span className="brand">產業霸權 · 產業控制台</span>
-        <button type="button" className="report-launch" onClick={() => setReportOpen(true)}>
-          數據報表
-        </button>
         <span className="meta" data-clock-readout="true">
-          第 {state.gameDay} 天 · {clockLabel} · 距日結 {ticksUntilDayClose(state.clock.simMs)} 刻
+          第 {state.gameDay} 天 · {clockLabel} · 距日結 {ticksUntilDayClose(state.clock.simMs)} 刻 · 市佔 {sharePct}% · $
+          {cash.toLocaleString()}
         </span>
       </header>
+      <nav className="shell-nav" aria-label="頁面">
+        {PAGES.map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            className={page === id ? 'is-on' : undefined}
+            aria-current={page === id ? 'page' : undefined}
+            onClick={() => setPage(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
+      <MarketNewsBanner state={state} />
+      {page === 'map' ? (
       <div className="shell-body">
-        <aside className="shell-col shell-col-left">
-          <PnLPanel state={state} />
-          <PlayerOverview state={state} />
-          <InventoryPanel state={state} />
-        </aside>
         <main className="shell-col shell-col-center">
           <GameMap
             state={state}
@@ -83,42 +116,85 @@ export function App() {
             onStopProduction={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
           />
         </main>
-        <aside className="shell-col shell-col-right">
-          <ProductionPanel
-            state={state}
-            selectedParcelId={selectedParcelId}
-            onStop={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
-            onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
-              dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
-            }
-            onAdvanceProduction={() => dispatch({ type: 'ADVANCE_PRODUCTION_TICK' })}
-            onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
-          />
-          <MarketPanel state={state} selectedParcelId={selectedParcelId} />
-          <BankPanel
-            state={state}
-            onOpenSavings={(amount) => dispatch({ type: 'OPEN_SAVINGS', amount })}
-            onWithdrawSavings={() => dispatch({ type: 'WITHDRAW_SAVINGS' })}
-            onDrawLoan={(productId, amount) => dispatch({ type: 'DRAW_LOAN', productId, amount })}
-            onRepayLoan={(loanId, amount) => dispatch({ type: 'REPAY_LOAN', loanId, amount })}
-            onBuyStock={(symbol, shares) => dispatch({ type: 'BUY_STOCK', symbol, shares })}
-            onSellStock={(symbol, shares) => dispatch({ type: 'SELL_STOCK', symbol, shares })}
-            onBuyCommodity={(commodityId, lots) =>
-              dispatch({ type: 'BUY_COMMODITY', commodityId, lots })
-            }
-            onSellCommodity={(commodityId, lots) =>
-              dispatch({ type: 'SELL_COMMODITY', commodityId, lots })
-            }
-          />
-          <SalesPanel
-            state={state}
-            selectedParcelId={selectedParcelId}
-            onSell={(offerId, quantity, shipFromParcelId) =>
-              dispatch({ type: 'SELL_TO_NPC', offerId, quantity, shipFromParcelId })
-            }
-          />
-        </aside>
       </div>
+      ) : (
+        <div className="page-sheet">
+          {page === 'produce' ? (
+            <ProductionPanel
+              state={state}
+              selectedParcelId={selectedParcelId}
+              onStop={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
+              onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
+                dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
+              }
+              onAdvanceProduction={() => dispatch({ type: 'ADVANCE_PRODUCTION_TICK' })}
+              onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
+            />
+          ) : null}
+          {page === 'market' ? <MarketPanel state={state} selectedParcelId={selectedParcelId} /> : null}
+          {page === 'sales' ? (
+            <SalesPanel
+              state={state}
+              selectedParcelId={selectedParcelId}
+              onSell={(offerId, quantity, shipFromParcelId) =>
+                dispatch({ type: 'SELL_TO_NPC', offerId, quantity, shipFromParcelId })
+              }
+              onSetShelf={(parcelId, itemId: ItemId, unitPrice, quantity) =>
+                dispatch({ type: 'SET_SHELF', parcelId, itemId, unitPrice, quantity })
+              }
+              onAcceptContract={(contractId, shipFromParcelId) =>
+                dispatch({ type: 'ACCEPT_CONTRACT', contractId, shipFromParcelId })
+              }
+            />
+          ) : null}
+          {page === 'ops' ? (
+            <OpsPanel
+              state={state}
+              onHire={(role: StaffRole, count) => dispatch({ type: 'HIRE_STAFF', role, count })}
+              onFire={(role: StaffRole, count) => dispatch({ type: 'FIRE_STAFF', role, count })}
+              onResearch={(parcelId) => dispatch({ type: 'START_RESEARCH', parcelId })}
+              onCampaign={(cityId) => dispatch({ type: 'BUY_CAMPAIGN', cityId })}
+            />
+          ) : null}
+          {page === 'bank' ? (
+            <BankPanel
+              state={state}
+              onOpenSavings={(amount) => dispatch({ type: 'OPEN_SAVINGS', amount })}
+              onWithdrawSavings={() => dispatch({ type: 'WITHDRAW_SAVINGS' })}
+              onDrawLoan={(productId, amount) => dispatch({ type: 'DRAW_LOAN', productId, amount })}
+              onRepayLoan={(loanId, amount) => dispatch({ type: 'REPAY_LOAN', loanId, amount })}
+              onBuyStock={(symbol, shares) => dispatch({ type: 'BUY_STOCK', symbol, shares })}
+              onSellStock={(symbol, shares) => dispatch({ type: 'SELL_STOCK', symbol, shares })}
+              onBuyCommodity={(commodityId, lots) =>
+                dispatch({ type: 'BUY_COMMODITY', commodityId, lots })
+              }
+              onSellCommodity={(commodityId, lots) =>
+                dispatch({ type: 'SELL_COMMODITY', commodityId, lots })
+              }
+            />
+          ) : null}
+          {page === 'exchange' ? (
+            <ExchangePanel
+              state={state}
+              onPlace={(marketId: MarketId, side, limitPrice, quantity) =>
+                dispatch({ type: 'PLACE_LIMIT', marketId, side, limitPrice, quantity })
+              }
+              onCancel={(orderId) => dispatch({ type: 'CANCEL_LIMIT', orderId })}
+            />
+          ) : null}
+          {page === 'books' ? (
+            <>
+              <LedgerPanel state={state} />
+              <PnLPanel state={state} />
+              <PlayerOverview state={state} />
+              <InventoryPanel state={state} />
+              <button type="button" className="report-launch" onClick={() => setReportOpen(true)}>
+                數據報表
+              </button>
+            </>
+          ) : null}
+        </div>
+      )}
       {reportOpen ? (
         <DataReportPanel
           onClose={() => setReportOpen(false)}

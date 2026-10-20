@@ -10,7 +10,10 @@ export type ItemId =
   | 'copper-ingot'
   | 'silica'
   | 'basic-part'
-  | 'alloy-plate';
+  | 'alloy-plate'
+  | 'hand-tool'
+  | 'wire-bundle'
+  | 'pack-module';
 
 export interface ItemDef {
   readonly id: ItemId;
@@ -127,6 +130,27 @@ const V_ALLOY_PLATE = deriveOutputValue(
   1,
   processingMarginPerCycle(5, 'finish'),
 );
+const V_HAND_TOOL = deriveOutputValue(
+  [
+    { unitValue: V_IRON_INGOT, quantity: 1 },
+    { unitValue: V_BASIC_PART, quantity: 1 },
+  ],
+  1,
+  processingMarginPerCycle(4, 'finish'),
+);
+const V_WIRE_BUNDLE = deriveOutputValue(
+  [{ unitValue: V_COPPER_INGOT, quantity: 1 }],
+  1,
+  processingMarginPerCycle(3, 'finish'),
+);
+const V_PACK_MODULE = deriveOutputValue(
+  [
+    { unitValue: V_SILICA, quantity: 1 },
+    { unitValue: V_RESIN, quantity: 1 },
+  ],
+  1,
+  processingMarginPerCycle(4, 'finish'),
+);
 
 export const ITEMS = {
   'raw-ore': { id: 'raw-ore', nameZh: '原礦', tier: 'raw', unitValue: V_RAW_ORE, sellable: true },
@@ -181,6 +205,27 @@ export const ITEMS = {
     unitValue: V_ALLOY_PLATE,
     sellable: true,
   },
+  'hand-tool': {
+    id: 'hand-tool',
+    nameZh: '手工具',
+    tier: 'finished',
+    unitValue: V_HAND_TOOL,
+    sellable: false,
+  },
+  'wire-bundle': {
+    id: 'wire-bundle',
+    nameZh: '導電線束',
+    tier: 'finished',
+    unitValue: V_WIRE_BUNDLE,
+    sellable: false,
+  },
+  'pack-module': {
+    id: 'pack-module',
+    nameZh: '封裝模組',
+    tier: 'finished',
+    unitValue: V_PACK_MODULE,
+    sellable: false,
+  },
 } as const satisfies Record<ItemId, ItemDef>;
 
 const ITEM_ORDER: readonly ItemId[] = [
@@ -194,6 +239,9 @@ const ITEM_ORDER: readonly ItemId[] = [
   'silica',
   'basic-part',
   'alloy-plate',
+  'hand-tool',
+  'wire-bundle',
+  'pack-module',
 ];
 
 export const ITEM_LIST: readonly ItemDef[] = ITEM_ORDER.map((id) => ITEMS[id]);

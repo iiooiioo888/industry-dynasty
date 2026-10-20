@@ -1,4 +1,6 @@
-import type { CommodityId, LoanProductId, StockSymbol } from '../bank/types.js';
+import type { CommodityId, LoanProductId, MarketId, OrderSide, StockSymbol } from '../bank/types.js';
+import type { StaffRole } from '../commerce/types.js';
+import type { ItemId } from '../production/items.js';
 import type { ClockSpeed } from './clock.js';
 import type { FactoryTypeId } from '../buildings/catalog.js';
 import type { MachineGradeId } from '../production/machines.js';
@@ -18,6 +20,14 @@ export type WorldAction =
   | { type: 'SELL_STOCK'; symbol: StockSymbol; shares: number }
   | { type: 'BUY_COMMODITY'; commodityId: CommodityId; lots: number }
   | { type: 'SELL_COMMODITY'; commodityId: CommodityId; lots: number }
+  | {
+      type: 'PLACE_LIMIT';
+      marketId: MarketId;
+      side: OrderSide;
+      limitPrice: number;
+      quantity: number;
+    }
+  | { type: 'CANCEL_LIMIT'; orderId: string }
   | { type: 'START_BUILD'; parcelId: ParcelId; factoryTypeId: FactoryTypeId }
   | { type: 'ADVANCE_BUILD_TICK' }
   | { type: 'CANCEL_BUILD'; parcelId: ParcelId }
@@ -42,6 +52,12 @@ export type WorldAction =
   | { type: 'STOP_PRODUCTION'; parcelId: ParcelId }
   | { type: 'ADVANCE_PRODUCTION_TICK' }
   | { type: 'SELL_TO_NPC'; offerId: string; quantity: number; shipFromParcelId: ParcelId }
+  | { type: 'SET_SHELF'; parcelId: ParcelId; itemId: ItemId; unitPrice: number; quantity: number }
+  | { type: 'ACCEPT_CONTRACT'; contractId: string; shipFromParcelId: ParcelId }
+  | { type: 'HIRE_STAFF'; role: StaffRole; count: number }
+  | { type: 'FIRE_STAFF'; role: StaffRole; count: number }
+  | { type: 'START_RESEARCH'; parcelId: ParcelId }
+  | { type: 'BUY_CAMPAIGN'; cityId: string }
   | { type: 'ADVANCE_DAY' }
   | { type: 'SET_CLOCK'; paused?: boolean; speed?: ClockSpeed }
   | { type: 'ADVANCE_SIM_TIME'; deltaMs: number };

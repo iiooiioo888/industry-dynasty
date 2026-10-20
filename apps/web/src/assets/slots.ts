@@ -28,10 +28,15 @@ export const ASSET_SLOTS = {
     silica: '/assets/res-quartz-sand.png',
     'basic-part': '/assets/item-basic-part.png',
     'alloy-plate': '/assets/item-alloy-plate.png',
+    'hand-tool': '/assets/item-basic-part.png',
+    'wire-bundle': '/assets/item-alloy-plate.png',
+    'pack-module': '/assets/item-alloy-plate.png',
   },
   buildings: {
     workshop: '/assets/bld-workshop.png',
     'assembly-plant': '/assets/bld-assembly-plant.png',
+    storefront: '/assets/ui-market-hub.png',
+    lab: '/assets/bld-assembly-plant.png',
   },
   /**
    * 世界地圖圖層。鍵名與檔名固定，供可玩性地理（道路／城市／人口）接上。

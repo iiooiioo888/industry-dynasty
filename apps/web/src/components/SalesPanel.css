@@ -2,6 +2,28 @@
   margin: 0 0 0.45rem;
 }
 
+.sales-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.45rem;
+}
+
+.sales-tab {
+  flex: 1;
+  font: inherit;
+  font-size: 0.68rem;
+  color: var(--sys-muted);
+  background: transparent;
+  border: 1px solid var(--sys-border);
+  border-radius: 3px;
+  padding: 0.2rem 0.15rem;
+}
+
+.sales-tab.is-on {
+  color: var(--sys-text);
+  border-color: var(--sys-accent);
+}
+
 .market-hub-cue {
   display: flex;
   align-items: center;
