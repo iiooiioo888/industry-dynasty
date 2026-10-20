@@ -1,5 +1,6 @@
 import { getSiteLogisticsView } from '../buildings/adjacency.js';
-import { operatorThroughputFactor, QUALITY_CYCLE_STRETCH, readCommerce } from '../commerce/logic.js';
+import { operatorThroughputFactor, readCommerce } from '../commerce/logic.js';
+import { qualityCycleStretch } from '../commerce/quality.js';
 import { SIM_MS_PER_TICK } from './clock.js';
 import type { CompleteSite } from '../buildings/site.js';
 import { getSiteForParcel } from '../buildings/build-logic.js';
@@ -67,10 +68,15 @@ export function applyStartProduction(
   if (player.cash < due) {
     return state;
   }
-  const drafted = createProductionLine(recipe, parcel, logistics.factor, state.clock.simMs, mounted);
+  const drafted = createProductionLine(
+    recipe,
+    parcel,
+    logistics.factor,
+    state.clock.simMs,
+    mounted,
+  );
   const researchId = 'researchId' in recipe ? recipe.researchId : undefined;
-  const qualityStretch =
-    researchId && readCommerce(state).qualityBand > 0 ? QUALITY_CYCLE_STRETCH : 1;
+  const qualityStretch = researchId ? qualityCycleStretch(readCommerce(state).qualityBand) : 1;
   const line = {
     ...drafted,
     cycleTicks: Math.max(drafted.cycleTicks, Math.ceil(drafted.cycleTicks * qualityStretch)),
@@ -168,7 +174,9 @@ export function applyProductionTick(state: WorldState): WorldState {
   let craftedTotals = { ...state.craftedTotals };
   const productionLines = { ...state.productionLines };
   let map = state.map;
-  const runningLines = Object.values(productionLines).filter((line) => line.status !== 'stopped').length;
+  const runningLines = Object.values(productionLines).filter(
+    (line) => line.status !== 'stopped',
+  ).length;
   const staffFactor = operatorThroughputFactor(readCommerce(state).staff.operators, runningLines);
 
   for (const [key, line] of Object.entries(productionLines)) {

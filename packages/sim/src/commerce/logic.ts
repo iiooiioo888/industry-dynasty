@@ -7,6 +7,13 @@ import type { Player, WorldState } from '../world/state.js';
 import { itemCityDemandFactor } from './cohorts.js';
 import { MAX_CONCURRENT_EVENTS, combineMultiplier, rollNewsEvents } from './news.js';
 import {
+  advanceQualityBand,
+  parcelSuitability,
+  qualityPriceMultiplier,
+  type QualityBand,
+} from './quality.js';
+import { respondToPlayerShare } from './rivals.js';
+import {
   EMPTY_STAFF,
   type AdCampaign,
   type CityContract,
@@ -108,7 +115,7 @@ export function seedRivals(cities: readonly { id: string; name: string }[]): Riv
 export function createOpeningContracts(
   cities: readonly { id: string; name: string }[],
   gameDay: number,
-  qualityBand: 0 | 1,
+  qualityBand: QualityBand,
 ): CityContract[] {
   return cities.map((city, index) => createCityContract(city, gameDay, index, qualityBand));
 }
@@ -117,10 +124,10 @@ function createCityContract(
   city: { id: string; name: string },
   gameDay: number,
   index: number,
-  qualityBand: 0 | 1,
+  qualityBand: QualityBand,
 ): CityContract {
   const itemId = CONSUMER_ITEM_IDS[(gameDay + index) % CONSUMER_ITEM_IDS.length] ?? 'hand-tool';
-  const quality = qualityBand > 0 ? QUALITY_PRICE_MUL : 1;
+  const quality = qualityPriceMultiplier(qualityBand);
   const unitPrice = Math.max(1, Math.round(ITEMS[itemId].unitValue * 0.72 * quality));
   const quantity = 2 + ((gameDay + index) % 3);
   return {
@@ -184,7 +191,7 @@ export function quoteRetailDay(args: {
   parcel: Parcel;
   itemId: ItemId;
   unitPrice: number;
-  qualityBand: 0 | 1;
+  qualityBand: QualityBand;
   clerks: number;
   activeStores: number;
   rivals: readonly RivalOutlet[];
@@ -192,7 +199,7 @@ export function quoteRetailDay(args: {
   events: readonly WorldEvent[];
 }): RetailQuote {
   const local = quoteLocalDemand(args.parcel);
-  const quality = args.qualityBand > 0 ? QUALITY_PRICE_MUL : 1;
+  const quality = qualityPriceMultiplier(args.qualityBand);
   const referencePrice = Math.max(
     1,
     Math.round(
@@ -431,13 +438,23 @@ export function advanceResearch(state: WorldState): WorldState {
   if (progressTicks < job.totalTicks) {
     return writeCommerce(state, { ...commerce, research: { ...job, progressTicks } });
   }
+  // 研發完成後，品質檔位依「旗下最佳地塊的土壤／水質」決定能升到第幾檔
+  // （見 `commerce/quality.ts`）。原本一律升到 1，地點毫無影響。
+  const bestSuitability = state.map.parcels
+    .filter((parcel) => parcel.ownerId === state.localPlayerId)
+    .reduce((best, parcel) => Math.max(best, parcelSuitability(parcel).overall), 0);
+  const qualityBand = advanceQualityBand({
+    current: commerce.qualityBand,
+    researched: true,
+    bestSuitability,
+  });
   return writeCommerce(state, {
     ...commerce,
     research: null,
     unlocked: commerce.unlocked.includes(job.id)
       ? commerce.unlocked
       : [...commerce.unlocked, job.id],
-    qualityBand: 1,
+    qualityBand,
   });
 }
 
@@ -580,6 +597,14 @@ export function applyCommerceDay(state: WorldState, gameDay: number): CommerceDa
     commerce.addressableValue +
     state.map.cities.length * CITY_DAILY_UNITS * consumerReferencePrice();
 
+  // 對手會依玩家整體市佔反制（見 `commerce/rivals.ts`）：
+  // 吃下市場會讓對手加碼，聲勢回落則慢慢退場。
+  const shareNow = marketShareOf({
+    consumerRevenue: commerce.consumerRevenue + retailRevenue,
+    addressableValue,
+  });
+  const rivalResponse = respondToPlayerShare(commerce.rivals, shareNow);
+
   const nextCommerce: CommerceState = {
     ...commerce,
     shelves,
@@ -590,6 +615,7 @@ export function applyCommerceDay(state: WorldState, gameDay: number): CommerceDa
     ),
     campaigns,
     events,
+    rivals: rivalResponse.rivals,
     consumerRevenue: commerce.consumerRevenue + retailRevenue,
     addressableValue,
     wagesPaid: commerce.wagesPaid + paidWages,

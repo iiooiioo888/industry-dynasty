@@ -39,6 +39,7 @@ export function emptyPlayerBank(): PlayerBank {
     statements: [],
     orders: [],
     fills: [],
+    lifetimeRepaid: 0,
   };
 }
 
@@ -188,7 +189,11 @@ export function summarizeBank(
   };
 }
 
-export function nextLoanDue(loan: LoanBook): { interest: number; principal: number; total: number } {
+export function nextLoanDue(loan: LoanBook): {
+  interest: number;
+  principal: number;
+  total: number;
+} {
   const interest = interestOn(loan.principal, loan.rateBps);
   const principal =
     loan.ticksRemaining <= 1 ? loan.principal : Math.min(loan.installment, loan.principal);
@@ -491,7 +496,14 @@ export function applyPlaceLimit(
   if (!player) {
     return state;
   }
-  const placed = placeLimit(player, getPlayerBank(state, player.id), marketId, side, limitPrice, quantity);
+  const placed = placeLimit(
+    player,
+    getPlayerBank(state, player.id),
+    marketId,
+    side,
+    limitPrice,
+    quantity,
+  );
   if (!placed.ok) {
     return state;
   }
@@ -714,7 +726,14 @@ export function applyRepayLoan(state: WorldState, loanId: string, amount: number
     }
     return [next];
   });
-  return writeBook(state, { ...player, cash: player.cash - amount }, { ...book, loans });
+  // 累計清償：供「清償貸款」這類關卡目標使用（見 `sales/scenario.ts`）
+  const repaid = amount - Math.max(0, left);
+  const lifetimeRepaid = (book.lifetimeRepaid ?? 0) + repaid;
+  return writeBook(
+    state,
+    { ...player, cash: player.cash - amount },
+    { ...book, loans, lifetimeRepaid },
+  );
 }
 
 function upsertStock(

@@ -19,6 +19,7 @@ import {
 } from '../sales/index.js';
 import { TRANSPORT_RATE_PER_TILE } from '../sales/sell-logic.js';
 import { HOLDING } from '../balance/targets.js';
+import { debtOf, getPlayerBank } from '../bank/logic.js';
 import { craftedValue } from '../production/chain.js';
 import { MACHINE_GRADES } from '../production/machines.js';
 import type { ParcelId } from '../types/map.js';
@@ -191,14 +192,18 @@ export function applyAdvanceDay(
   pnl = aggregateProductionIdleLoss(next, playerId, pnl);
   const book = readCommerce(next);
 
-  // 兩條勝利路線一起評估：工業化（淨利 ＋ 加工產值）與商業（營收 ＋ 需求佔比）。
-  // 見 `sales/scenario.ts`。
+  // 三條勝利路線一起評估：工業化（淨利＋加工產值）、商業（營收＋需求佔比）、
+  // 還款（淨利＋累計清償＋零負債）。見 `sales/scenario.ts`。
+  const bankBook = getPlayerBank(next, playerId);
+  const debt = debtOf(bankBook);
   const scenario = evaluateScenario(next.scenario, gameDay, pnl, {
     craftedValue: craftedValue(next.craftedTotals[playerId]),
     commerce: {
       share: marketShareOf(book),
       consumerRevenue: book.consumerRevenue,
     },
+    debtRepaid: bankBook.lifetimeRepaid ?? 0,
+    outstandingDebt: debt.principal + debt.arrears,
   });
 
   return expandNpcBlocks({
