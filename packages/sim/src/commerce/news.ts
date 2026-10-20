@@ -23,6 +23,20 @@ export interface NewsTemplate {
   readonly weight: number;
   /** 需要指定城市（事件只影響該城市） */
   readonly needsCity?: boolean;
+  /**
+   * 事件結束後留下的餘波。
+   *
+   * 原本事件到期就**直接消失** —— 颱風走了運費隔天立刻回正常，
+   * 少了「還沒恢復」的那種真實感。有 `aftermath` 的事件到期時會轉成一筆
+   * 較弱、較短的後續事件，而不是瞬間歸零。
+   *
+   * 餘波本身**不會再產生餘波**，避免無限延長。
+   */
+  readonly aftermath?: {
+    readonly headline: string;
+    readonly magnitude: number;
+    readonly days: number;
+  };
 }
 
 /**
@@ -42,6 +56,11 @@ export const NEWS_TEMPLATES: readonly NewsTemplate[] = [
     magnitude: 1.25,
     days: 2,
     weight: 10,
+    aftermath: {
+      headline: '颱風離境，但船班仍在消化積壓貨物，運費尚未回落。',
+      magnitude: 1.08,
+      days: 2,
+    },
   },
   {
     id: 'fuel-surge',
@@ -50,6 +69,11 @@ export const NEWS_TEMPLATES: readonly NewsTemplate[] = [
     magnitude: 1.18,
     days: 3,
     weight: 8,
+    aftermath: {
+      headline: '油價小幅回落，貨運費率仍在調整期。',
+      magnitude: 1.06,
+      days: 2,
+    },
   },
   {
     id: 'driver-shortage',
@@ -58,6 +82,11 @@ export const NEWS_TEMPLATES: readonly NewsTemplate[] = [
     magnitude: 1.32,
     days: 2,
     weight: 5,
+    aftermath: {
+      headline: '部分司機回流，出貨排隊的情況逐漸緩解。',
+      magnitude: 1.1,
+      days: 2,
+    },
   },
   {
     id: 'roadwork',
@@ -66,6 +95,11 @@ export const NEWS_TEMPLATES: readonly NewsTemplate[] = [
     magnitude: 1.12,
     days: 3,
     weight: 7,
+    aftermath: {
+      headline: '幹道陸續開放通行，繞路成本仍略高於平時。',
+      magnitude: 1.05,
+      days: 2,
+    },
   },
   {
     id: 'city-festival',
@@ -75,6 +109,11 @@ export const NEWS_TEMPLATES: readonly NewsTemplate[] = [
     days: 2,
     weight: 10,
     needsCity: true,
+    aftermath: {
+      headline: '{city} 活動落幕，買氣仍比平時略旺。',
+      magnitude: 0.15,
+      days: 2,
+    },
   },
   {
     id: 'city-payday',
@@ -110,6 +149,11 @@ export const NEWS_TEMPLATES: readonly NewsTemplate[] = [
     magnitude: 0.93,
     days: 2,
     weight: 10,
+    aftermath: {
+      headline: '港區庫存逐步去化，原料價格緩步回升。',
+      magnitude: 0.96,
+      days: 2,
+    },
   },
   {
     id: 'ore-dumping',
@@ -222,4 +266,46 @@ export function combineMultiplier(
     return fallback;
   }
   return matching.reduce((product, event) => product * event.magnitude, 1);
+}
+
+/** 餘波事件 id 的前綴，用來分辨「這是餘波」而不會再產生餘波。 */
+export const AFTERMATH_PREFIX = 'aft-';
+
+export function isAftermathEvent(event: WorldEvent): boolean {
+  return event.id.startsWith(AFTERMATH_PREFIX);
+}
+
+/**
+ * 事件到期時的處理：把有餘波的樣板轉成一筆較弱、較短的後續事件。
+ *
+ * 這是「颱風走了運費卻還沒恢復」的那種延續感。實作上有三條限制：
+ * - 餘波**不會再產生餘波**（否則事件會無限延長）
+ * - 餘波保留原本的城市，否則「某城活動」的餘波會變成全市場事件
+ * - 同類型事件已經在跑時不重複產生，避免乘數堆疊
+ */
+export function expireEvent(
+  event: WorldEvent,
+  activeKinds: readonly WorldEventKind[],
+): WorldEvent | null {
+  if (isAftermathEvent(event)) {
+    return null;
+  }
+  // 事件 id 形如 `evt-<templateId>-<day>`
+  const templateId = event.id.replace(/^evt-/, '').replace(/-\d+$/, '');
+  const template = NEWS_TEMPLATES.find((entry) => entry.id === templateId);
+  const aftermath = template?.aftermath;
+  if (!aftermath) {
+    return null;
+  }
+  if (activeKinds.includes(event.kind)) {
+    return null;
+  }
+  return {
+    id: `${AFTERMATH_PREFIX}${templateId}-${event.id}`,
+    kind: event.kind,
+    headline: aftermath.headline.replace('{city}', event.cityName ?? '本市'),
+    remainingDays: aftermath.days,
+    magnitude: aftermath.magnitude,
+    ...(event.cityId ? { cityId: event.cityId, cityName: event.cityName } : {}),
+  };
 }

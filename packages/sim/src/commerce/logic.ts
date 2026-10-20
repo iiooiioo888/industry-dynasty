@@ -5,7 +5,7 @@ import type { Parcel } from '../types/map.js';
 import type { ParcelId } from '../types/map.js';
 import type { Player, WorldState } from '../world/state.js';
 import { itemCityDemandFactor } from './cohorts.js';
-import { MAX_CONCURRENT_EVENTS, combineMultiplier, rollNewsEvents } from './news.js';
+import { MAX_CONCURRENT_EVENTS, combineMultiplier, expireEvent, rollNewsEvents } from './news.js';
 import {
   advanceQualityBand,
   parcelSuitability,
@@ -574,9 +574,19 @@ export function applyCommerceDay(state: WorldState, gameDay: number): CommerceDa
     return { ...contract, penalized: true };
   });
 
-  const events = commerce.events
-    .map((event) => ({ ...event, remainingDays: event.remainingDays - 1 }))
-    .filter((event) => event.remainingDays > 0);
+  const ticked = commerce.events.map((event) => ({
+    ...event,
+    remainingDays: event.remainingDays - 1,
+  }));
+  // 到期的事件不是直接消失，而是可能留下一筆較弱的餘波（見 `expireEvent`）。
+  // 颱風走了運費卻還沒恢復 —— 這種延續感是原型的經濟事件在做的事。
+  const surviving = ticked.filter((event) => event.remainingDays > 0);
+  const expiredKinds = surviving.map((event) => event.kind);
+  const aftermath = ticked
+    .filter((event) => event.remainingDays <= 0)
+    .map((event) => expireEvent(event, expiredKinds))
+    .filter((event): event is WorldEvent => event !== null);
+  const events = [...surviving, ...aftermath];
   // 事件改成資料驅動的樣板表（見 `commerce/news.ts`），仍然一天最多一個，
   // 且同類型不重複，避免乘數疊加失控。
   if (events.length < MAX_CONCURRENT_EVENTS) {

@@ -35,7 +35,10 @@ export {
   seedRivals,
 } from './logic.js';
 export {
+  AFTERMATH_PREFIX,
   MAX_CONCURRENT_EVENTS,
+  expireEvent,
+  isAftermathEvent,
   NEWS_TEMPLATES,
   combineMultiplier,
   rollNewsEvents,
