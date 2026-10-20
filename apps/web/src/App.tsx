@@ -30,6 +30,8 @@ import { TrendPanel } from './components/TrendPanel';
 import { SaveControlsBar } from './components/SaveControls';
 import { StageResultOverlay } from './components/StageResultOverlay';
 import { StageSelect } from './components/StageSelect';
+import { StageBriefing } from './components/StageBriefing';
+import { ProductionStatusPanel } from './components/ProductionStatusPanel';
 import { GuidanceBanner } from './components/GuidanceBanner';
 import { computeStageProgress, currentStage } from './game/stage-progress';
 import { loadProgress, markStageCleared } from './game/campaign-storage';
@@ -68,6 +70,11 @@ export function App() {
   // 戰役進度（跨局保留）與關卡選擇
   const [campaign, setCampaign] = useState(() => loadProgress());
   const [stageSelectOpen, setStageSelectOpen] = useState(false);
+  // 開場簡報：每一關第一次進入時顯示，玩家按「開始」才關掉。
+  // 用「關卡 id + 天數」當 key —— 重玩同一關時會再顯示一次，這是刻意的。
+  const [dismissedBriefing, setDismissedBriefing] = useState<string | null>(null);
+  const briefingKey = stage ? `${stage.id}:${state.gameDay}` : null;
+  const briefingOpen = stage !== null && state.gameDay === 0 && dismissedBriefing !== briefingKey;
 
   // 通關就把這一關記進戰役進度（含最佳成績），並自動解鎖下一關
   useEffect(() => {
@@ -255,6 +262,7 @@ export function App() {
               <PnLPanel state={state} />
               <PlayerOverview state={state} />
               <TrendPanel state={state} />
+              <ProductionStatusPanel state={state} />
               <InventoryPanel state={state} />
               <button type="button" className="report-launch" onClick={() => setReportOpen(true)}>
                 數據報表
@@ -288,6 +296,9 @@ export function App() {
           }}
           onClose={() => setStageSelectOpen(false)}
         />
+      )}
+      {briefingOpen && stage && (
+        <StageBriefing stage={stage} onStart={() => setDismissedBriefing(briefingKey)} />
       )}
     </div>
   );

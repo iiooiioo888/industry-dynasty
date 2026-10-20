@@ -1,0 +1,59 @@
+.production-status ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.production-status li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas:
+    'recipe factory runs'
+    'note note note';
+  gap: 0.15rem 0.5rem;
+  padding: 0.32rem 0.45rem;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 3%);
+  font-size: 0.7rem;
+}
+
+.production-status .ps-recipe {
+  grid-area: recipe;
+  font-weight: 600;
+}
+
+.production-status .ps-factory {
+  display: none;
+}
+
+.production-status .ps-output {
+  display: none;
+}
+
+.production-status .ps-note {
+  grid-area: note;
+  color: var(--sys-muted);
+  font-size: 0.66rem;
+}
+
+.production-status .ps-runs {
+  grid-area: runs;
+  color: var(--sys-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.production-status li.is-running {
+  border-left: 2px solid var(--sys-accent);
+}
+
+.production-status li.is-no-input,
+.production-status li.is-idle {
+  border-left: 2px solid var(--sys-warn);
+}
+
+.production-status li.is-no-input .ps-note,
+.production-status li.is-idle .ps-note {
+  color: var(--sys-warn);
+}

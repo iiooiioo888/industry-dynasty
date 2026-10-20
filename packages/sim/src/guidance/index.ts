@@ -12,3 +12,10 @@ export {
   type DiagnosisId,
   type DiagnosisInput,
 } from './diagnosis.js';
+export { buildBriefing, type BriefingLine, type StageBriefing } from './briefing.js';
+export {
+  summarizeProduction,
+  type LineBlocker,
+  type LineStatus,
+  type ProductionSummary,
+} from './status.js';
