@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { grantBuildMaterials } from '../buildings/materials.js';
 import { FACTORY_TYPES } from '../buildings/catalog.js';
 import { ITEMS } from '../production/items.js';
 import { evaluateScenario, createScenarioState } from '../sales/scenario.js';
@@ -176,6 +177,14 @@ describe('合約、研發與新聞', () => {
     const lot = findOpenLotForParcel(state, parcelId)!;
     state = applyWorldAction(state, { type: 'BID', parcelId, amount: lot.minPrice });
     state = applyWorldAction(state, { type: 'SETTLE_AUCTION', parcelId });
+    // 實驗室要吃材料；測試專心測研發，所以先補齊
+    state = {
+      ...state,
+      inventories: {
+        ...state.inventories,
+        [state.localPlayerId]: grantBuildMaterials(state.inventories[state.localPlayerId], 'lab'),
+      },
+    };
     state = applyWorldAction(state, { type: 'START_BUILD', parcelId, factoryTypeId: 'lab' });
     for (let tick = 0; tick < FACTORY_TYPES.lab.buildTimeTicks; tick += 1) {
       state = applyWorldAction(state, { type: 'ADVANCE_BUILD_TICK' });
@@ -232,6 +241,17 @@ describe('門市日結', () => {
     const lot = findOpenLotForParcel(state, parcel.id)!;
     state = applyWorldAction(state, { type: 'BID', parcelId: parcel.id, amount: lot.minPrice });
     state = applyWorldAction(state, { type: 'SETTLE_AUCTION', parcelId: parcel.id });
+    // 門市要吃材料（`buildings/materials.ts`）；測試專心測日結，先補齊
+    state = {
+      ...state,
+      inventories: {
+        ...state.inventories,
+        [state.localPlayerId]: grantBuildMaterials(
+          state.inventories[state.localPlayerId],
+          'storefront',
+        ),
+      },
+    };
     state = applyWorldAction(state, {
       type: 'START_BUILD',
       parcelId: parcel.id,
