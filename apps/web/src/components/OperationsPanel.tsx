@@ -64,8 +64,7 @@ export function OperationsPanel({
         <h2>經營</h2>
       </header>
       <p className="panel-hint">
-        {event ? `${event.titleZh}。${event.detailZh}` : '今日還沒有事件。'} 品牌 {brandOf(state)}{' '}
-        點，日結衰減兩成。未聘人、未蓋店時，這頁不扣錢。
+        {event && event.kind !== 'quiet' ? `${event.titleZh} · ` : ''}品牌 {brandOf(state)}
       </p>
 
       <h3>人事</h3>
@@ -120,7 +119,6 @@ export function OperationsPanel({
       <h3>研發</h3>
       <p className="panel-muted">
         點數 {research.points}
-        {hasCompletedLab(state) ? '。研發室完工後，指派的研發員每刻加點。' : '。先蓋一間研發室。'}
       </p>
       <ul className="ops-list">
         {RESEARCH_PROJECT_LIST.map((project) => {
@@ -148,7 +146,7 @@ export function OperationsPanel({
       <ShelfDesk state={state} onSetPrice={onSetPrice} />
 
       <h3>廣告</h3>
-      <p className="panel-muted">${AD_POINT_COST.toLocaleString()} 換 1 點品牌，只拉高門市量。</p>
+      <p className="panel-muted">${AD_POINT_COST.toLocaleString()} / 點</p>
       <div className="ops-row">
         <input
           type="number"
@@ -208,7 +206,7 @@ export function ShelfDesk({
     .filter((parcel): parcel is NonNullable<typeof parcel> => parcel !== undefined);
 
   if (stores.length === 0) {
-    return <p className="panel-muted">人口夠密的自有地才能蓋門市。蓋好後在這裡定價。</p>;
+    return <p className="panel-muted">尚無門市</p>;
   }
 
   const quality = retailQuality(state);

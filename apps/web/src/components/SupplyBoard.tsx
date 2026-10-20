@@ -14,6 +14,15 @@ export interface SupplyBoardProps {
   onRestock: (parcelId: ParcelId) => void;
 }
 
+function restockLabel(reason: string): string {
+  if (reason.includes('排產')) return '先排產';
+  if (reason.includes('礦脈')) return '吃礦脈';
+  if (reason.includes('在路上') || reason.includes('在倉')) return '料已齊';
+  if (reason.includes('運費')) return '運費不足';
+  if (reason.includes('庫存')) return '料不夠';
+  return '不能補';
+}
+
 export function SupplyBoard({ state, selectedParcelId, onSelect, onRestock }: SupplyBoardProps) {
   const sites = listSiteSupply(state);
   const hauling = sites.reduce((sum, site) => sum + site.inbound.length, 0);
@@ -23,13 +32,10 @@ export function SupplyBoard({ state, selectedParcelId, onSelect, onRestock }: Su
       <header className="sys-panel-head">
         <span className="sys-panel-tag">SUP</span>
         <h2>供應鏈</h2>
-        <span className="supply-count">{hauling > 0 ? `${hauling} 車在途` : '料倉自選'}</span>
+        <span className="supply-count">{hauling > 0 ? `${hauling} 車` : ''}</span>
       </header>
-      <p className="sys-muted">
-        公司庫仍直接供料。補一輪才把差額送進料倉，運費在出車時入帳。
-      </p>
       {sites.length === 0 ? (
-        <p className="supply-empty">完工的廠會列在這裡。</p>
+        <p className="supply-empty">尚無完工廠</p>
       ) : (
         <ul className="supply-sites">
           {sites.map((site) => {
@@ -46,32 +52,26 @@ export function SupplyBoard({ state, selectedParcelId, onSelect, onRestock }: Su
                     </span>
                   </span>
                   <span className={`supply-recipe${site.waiting ? ' is-short' : ''}`}>
-                    {site.recipeNameZh ?? '尚未排產'}
+                    {site.recipeNameZh ?? '未排產'}
                     {site.waiting ? ' · 待料' : ''}
                   </span>
                 </button>
                 <p className="supply-line">
-                  料倉 {site.bin.length === 0 ? '空' : site.bin.map((item) => `${item.nameZh} ${item.quantity}`).join('、')}
+                  {site.bin.length === 0
+                    ? '倉空'
+                    : site.bin.map((item) => `${item.nameZh} ${item.quantity}`).join(' ')}
+                  {site.inbound.length > 0
+                    ? ` · 途 ${site.inbound.map((item) => `${item.nameZh}${item.quantity}`).join(' ')}`
+                    : ''}
                 </p>
-                {site.inbound.length > 0 ? (
-                  <p className="supply-line inbound">
-                    在途{' '}
-                    {site.inbound
-                      .map((item) => `${item.nameZh} ${item.quantity} · ${item.ticksLeft} 刻`)
-                      .join('、')}
+                {site.inputs.some((input) => input.shortfall > 0) ? (
+                  <p className="supply-line is-short">
+                    缺{' '}
+                    {site.inputs
+                      .filter((input) => input.shortfall > 0)
+                      .map((input) => `${input.nameZh} ${input.shortfall}`)
+                      .join(' ')}
                   </p>
-                ) : null}
-                {site.inputs.length > 0 ? (
-                  <ul className="supply-inputs">
-                    {site.inputs.map((input) => (
-                      <li key={input.itemId} className={input.shortfall > 0 ? 'is-short' : ''}>
-                        <span>{input.nameZh}</span>
-                        <span>
-                          每輪 {input.perCycle} · 倉 {input.inBin} · 途 {input.inbound} · 公司 {input.inCompany}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
                 ) : null}
                 <button
                   type="button"
@@ -79,7 +79,7 @@ export function SupplyBoard({ state, selectedParcelId, onSelect, onRestock }: Su
                   disabled={!quote.ok}
                   onClick={() => onRestock(parcelId)}
                 >
-                  {quote.ok ? `補一輪 · 運費 $${quote.freight.toLocaleString()}` : quote.reason}
+                  {quote.ok ? `補 $${quote.freight.toLocaleString()}` : restockLabel(quote.reason)}
                 </button>
               </li>
             );

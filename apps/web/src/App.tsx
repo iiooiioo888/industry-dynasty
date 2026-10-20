@@ -63,17 +63,15 @@ export function App() {
           產業霸權
         </span>
         <span className="meta" data-clock-readout="true">
-          <span className="meta-chip">第 {state.gameDay} 天</span>
+          <span className="meta-chip">{state.gameDay} 天</span>
           <span className="meta-chip">{clockLabel}</span>
-          <span className="meta-chip">距日結 {ticksUntilDayClose(state.clock.simMs)} 刻</span>
-          <span className="meta-chip">分數 {companyScore(state).toLocaleString()}</span>
+          <span className="meta-chip">日結 {ticksUntilDayClose(state.clock.simMs)}</span>
+          <span className="meta-chip">{companyScore(state).toLocaleString()}</span>
         </span>
         <button type="button" className="report-launch" onClick={() => setReportOpen(true)}>
           數據報表
         </button>
-        <p className="day-event">
-          {event ? `${event.titleZh}。${event.detailZh}` : '平靜的一天。'}
-        </p>
+        {event && event.kind !== 'quiet' ? <p className="day-event">{event.titleZh}</p> : null}
       </header>
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
       <div className="shell-body">

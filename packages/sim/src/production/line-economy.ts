@@ -119,9 +119,8 @@ export function chainMarginCue(
   const here = Math.round(herePerTick).toLocaleString('zh-Hant');
   const ore = Math.round(extractPerTick).toLocaleString('zh-Hant');
   if (recipe.stage === 'extract') {
-    return `賣礦每刻約 ${here}。短路程的加工與成品更高；路程拉長後溢價會消失。`;
+    return `賣礦 ${here}/刻`;
   }
-  const vs = herePerTick > extractPerTick ? '高於' : '低於';
   const stage = recipe.stage === 'process' ? '加工' : '成品';
-  return `${stage}每刻約 ${here}，${vs}賣原礦 ${ore}。產品不變；路程一長，深加工會掉到賣礦下面。`;
+  return `${stage} ${here}/刻 · 賣礦 ${ore}`;
 }

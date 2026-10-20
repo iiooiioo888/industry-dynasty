@@ -41,40 +41,40 @@ function stationCopy(
 
   switch (station.role) {
     case 'gate':
-      return { short: '進出', detail: `${building}的門口。作業、機械和人員都在這張廠房裡。` };
+      return { short: '進出', detail: building };
     case 'intake':
       if (!recipe || !line) {
-        return { short: '空', detail: '還沒排產，進料口閒著。' };
+        return { short: '空', detail: '未排產' };
       }
       if (line.status === 'waiting_inputs') {
-        return { short: '待料', detail: `${recipe.nameZh}缺料，產線停在進料。` };
+        return { short: '待料', detail: recipe.nameZh };
       }
-      return { short: '備料', detail: `${recipe.nameZh}的原料從這裡進。` };
+      return { short: '備料', detail: recipe.nameZh };
     case 'work':
       if (!recipe || !line || line.status === 'stopped') {
-        return { short: '閒置', detail: '作業區沒有進行中的產線。' };
+        return { short: '閒置', detail: '未排產' };
       }
       if (line.status === 'waiting_inputs') {
-        return { short: '待料', detail: `${recipe.nameZh}的人在，但缺料不能做。` };
+        return { short: '待料', detail: recipe.nameZh };
       }
       if (line.progressTicks < line.travelTicks) {
         return {
           short: '趕路',
-          detail: `${recipe.nameZh}的人還在往返路上 ${line.progressTicks}/${line.travelTicks}。`,
+          detail: `${recipe.nameZh} ${line.progressTicks}/${line.travelTicks}`,
         };
       }
       return {
         short: '作業',
-        detail: `${recipe.nameZh}正在作業 ${line.progressTicks}/${line.cycleTicks}。`,
+        detail: `${recipe.nameZh} ${line.progressTicks}/${line.cycleTicks}`,
       };
     case 'machine':
       if (!machine) {
-        return { short: '無機', detail: '這座廠還沒裝加工機。開採配方不用裝機。' };
+        return { short: '無機', detail: '未裝機' };
       }
-      return { short: '已裝', detail: `${machine.nameZh}已裝在這座廠。產品種類不因機台改變。` };
+      return { short: '已裝', detail: machine.nameZh };
     case 'crew':
       if (crew.length === 0) {
-        return { short: '空席', detail: '這個席位還沒有人。到右側「經營」雇用並指派。' };
+        return { short: '空席', detail: '無人' };
       }
       return {
         short: crew[0]!.nameZh.slice(0, 2),
@@ -83,7 +83,7 @@ function stationCopy(
     case 'outbound':
       return {
         short: '出貨',
-        detail: recipe ? `${recipe.nameZh}的成品從這裡送到港區。` : '出貨口還沒有進行中的成品。',
+        detail: recipe ? recipe.nameZh : '無成品',
       };
     case 'bench': {
       const research = readResearch(state);
@@ -92,7 +92,7 @@ function stationCopy(
         .join('、');
       return {
         short: `${research.points}`,
-        detail: `研發點 ${research.points}。${unlocked ? `已解鎖${unlocked}。` : '還沒解鎖項目。'}`,
+        detail: unlocked ? unlocked : '未解鎖',
       };
     }
     case 'shelf': {
@@ -104,7 +104,7 @@ function stationCopy(
     case 'counter':
       return {
         short: `牌${brandOf(state)}`,
-        detail: `品牌 ${brandOf(state)}。廣告在經營頁購買，每天會消退。`,
+        detail: `品牌 ${brandOf(state)}`,
       };
     default:
       return { short: station.nameZh, detail: station.nameZh };

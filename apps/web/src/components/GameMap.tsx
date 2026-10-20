@@ -10,7 +10,6 @@ import {
   listSupplyHauls,
   listSupplyHaulViews,
   quoteLocalDemand,
-  ticksUntilDayClose,
   roadNamesAt,
   roadPresentationAt,
   type ClockSpeed,
@@ -154,8 +153,6 @@ export function GameMap({
   const narrow = useNarrowMap();
   const { width, height } = state.map.size;
   const localId = state.localPlayerId;
-  const openCount = state.auctionLots.filter((l) => l.status === 'open').length;
-  const cityNames = state.map.cities.map((city) => city.name).join(' · ');
   const featureArt = resolveMapFeatureArt(state);
   const actors = listMapActors(state);
   const routes = listShipmentViews(state);
@@ -190,9 +187,7 @@ export function GameMap({
             廠房
           </button>
         </div>
-        <span>{onFloor ? '廠房裡的作業、機械與人員' : `地圖 · ${cityNames || '點選土地'}`}</span>
-        {openCount > 0 && <span className="map-auction-chip">拍賣中 {openCount}</span>}
-        <span className="map-market-cue" title={`港區市場 (${MARKET_HUB.x}, ${MARKET_HUB.y})`}>
+        <span className="map-market-cue" title={`港區 (${MARKET_HUB.x}, ${MARKET_HUB.y})`}>
           <img
             src={ASSET_SLOTS.ui.marketHub}
             alt=""
@@ -202,7 +197,7 @@ export function GameMap({
             decoding="async"
             data-art-slot={MAP_ART_SLOT.marketHub}
           />
-          港區 {MARKET_HUB.x},{MARKET_HUB.y}
+          港區
         </span>
         <span className="map-dim">
           {width} × {height}
@@ -227,10 +222,6 @@ export function GameMap({
               {speed}×
             </button>
           ))}
-          <span className="clock-readout">
-            {state.clock.paused ? '已暫停 · 工人停在原地' : `${state.clock.speed}× 進行中`} · 距日結{' '}
-            {ticksUntilDayClose(state.clock.simMs)} 刻
-          </span>
         </div>
       </div>
       <div
@@ -444,96 +435,24 @@ export function GameMap({
         </div>
         )}
       </div>
-      <p className="map-strategy">
-        {onFloor
-          ? '大世界管買地與運路；廠房管這棟建物裡的作業、機械與人員。點站點看目前狀態。'
-          : '靠近人口密集區、城市與道路，收購量與單價較高。道路與城市核心不出售。標著「房」的完工建物可以進入廠房。'}
-      </p>
-      {onFloor ? (
-        <div className="map-legend">
-          <span>廠門進出</span>
-          <span>作業與加工機</span>
-          <span>班長、研發或店長席</span>
-          <span>貨架與收銀台只出現在門市</span>
-        </div>
-      ) : (
+      {onFloor ? null : (
       <div className="map-legend">
         <span>
-          <i className="swatch auction-live" /> 拍賣中（閃爍）
-        </span>
-        <span>
-          <i className="swatch heat" /> 人口熱度
+          <i className="swatch auction-live" /> 拍賣
         </span>
         <span>
           <i className="swatch road" /> 道路
         </span>
         <span>
-          <i className="swatch supply" /> 廠間送料
-        </span>
-        <span>送 在途補料</span>
-        <span>缺 產線待料</span>
-        <span>
-          <i className="swatch city" /> 城市據點
+          <i className="swatch city" /> 城市
         </span>
         <span>
-          <i className="swatch owned" /> 你的土地
+          <i className="swatch owned" /> 持有
         </span>
         <span>
-          <i className="swatch under-construction" /> 建造中
+          <i className="swatch supply" /> 送料
         </span>
-        <span>
-          <i className="swatch building-ready" /> 工廠運營
-        </span>
-        <span>
-          <i className="swatch worker-travel" /> 工人趕路
-        </span>
-        <span>
-          <i className="swatch worker-work" /> 工人作業
-        </span>
-        <span>
-          <i className="swatch worker-idle" /> 工人閒置
-        </span>
-        <span>
-          <img
-            className="swatch art-icon"
-            src={ASSET_SLOTS.map.road}
-            alt=""
-            data-art-slot={MAP_ART_SLOT.road}
-          />
-          道路圖層
-        </span>
-        <span>
-          <img
-            className="swatch art-icon"
-            src={ASSET_SLOTS.map.cityHub}
-            alt=""
-            data-art-slot={MAP_ART_SLOT.cityHub}
-          />
-          城市據點圖層
-        </span>
-        <span>
-          <img
-            className="swatch art-icon"
-            src={ASSET_SLOTS.map.popDense}
-            alt=""
-            data-art-slot={MAP_ART_SLOT.popDense}
-          />
-          人口密集圖層
-        </span>
-        <span>
-          <img
-            className="swatch art-icon"
-            src={ASSET_SLOTS.map.cityBuilding}
-            alt=""
-            data-art-slot={MAP_ART_SLOT.cityBuilding}
-          />
-          城市建築圖層
-        </span>
-        {featureArt.source === 'placeholder' && (
-          <span className="map-legend-note">
-            道路、城市與人口密集為美術占位；地理資料寫入後會改接同一組圖層鍵。
-          </span>
-        )}
+        <span>房 可進入</span>
       </div>
       )}
       {narrow && !onFloor ? (

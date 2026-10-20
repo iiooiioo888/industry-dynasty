@@ -27,17 +27,17 @@ export function techStage(crafted: PlayerStock | undefined): 0 | 1 | 2 {
 export function unitsUntilNextStage(crafted: PlayerStock | undefined): string {
   const stage = techStage(crafted);
   if (stage >= 2) {
-    return '三階段皆已解鎖。熔鑄捷徑不需技術。';
+    return '階段已全開';
   }
   if (stage === 0) {
     const left = Math.max(0, TECH_GATES.processCraftedRaw - craftedByTier(crafted, 'raw'));
-    return `再入庫 ${left} 單位原料以解鎖冶煉。零件與熔鑄捷徑現在就能做。`;
+    return `原料再 ${left} 開冶煉`;
   }
   const left = Math.max(
     0,
     TECH_GATES.finishCraftedIntermediate - craftedByTier(crafted, 'intermediate'),
   );
-  return `再入庫 ${left} 單位中間件以解鎖礦物合金板。`;
+  return `中間件再 ${left} 開合金板`;
 }
 
 export function recipeBlockReason(args: {

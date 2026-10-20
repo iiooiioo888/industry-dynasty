@@ -112,7 +112,6 @@ export function ProductionPanel({
     parcel && site?.phase === 'complete'
       ? getSiteLogisticsView(state.map, parcel, site, state.sites)
       : null;
-  const locationBonus = logisticsView?.locationBonus ?? 0;
   const stageName = CHAIN_STAGES.find((entry) => entry.stage === stage)?.nameZh ?? '開採';
   const foldSummary = line
     ? `${stageName} · ${lineStatusZh(line.status)}`
@@ -171,8 +170,7 @@ export function ProductionPanel({
                           ? ' · 捷徑'
                           : ''}
                         {' · '}
-                        短路程名目每刻{' '}
-                        {Math.round(nominalProfitPerTick(recipe)).toLocaleString('zh-Hant')}
+                        {Math.round(nominalProfitPerTick(recipe)).toLocaleString('zh-Hant')}/刻
                       </span>
                     </li>
                   ))}
@@ -180,28 +178,23 @@ export function ProductionPanel({
               </section>
             ))}
           </div>
-          <p className="sys-muted chain-note">
-            短路程名目每刻是開採 &lt; 加工 &lt; 成品。離供應樞紐 (0,0)
-            愈遠，加工溢價掉得愈快，賣礦會反超。加工機不改產品，只改速度、產量與維護。煤炭、銅礦、石英砂粒可直接賣給港區。鐵錠、銅錠、矽片要再加工；合金板要組裝廠。
-          </p>
         </details>
 
         {!isFactory || !parcel || !site || site.phase !== 'complete' || !demand ? (
-          <p className="sys-muted">點完工工廠。可做的配方在地圖旁的規劃卡，一鍵開工。</p>
+          <p className="sys-muted">選一座完工廠</p>
         ) : (
           <>
             <ParcelResourceBadge resource={parcel.resource} variant="prominent" />
             <p className="panel-hint">
-              區位 +{locationBonus.toFixed(2)}（道路 {Math.round(parcel.roadAccess * 100)}% · 城市{' '}
-              {Math.round(parcel.cityProximity * 100)}%）· 在此收購每週 {demand.weeklyVolume}{' '}
-              件，單價 ${demand.unitPrice.toLocaleString()}
+              道路 {Math.round(parcel.roadAccess * 100)}% · 城市 {Math.round(parcel.cityProximity * 100)}% · 週{' '}
+              {demand.weeklyVolume}×${demand.unitPrice.toLocaleString()}
             </p>
             {line && activeRecipe ? (
               <>
                 <p className="sys-muted">
-                  生產中：{activeRecipe.nameZh} · {FACTORY_TYPES[site.factoryTypeId].nameZh}
+                  {activeRecipe.nameZh}
                   {line.machineGradeId ? ` · ${MACHINE_GRADES[line.machineGradeId].nameZh}` : ''}
-                  {line.pathGated ? ' · 路程超過門檻' : ''}
+                  {line.pathGated ? ' · 超距' : ''}
                 </p>
                 <p className="panel-hint">
                   {chainMarginCue(
@@ -238,7 +231,7 @@ export function ProductionPanel({
                 ) : null}
                 <dl className="prod-metrics">
                   <div>
-                    <dt>地皮加成</dt>
+                    <dt>加成</dt>
                     <dd>
                       {line.localResourceNameZh} ×{line.localResourceBonus.toFixed(2)}
                     </dd>
@@ -246,26 +239,24 @@ export function ProductionPanel({
                   <div>
                     <dt>狀態</dt>
                     <dd>
-                      {line.status === 'running' &&
-                        line.phase === 'traveling' &&
-                        '趕路（抵達後才作業）'}
-                      {line.status === 'running' && line.phase === 'working' && '作業中'}
-                      {line.status === 'waiting_inputs' && '待料閒置（移動暫停）'}
-                      {line.status === 'stopped' && '已停止'}
+                      {line.status === 'running' && line.phase === 'traveling' && '趕路'}
+                      {line.status === 'running' && line.phase === 'working' && '作業'}
+                      {line.status === 'waiting_inputs' && '待料'}
+                      {line.status === 'stopped' && '停止'}
                     </dd>
                   </div>
                   <div>
                     <dt>週期</dt>
                     <dd>
-                      {line.progressTicks}/{line.cycleTicks}（路程 +{line.workerTravelTicks}）
+                      {line.progressTicks}/{line.cycleTicks}
                     </dd>
                   </div>
                   <div>
-                    <dt>產出係數</dt>
+                    <dt>係數</dt>
                     <dd>{(line.throughputFactor * 100).toFixed(0)}%</dd>
                   </div>
                   <div>
-                    <dt>規劃利潤（含路程）</dt>
+                    <dt>規劃</dt>
                     <dd>
                       {formatProfit(
                         planProfitPerTick(activeRecipe, line.cycleTicks, line.throughputFactor),
@@ -274,24 +265,21 @@ export function ProductionPanel({
                     </dd>
                   </div>
                   <div>
-                    <dt>距離損失</dt>
+                    <dt>距離</dt>
                     <dd className="warn">${line.totalDistanceLossValue}</dd>
                   </div>
                   <div>
-                    <dt>閒置損失</dt>
+                    <dt>閒置</dt>
                     <dd className="warn">${line.totalIdleLossValue}</dd>
                   </div>
                 </dl>
                 <div className="progress-bar">
                   <div className="progress-fill" style={{ width: `${pct}%` }} />
                 </div>
-                <p className="sys-muted">
-                  模擬時間會自動推進這條產線。換配方要先停止，再從規劃卡開工。
-                </p>
                 <div className="sys-btn-row">
                   {state.clock.paused ? (
                     <button type="button" className="sys-btn" onClick={onAdvanceProduction}>
-                      暫停中前進一步
+                      前進一步
                     </button>
                   ) : null}
                   <button
@@ -304,9 +292,7 @@ export function ProductionPanel({
                 </div>
               </>
             ) : (
-              <p className="sys-muted">
-                配方在地圖旁的規劃卡：趕路刻、作業刻、規劃利潤，點一下就開工。
-              </p>
+              <p className="sys-muted">到規劃卡開工</p>
             )}
             <button
               type="button"

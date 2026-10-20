@@ -20,19 +20,6 @@ export interface MarketPanelProps {
   onFillOrder: (orderId: string, quantity: number, parcelId: ParcelId) => void;
 }
 
-function accessLabel(roadAccess: number): string {
-  if (roadAccess >= 0.95) {
-    return '沿路';
-  }
-  if (roadAccess >= 0.7) {
-    return '鄰路';
-  }
-  if (roadAccess >= 0.4) {
-    return '近路';
-  }
-  return '偏遠';
-}
-
 export function MarketPanel({ state, selectedParcelId, onFillOrder }: MarketPanelProps) {
   const parcel = selectedParcelId ? findParcel(state, selectedParcelId) : undefined;
   const holdings = getPlayerHoldings(state, state.localPlayerId);
@@ -48,9 +35,7 @@ export function MarketPanel({ state, selectedParcelId, onFillOrder }: MarketPane
           <ArtSlot slot="uiMarketHub" className="market-hub-art" />
           <h2>在地市場</h2>
         </header>
-        <p className="panel-muted">
-          點選地圖。人口越密，收購量與單價越高；靠近城市與道路才賣得動。
-        </p>
+        <p className="panel-muted">點一格地</p>
         <CityOrders orders={orders} shipFrom={shipFrom} stock={stock} onFillOrder={onFillOrder} />
       </section>
     );
@@ -81,36 +66,23 @@ export function MarketPanel({ state, selectedParcelId, onFillOrder }: MarketPane
           </p>
         </div>
       </header>
-      {parcel.role === 'city-hub' ? (
-        <p className="panel-muted">城市核心不出售。這裡的人口會抬高周圍土地的收購量與單價。</p>
-      ) : null}
-      {parcel.role === 'road' ? (
-        <p className="panel-muted">
-          {roads.length > 0 ? roads.join('、') : '道路'}
-          不開放購買。緊鄰道路的土地較能把人口需求賣出去。
-        </p>
+      {parcel.role === 'city-hub' || parcel.role === 'road' ? (
+        <p className="panel-muted">{parcel.role === 'road' ? '道路' : '城市'}不出售</p>
       ) : null}
       <dl className="market-stats">
         <div>
-          <dt>人口密度</dt>
+          <dt>人口</dt>
           <dd>{parcel.populationDensity}</dd>
         </div>
         <div>
-          <dt>每週可售</dt>
-          <dd>{quote.weeklyVolume} 件</dd>
+          <dt>週量</dt>
+          <dd>{quote.weeklyVolume}</dd>
         </div>
         <div>
-          <dt>收購單價</dt>
+          <dt>單價</dt>
           <dd>${quote.unitPrice.toLocaleString()}</dd>
         </div>
       </dl>
-      <p className="panel-hint">
-        需求指數 {Math.round(quote.demandIndex * 100)} · 道路{accessLabel(parcel.roadAccess)} ·{' '}
-        {parcel.nearestCityName
-          ? `${parcel.nearestCityName} ${parcel.nearestCityDistance} 格`
-          : '無城市'}
-        。人口是主因，城市與道路再加成。
-      </p>
       <CityOrders orders={orders} shipFrom={shipFrom} stock={stock} onFillOrder={onFillOrder} />
     </section>
   );
@@ -129,8 +101,7 @@ function CityOrders({
 }) {
   return (
     <div className="city-orders">
-      <h3>今日城市供貨</h3>
-      <p className="panel-hint">地圖上的「約」是還沒交完的城市。單價是貨值九成，當場入帳，不改港區牌價。</p>
+      <h3>城市供貨</h3>
       <ul className="floor-actions">
         {orders.map((order) => {
           const have = getItemQty(stock, order.itemId);

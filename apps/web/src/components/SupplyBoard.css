@@ -71,7 +71,7 @@
 }
 
 .supply-recipe.is-short,
-.supply-inputs li.is-short span:first-child {
+.supply-line.is-short {
   color: #ffb4a2;
 }
 

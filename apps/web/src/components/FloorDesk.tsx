@@ -13,7 +13,6 @@ import {
   getPlayerInventory,
   getProductionLine,
   getSite,
-  hasRecipeInputs,
   listCityOrders,
   listStaff,
   listSupplyHauls,
@@ -115,7 +114,7 @@ export function FloorDesk({
     const line = getProductionLine(state, parcelId);
     const recipe = line && line.status !== 'stopped' ? RECIPES[line.recipeId] : undefined;
     if (!line || !recipe || recipe.stage === 'extract') {
-      return <p className="floor-detail">開採不用裝機。加工產線開工後，才能在這裡換機台。</p>;
+      return <p className="floor-detail">加工線才能換機</p>;
     }
     return (
       <div className="floor-desk">
@@ -134,7 +133,7 @@ export function FloorDesk({
     const crew = listStaff(state).filter((person) => person.assignedParcelId === parcelId.value);
     return (
       <div className="floor-desk">
-        {crew.length === 0 ? <p className="floor-detail">這個席位還沒有人。</p> : null}
+        {crew.length === 0 ? <p className="floor-detail">空席</p> : null}
         <ul className="floor-actions">
           {STAFF_ROSTER.filter((candidate) => candidate.role === wanted).map((candidate) => {
             const hired = listStaff(state).find((person) => person.candidateId === candidate.id);
@@ -175,7 +174,6 @@ export function FloorDesk({
     const orders = listCityOrders(state).filter((order) => order.filled < order.quantity);
     return (
       <div className="floor-desk">
-        <p className="floor-detail">港區要走路才入帳。城市供貨當場交貨，單價是貨值的九成，不收運費，也不改港區牌價。</p>
         <ul className="floor-actions">
           {orders.map((order) => {
             const have = getItemQty(stock, order.itemId);
@@ -184,7 +182,7 @@ export function FloorDesk({
             return (
               <li key={order.id}>
                 <span>
-                  {order.cityName}要 {order.nameZh} {room} 件 · ${order.unitPay.toLocaleString()}/件 · 庫存 {have}
+                  {order.cityName} {order.nameZh} {room} · ${order.unitPay.toLocaleString()}
                 </span>
                 <button type="button" disabled={qty <= 0} onClick={() => onFillOrder(order.id, qty)}>
                   交貨
@@ -195,8 +193,7 @@ export function FloorDesk({
           {offers.map((offer) => (
             <li key={offer.id}>
               <span>
-                港區收 {ITEMS[offer.itemId].nameZh} · ${offer.unitPrice.toLocaleString()}/件 · 庫存{' '}
-                {getItemQty(stock, offer.itemId)}
+                {ITEMS[offer.itemId].nameZh} ${offer.unitPrice.toLocaleString()}
               </span>
               <button type="button" onClick={() => onSellToPort(offer.id, 1)}>
                 出 1 件
@@ -212,7 +209,7 @@ export function FloorDesk({
     const research = readResearch(state);
     return (
       <div className="floor-desk">
-        <p className="floor-detail">研發點 {research.points}。指派研發員後，模擬時間會累點。</p>
+        <p className="floor-detail">點數 {research.points}</p>
         <ul className="floor-actions">
           {RESEARCH_PROJECT_LIST.map((project) => {
             const unlocked = research.unlocked.includes(project.id);
@@ -255,7 +252,7 @@ export function FloorDesk({
   if (station.role === 'counter') {
     return (
       <div className="floor-desk">
-        <p className="floor-detail">品牌 {brandOf(state)}。${AD_POINT_COST.toLocaleString()} 換 1 點，只拉高門市量，日結消退。</p>
+        <p className="floor-detail">品牌 {brandOf(state)} · ${AD_POINT_COST.toLocaleString()}/點</p>
         <button type="button" disabled={cash < AD_POINT_COST} onClick={() => onBuyAd(AD_POINT_COST)}>
           投放 1 點
         </button>
@@ -293,7 +290,6 @@ function WorkDesk({
     return null;
   }
   if (recipe && line) {
-    const missing = recipe.inputs.filter((input) => getItemQty(stock, input.itemId) < input.quantity);
     return (
       <div className="floor-desk">
         <p className="floor-detail">
@@ -304,13 +300,12 @@ function WorkDesk({
           <>
             <ul className="floor-actions">
               {recipe.inputs.length === 0 ? (
-                <li>這條線直接吃礦脈，不進原料。</li>
+                <li>吃礦脈</li>
               ) : (
                 recipe.inputs.map((input) => (
                   <li key={input.itemId}>
-                    {ITEMS[input.itemId].nameZh} 需要 {input.quantity} · 公司庫 {getItemQty(stock, input.itemId)} · 料倉{' '}
+                    {ITEMS[input.itemId].nameZh} {input.quantity} · 庫 {getItemQty(stock, input.itemId)} · 倉{' '}
                     {getItemQty(siteBin(state, parcelId.value), input.itemId)}
-                    {missing.some((gap) => gap.itemId === input.itemId) ? ' · 公司庫不足' : ''}
                   </li>
                 ))
               )}
@@ -329,7 +324,6 @@ function WorkDesk({
   if (mode === 'intake') {
     return (
       <div className="floor-desk">
-        <p className="floor-detail">先排產，才能對上這座廠的上下游。料可以先送進料倉。</p>
         <SupplyPanel state={state} parcelId={parcelId} stock={stock} recipeId={null} onDispatch={onDispatch} />
       </div>
     );
@@ -356,19 +350,17 @@ function WorkDesk({
   return (
     <div className="floor-desk">
       {options.length === 0 ? (
-        <p className="floor-detail">這座廠現在沒有可開工的配方。</p>
+        <p className="floor-detail">無可開工配方</p>
       ) : (
         <ul className="floor-actions">
           {options.map((entry) => {
             const needsMachine = entry.stage !== 'extract';
             const blocked = needsMachine && cash < machine.installCost;
-            const ready = hasRecipeInputs(stock, entry.inputs);
             return (
               <li key={entry.id}>
                 <span>
                   {entry.nameZh}
-                  {needsMachine ? ` · 附${machine.nameZh}` : ' · 不裝機'}
-                  {ready ? '' : ' · 原料不足'}
+                  {needsMachine ? '' : ' · 開採'}
                 </span>
                 <button
                   type="button"
@@ -432,16 +424,20 @@ function SupplyPanel({
 
   return (
     <div className="floor-supply-block">
-      {recipeId ? (
+      {recipeId && (upstream.length > 0 || downstream.length > 0) ? (
         <p className="floor-detail">
-          上游 {upstream.map((link) => link.nameZh).join('、') || '無'} · 下游{' '}
-          {downstream.map((link) => link.nameZh).join('、') || '無'}
+          {[
+            upstream.length > 0 ? `上 ${upstream.map((link) => link.nameZh).join(' ')}` : '',
+            downstream.length > 0 ? `下 ${downstream.map((link) => link.nameZh).join(' ')}` : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </p>
       ) : null}
       <p className="floor-detail">
-        料倉 {held.length === 0 ? '空' : held.map(([id, have]) => `${ITEMS[id].nameZh} ${have}`).join('、')}
+        {held.length === 0 ? '倉空' : held.map(([id, have]) => `${ITEMS[id].nameZh} ${have}`).join(' ')}
         {incoming.length > 0
-          ? ` · 在途 ${incoming.map((haul) => `${ITEMS[haul.itemId].nameZh} ${haul.quantity}`).join('、')}`
+          ? ` · 途 ${incoming.map((haul) => `${ITEMS[haul.itemId].nameZh}${haul.quantity}`).join(' ')}`
           : ''}
       </p>
       <div className="floor-supply">
@@ -492,7 +488,7 @@ function SupplyPanel({
       <p className="floor-detail">
         {quote?.ok
           ? `運費 $${quote.freight.toLocaleString()} · ${quote.travelTicks} 刻到達`
-          : (quote?.reason ?? '來源沒有可送的料')}
+          : (quote?.reason ?? '無料')}
       </p>
     </div>
   );

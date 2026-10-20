@@ -24,22 +24,17 @@ export function AuctionAlertBanner({ state, selectedParcelId }: AuctionAlertBann
     <div className="auction-alert-banner" role="status" aria-live="polite">
       <span className="auction-alert-pulse" aria-hidden="true" />
       <div className="auction-alert-main">
-        <strong>土地拍賣進行中</strong>
-        <span className="auction-alert-count">{openLots.length} 宗開標</span>
+        <strong>拍賣 {openLots.length}</strong>
         {contested.length > 0 && (
-          <span className="auction-alert-contested">{contested.length} 宗已有出價</span>
+          <span className="auction-alert-contested">競價 {contested.length}</span>
         )}
       </div>
       {selectedOpen && selectedParcel ? (
         <div className="auction-alert-focus">
-          目前選取 ({selectedParcel.x},{selectedParcel.y}) ·
-          {selectedOpen.highBidderId
-            ? ` 最高價 $${selectedOpen.highBid.toLocaleString()} — 規劃卡可一次購入`
-            : ` 底價 $${selectedOpen.minPrice.toLocaleString()} — 規劃卡可比較後購入`}
+          {selectedParcel.x},{selectedParcel.y} · $
+          {(selectedOpen.highBidderId ? selectedOpen.highBid : selectedOpen.minPrice).toLocaleString()}
         </div>
-      ) : (
-        <div className="auction-alert-focus">點選閃爍橙格，在地圖旁比較後購入</div>
-      )}
+      ) : null}
     </div>
   );
 }

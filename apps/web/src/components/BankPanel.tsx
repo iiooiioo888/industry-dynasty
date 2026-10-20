@@ -148,7 +148,7 @@ export function BankPanel({
       <header className="sys-panel-head bank-heading">
         <span className="sys-panel-tag">BNK</span>
         <h2>銀行</h2>
-        <p className="bank-kicker">銀行第 {state.financeTick} 期 · 隨日結前進</p>
+        <p className="bank-kicker">第 {state.financeTick} 期</p>
       </header>
 
       <dl className="bank-ledger">
@@ -215,7 +215,6 @@ export function BankPanel({
             定期存款 · {formatBps(DEFAULT_BANK_CONFIG.savingsInterestBps)} ·{' '}
             {DEFAULT_BANK_CONFIG.savingsTermTicks} 期
           </h3>
-          <p className="panel-muted">利率高於閒置現金，鎖定期內提前解約只退本金。</p>
           {snapshot.savingsPrincipal > 0 ? (
             <div className="bank-holding">
               <p>
@@ -292,11 +291,7 @@ export function BankPanel({
               <dd>{money(snapshot.creditAvailable)}</dd>
             </div>
           </dl>
-          {snapshot.creditFrozen ? (
-            <p className="panel-warn">有積欠，新貸款暫停。先償還才會恢復授信。</p>
-          ) : (
-            <p className="panel-muted">貸款利率高於閒置與定期。借來放著會虧，適合趕建廠或買地。</p>
-          )}
+          {snapshot.creditFrozen ? <p className="panel-warn">有積欠，暫停新貸</p> : null}
           <ul className="bank-list">
             {LOAN_PRODUCT_LIST.map((product) => (
               <li key={product.id} className="bank-card">
@@ -624,7 +619,6 @@ export function BankPanel({
             )}
           </li>
         </ul>
-        <p className="panel-hint">標題列倒數歸零時自動結算，稅、利息與維護只走這一次。</p>
       </div>
       {notice ? <p className="bank-notice">{notice}</p> : null}
     </section>

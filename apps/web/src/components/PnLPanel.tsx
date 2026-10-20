@@ -20,19 +20,21 @@ export function PnLPanel({ state }: PnLPanelProps) {
         淨利 <strong className={net >= 0 ? 'pos' : 'neg'}>${net.toLocaleString()}</strong>
       </p>
       <ul className="pnl-lines">
-        <li><span>營收</span><span>+${pnl.revenue.toLocaleString()}</span></li>
-        <li><span>土地稅</span><span>-${pnl.taxPaid.toLocaleString()}</span></li>
-        <li><span>維護費</span><span>-${pnl.maintenance.toLocaleString()}</span></li>
-        <li><span>運輸</span><span>-${pnl.transportCost.toLocaleString()}</span></li>
-        <li><span>拍賣支出</span><span>-${pnl.auctionSpend.toLocaleString()}</span></li>
-        <li><span>建造支出</span><span>-${pnl.buildSpend.toLocaleString()}</span></li>
-        <li><span>生產閒置損失</span><span>-${pnl.productionIdleLoss.toLocaleString()}</span></li>
+        {pnl.revenue > 0 ? <li><span>營收</span><span>+${pnl.revenue.toLocaleString()}</span></li> : null}
+        {pnl.taxPaid > 0 ? <li><span>地稅</span><span>-${pnl.taxPaid.toLocaleString()}</span></li> : null}
+        {pnl.maintenance > 0 ? <li><span>維護</span><span>-${pnl.maintenance.toLocaleString()}</span></li> : null}
+        {pnl.transportCost > 0 ? <li><span>運輸</span><span>-${pnl.transportCost.toLocaleString()}</span></li> : null}
+        {pnl.auctionSpend > 0 ? <li><span>購地</span><span>-${pnl.auctionSpend.toLocaleString()}</span></li> : null}
+        {pnl.buildSpend > 0 ? <li><span>建造</span><span>-${pnl.buildSpend.toLocaleString()}</span></li> : null}
+        {pnl.productionIdleLoss > 0 ? (
+          <li><span>閒置</span><span>-${pnl.productionIdleLoss.toLocaleString()}</span></li>
+        ) : null}
       </ul>
       <p className="pnl-goal">
-        目標淨利 ${target.toLocaleString()} · 第 {state.gameDay}/{state.scenario.config.maxDays} 天
+        目標 ${target.toLocaleString()} · {state.gameDay}/{state.scenario.config.maxDays} 天
       </p>
-      {state.scenario.status === 'won' && <p className="pnl-win">已達標 — 產業霸權起步成功！</p>}
-      {state.scenario.status === 'lost' && <p className="pnl-lose">未達標 — 可調整佈局再試</p>}
+      {state.scenario.status === 'won' && <p className="pnl-win">已達標</p>}
+      {state.scenario.status === 'lost' && <p className="pnl-lose">未達標</p>}
     </section>
   );
 }

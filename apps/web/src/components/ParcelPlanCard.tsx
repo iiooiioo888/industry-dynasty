@@ -23,7 +23,6 @@ import {
   type MachineGradeId,
   type Parcel,
   type ParcelId,
-  type ParcelResourceKind,
   type RecipeId,
   type WorldState,
 } from '@industry-dynasty/sim';
@@ -62,19 +61,6 @@ type ParcelPlanBuildProps = {
 
 function formatProfit(value: number): string {
   return value.toLocaleString('zh-Hant', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
-}
-
-function resourceNextStep(kind: ParcelResourceKind): string | null {
-  switch (kind) {
-    case 'copper-shale':
-      return '下一步：挖出的銅礦可以直接賣給港區。煉成銅錠要煤炭，而且要先入庫原料解鎖技術。合金板要另建組裝廠，這座工坊做不到。';
-    case 'coal-seam':
-      return '下一步：煤炭可以直接出售，也是冶煉燃料。鐵錠、銅錠、矽片仍不能直接賣；合金板要組裝廠。';
-    case 'quartz-sand':
-      return '下一步：石英砂粒可以直接賣給港區。燒成矽片要煤炭與技術。合金板要另建組裝廠，這座工坊做不到。';
-    default:
-      return null;
-  }
 }
 
 function parcelById(state: WorldState, id: string): Parcel | undefined {
@@ -139,11 +125,10 @@ export function ParcelPlanCard({
         <h2>規劃</h2>
       </header>
       {!selected ? (
-        <p className="sys-muted">點地圖上的地。這張卡會並列到港、樞紐、人口、運費與土地稅。</p>
+        <p className="sys-muted">點一格地</p>
       ) : selected.role !== 'land' ? (
         <p className="sys-muted">
-          {selected.role === 'road' ? '道路' : (selected.nearestCityName ?? '城市')}
-          不出售。改選旁邊的地來比較。
+          不出售
         </p>
       ) : (
         <>
@@ -152,7 +137,7 @@ export function ParcelPlanCard({
               ({selected.x},{selected.y}) · {selected.resource.nameZh}
             </p>
             <button type="button" className="secondary" onClick={() => onTogglePin(selected.id)}>
-              {pinned ? '取消釘選' : '釘選比較'}
+              {pinned ? '取消釘選' : '釘選'}
             </button>
             {canEnterFloor ? (
               <button type="button" className="sys-btn" onClick={onEnterFloor}>
@@ -211,10 +196,6 @@ export function ParcelPlanCard({
               </tbody>
             </table>
           ) : null}
-          <p className="panel-hint">運費以基礎零件估算。釘選 2–3 格，先比再買。</p>
-          {resourceNextStep(selected.resource.kind) ? (
-            <p className="panel-hint">{resourceNextStep(selected.resource.kind)}</p>
-          ) : null}
           {buyable && lot && player ? (
             <AuctionBidBox
               key={`${selected.id.value}-${minNextBid(lot)}`}
@@ -264,7 +245,7 @@ export function ParcelPlanCard({
             />
           ) : null}
           {factoryReady && site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].kind === 'lab' ? (
-            <p className="panel-hint">研發室不排產。到右側「經營」指派研發員，點數每刻增加，暫停時不進。</p>
+            <p className="panel-hint">到經營頁指派研發員</p>
           ) : null}
           {factoryReady && selected && site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].kind === 'store' ? (
             <div className="plan-schedule">
@@ -334,7 +315,7 @@ function AuctionBidBox({
         </button>
       </div>
       <p className="panel-hint">
-        底價 ${lotMin.toLocaleString('zh-TW')}。沒有達到底價的結算不會關礦。
+        底價 ${lotMin.toLocaleString('zh-TW')}
       </p>
       {error ? (
         <p className="plan-alert" role="alert">
@@ -427,11 +408,9 @@ function FactorySchedule({
             cash={cash + (line.machinePaid ?? 0)}
             onSelect={(grade) => onInstall(parcel.id, grade)}
           />
-        ) : (
-          <p className="panel-hint">開採不裝加工機。產品沿用礦石，速度不因爐具改變。</p>
-        )}
+        ) : null}
         <button type="button" className="sys-btn secondary full" onClick={() => onStop(parcel.id)}>
-          停止這條產線
+          停止
         </button>
       </div>
     );
@@ -493,7 +472,7 @@ function FactorySchedule({
         onSelect={setMachine}
       />
       {options.length === 0 ? (
-        <p className="sys-muted">這座廠現在沒有可開工的配方。技術鏈收在右側「可解鎖」。</p>
+        <p className="sys-muted">無可開工配方</p>
       ) : (
         <ul className="plan-recipes">
           {options.map((option) => {
