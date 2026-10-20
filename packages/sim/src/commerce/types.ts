@@ -1,3 +1,4 @@
+import type { ContractBid } from './bidding.js';
 import type { QualityBand } from './quality.js';
 import type { ItemId } from '../production/items.js';
 
@@ -35,6 +36,11 @@ export interface CityContract {
   readonly penalty: number;
   readonly penalized: boolean;
   readonly shipFromParcelId?: string;
+  /**
+   * 對手的單價（市場行情）。玩家出價必須 ≤ 這個值才標得到。
+   * 舊存檔沒有這個欄位時視為面價（等於沒有競爭）。
+   */
+  readonly rivalUnitPrice?: number;
 }
 
 export interface ResearchJob {
@@ -89,6 +95,8 @@ export interface CommerceState {
   readonly addressableValue: number;
   readonly wagesPaid: number;
   readonly penaltiesPaid: number;
+  /** 玩家對合約的出價（見 commerce/bidding.ts） */
+  readonly contractBids?: readonly ContractBid[];
 }
 
 export const EMPTY_STAFF: StaffRoster = {

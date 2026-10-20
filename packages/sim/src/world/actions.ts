@@ -1,4 +1,11 @@
-import type { BondId, CommodityId, LoanProductId, MarketId, OrderSide, StockSymbol } from '../bank/types.js';
+import type {
+  BondId,
+  CommodityId,
+  LoanProductId,
+  MarketId,
+  OrderSide,
+  StockSymbol,
+} from '../bank/types.js';
 import type { StaffRole } from '../commerce/types.js';
 import type { ItemId } from '../production/items.js';
 import type { ClockSpeed } from './clock.js';
@@ -57,6 +64,11 @@ export type WorldAction =
   | { type: 'SELL_TO_NPC'; offerId: string; quantity: number; shipFromParcelId: ParcelId }
   | { type: 'SET_SHELF'; parcelId: ParcelId; itemId: ItemId; unitPrice: number; quantity: number }
   | { type: 'ACCEPT_CONTRACT'; contractId: string; shipFromParcelId: ParcelId }
+  /**
+   * 對城市合約出價。出價必須 ≤ 對手報價才標得到（見 commerce/bidding.ts）。
+   * 出越低越容易贏，但成交價也越低 —— 這是取捨。
+   */
+  | { type: 'BID_CONTRACT'; contractId: string; unitPrice: number }
   | { type: 'HIRE_STAFF'; role: StaffRole; count: number }
   | { type: 'FIRE_STAFF'; role: StaffRole; count: number }
   | { type: 'START_RESEARCH'; parcelId: ParcelId }

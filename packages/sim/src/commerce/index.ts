@@ -76,3 +76,12 @@ export {
   skillRatio,
   type StaffSkill,
 } from './staff.js';
+export {
+  MIN_BID_RATIO,
+  findBid,
+  resolveBid,
+  rivalBidFor,
+  upsertBid,
+  type BidOutcome,
+  type ContractBid,
+} from './bidding.js';

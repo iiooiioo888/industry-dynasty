@@ -12,6 +12,7 @@ import {
   qualityPriceMultiplier,
   type QualityBand,
 } from './quality.js';
+import { rivalBidFor } from './bidding.js';
 import { respondToPlayerShare } from './rivals.js';
 import { clerkCoverage, growStaffSkill, readStaffSkill } from './staff.js';
 import {
@@ -142,6 +143,13 @@ function createCityContract(
     status: 'open',
     penalty: Math.round(unitPrice * quantity * 0.35),
     penalized: false,
+    rivalUnitPrice: rivalBidFor({
+      contractId: `contract--d-`,
+      itemId,
+      faceUnitPrice: unitPrice,
+      cityId: city.id,
+      gameDay,
+    }),
   };
 }
 
