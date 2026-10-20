@@ -1,15 +1,16 @@
 :root {
-  --sys-bg: #0c0e12;
-  --sys-bg-deep: #06080b;
-  --sys-surface: #141820;
-  --sys-surface-2: #1a2030;
-  --sys-border: #2a3344;
-  --sys-text: #d8dee9;
-  --sys-muted: #7a8496;
-  --sys-accent: #5eb8ff;
-  --sys-warn: #e8b84a;
-  --sys-titlebar: #10141c;
+  --sys-bg: #141a16;
+  --sys-bg-deep: #101510;
+  --sys-surface: #1c2620;
+  --sys-surface-2: #243028;
+  --sys-border: #3a4a3c;
+  --sys-text: #e7ecdf;
+  --sys-muted: #93a094;
+  --sys-accent: #e0b15a;
+  --sys-warn: #e0b15a;
+  --sys-titlebar: #121814;
   --sys-font: 'Noto Sans TC', 'Segoe UI', system-ui, sans-serif;
+  --sys-display: 'Noto Serif TC', 'Noto Sans TC', serif;
   --sys-mono: ui-monospace, 'Cascadia Code', monospace;
 }
 
@@ -36,19 +37,15 @@
 .sys-panel-head h2 {
   margin: 0;
   min-width: 0;
-  font-size: 0.78rem;
+  font-family: var(--sys-display);
+  font-size: 1.05rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   line-height: 1.35;
 }
 
 .sys-panel-tag {
-  font-family: var(--sys-mono);
-  font-size: 0.6rem;
-  padding: 0.1rem 0.35rem;
-  background: var(--sys-bg-deep);
-  border: 1px solid var(--sys-border);
-  color: var(--sys-accent);
+  display: none;
 }
 
 .sys-muted {
@@ -58,17 +55,23 @@
 }
 
 .sys-btn {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   padding: 0.4rem 0.55rem;
-  border-radius: 3px;
-  border: 1px solid #3d6ea8;
-  background: linear-gradient(180deg, #1e3a5f 0%, #152a45 100%);
+  border-radius: 2px;
+  border: 1px solid #8d6a32;
+  background: #2a2418;
   color: var(--sys-text);
   cursor: pointer;
   line-height: 1.35;
   white-space: normal;
   overflow-wrap: anywhere;
   touch-action: manipulation;
+}
+
+.sys-btn:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--sys-accent);
+  outline-offset: 2px;
 }
 
 .sys-btn.secondary {

@@ -93,3 +93,10 @@
     opacity: 0.75;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .auction-alert-banner,
+  .auction-alert-pulse {
+    animation: none;
+  }
+}
