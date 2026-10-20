@@ -91,6 +91,8 @@ export function projectNetProfit(args: {
 export const FACTORY_MARGIN_MULTIPLIER: Record<FactoryTypeId, number> = {
   workshop: 1,
   'assembly-plant': 1.8,
+  lab: 0,
+  storefront: 0,
 };
 
 /**

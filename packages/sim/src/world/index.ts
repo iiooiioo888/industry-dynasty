@@ -75,6 +75,7 @@ export {
 } from './state.js';
 export { processParcelTax } from './tax-logic.js';
 export { MAINTENANCE_PER_FACTORY, applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
+export { COMMODITY_INTAKE, applyWithdrawCommodity, validateWithdrawCommodity } from '../supply/intake.js';
 export { netProfit, emptyPnL, type PnLSummary } from '../sales/pnl.js';
 export {
   generateParcelResource,

@@ -1,6 +1,7 @@
 import {
   FACTORY_TYPE_LIST,
   FACTORY_TYPES,
+  STOREFRONT_MIN_DENSITY,
   constructionRemainingTicks,
   findParcel,
   getSite,
@@ -74,7 +75,9 @@ export function BuildPanel({
       <MachineCompare />
       <ul className="factory-list">
         {FACTORY_TYPE_LIST.map((def) => {
-          const affordable = player.cash >= def.buildCost;
+          const denseEnough =
+            def.id !== 'storefront' || parcel.populationDensity >= STOREFRONT_MIN_DENSITY;
+          const affordable = player.cash >= def.buildCost && denseEnough;
           return (
             <li key={def.id}>
               <div className="factory-card">
@@ -84,16 +87,13 @@ export function BuildPanel({
                   費用 ${def.buildCost.toLocaleString()} · {def.buildTimeTicks} 刻 · 占地{' '}
                   {def.footprint.width}×{def.footprint.height}
                 </p>
-                <p className="factory-meta">
-                  基礎物流 {def.baseLogisticsEfficiency.toFixed(2)}× · 每鄰 +
-                  {(def.adjacencyEfficiencyBonus * 100).toFixed(0)}%
-                </p>
+                <p className="factory-meta">{def.blurb}</p>
                 <button
                   type="button"
                   disabled={!affordable}
                   onClick={() => onStartBuild(parcel.id, def.id)}
                 >
-                  開始建造
+                  {denseEnough ? '開始建造' : `人口密度需 ${STOREFRONT_MIN_DENSITY}`}
                 </button>
               </div>
             </li>

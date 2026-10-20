@@ -1,4 +1,5 @@
 import type { CommodityId, LoanProductId, StockSymbol } from '../bank/types.js';
+import type { ConsumerItemId } from '../company/retail.js';
 import type { ClockSpeed } from './clock.js';
 import type { FactoryTypeId } from '../buildings/catalog.js';
 import type { MachineGradeId } from '../production/machines.js';
@@ -44,4 +45,11 @@ export type WorldAction =
   | { type: 'SELL_TO_NPC'; offerId: string; quantity: number; shipFromParcelId: ParcelId }
   | { type: 'ADVANCE_DAY' }
   | { type: 'SET_CLOCK'; paused?: boolean; speed?: ClockSpeed }
-  | { type: 'ADVANCE_SIM_TIME'; deltaMs: number };
+  | { type: 'ADVANCE_SIM_TIME'; deltaMs: number }
+  | { type: 'HIRE_STAFF'; candidateId: string }
+  | { type: 'DISMISS_STAFF'; staffId: string }
+  | { type: 'ASSIGN_STAFF'; staffId: string; parcelId: ParcelId | null }
+  | { type: 'UNLOCK_RESEARCH'; projectId: string }
+  | { type: 'SET_SHELF_PRICE'; parcelId: ParcelId; itemId: ConsumerItemId; unitPrice: number }
+  | { type: 'BUY_ADVERT'; spend: number }
+  | { type: 'WITHDRAW_COMMODITY'; commodityId: CommodityId; lots: number };

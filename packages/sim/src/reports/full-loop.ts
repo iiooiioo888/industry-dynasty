@@ -231,7 +231,7 @@ function reserveQtyFor(
   }
   let need = 0;
   for (const recipe of Object.values(RECIPES)) {
-    if (recipe.inputs.length === 0) continue;
+    if (recipe.inputs.length === 0 || ('researchId' in recipe && recipe.researchId)) continue;
     if (!(recipe.stage === 'process' ? depth >= 1 : depth >= 2)) continue;
     const input = recipe.inputs.find((i) => i.itemId === itemId);
     if (input) {

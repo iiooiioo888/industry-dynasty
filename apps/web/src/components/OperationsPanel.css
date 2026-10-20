@@ -1,0 +1,63 @@
+.ops-panel h3 {
+  margin: 0.85rem 0 0.35rem;
+  font-size: 0.82rem;
+}
+
+.ops-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.ops-list li {
+  border: 1px solid var(--sys-border, #3d4654);
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+}
+
+.ops-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.ops-row input,
+.ops-row select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.right-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.right-tabs button {
+  padding: 0.35rem 0.15rem;
+  border-radius: 6px;
+  border: 1px solid #3d4654;
+  background: #0d1117;
+  color: #c4cad4;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.right-tabs button[aria-selected='true'] {
+  background: #1f3a5f;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.day-event {
+  flex: 1 0 100%;
+  margin: 0;
+  color: var(--sys-muted);
+  font-size: 0.65rem;
+}

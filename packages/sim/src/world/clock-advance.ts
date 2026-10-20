@@ -1,3 +1,4 @@
+import { accrueResearch } from '../company/research.js';
 import { dayIndexAt, SIM_MS_PER_TICK, type ClockSpeed } from './clock.js';
 import { applyBuildTick } from './build-reducer.js';
 import { applyProductionTick } from './production-reducer.js';
@@ -59,6 +60,7 @@ export function applyOneSimTick(
   if (hasLiveProduction(next)) {
     next = applyProductionTick(next);
   }
+  next = accrueResearch(next);
   next = settleArrivedShipments(next);
   return catchUpDays(next, config);
 }

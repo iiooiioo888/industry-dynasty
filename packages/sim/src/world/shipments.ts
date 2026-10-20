@@ -19,7 +19,8 @@ export function shipmentTravelTicks(state: WorldState, parcel: Parcel): number {
     { x: parcel.x, y: parcel.y },
     { x: MARKET_HUB.x, y: MARKET_HUB.y },
   );
-  return Math.max(1, path.length - 1);
+  const extra = state.todayEvent?.extraShipTicks ?? 0;
+  return Math.max(1, path.length - 1) + extra;
 }
 
 export function createShipment(args: {

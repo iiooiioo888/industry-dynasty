@@ -1,6 +1,8 @@
 import {
   DEFAULT_WORLD_CONFIG,
+  companyScore,
   ticksUntilDayClose,
+  type ConsumerItemId,
   type FactoryTypeId,
   type MachineGradeId,
   type ParcelId,
@@ -13,6 +15,7 @@ import { DataReportPanel } from './components/DataReportPanel';
 import { GameMap } from './components/GameMap';
 import { InventoryPanel } from './components/InventoryPanel';
 import { MarketPanel } from './components/MarketPanel';
+import { OperationsPanel } from './components/OperationsPanel';
 import { ParcelPlanCard } from './components/ParcelPlanCard';
 import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
@@ -21,12 +24,16 @@ import { SalesPanel } from './components/SalesPanel';
 import { useWorldState } from './game/useWorldState';
 import './App.css';
 
+type RightTab = 'ops' | 'manage' | 'finance';
+
 export function App() {
   const { state, dispatch } = useWorldState();
   const [selectedParcelId, setSelectedParcelId] = useState<ParcelId | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
+  const [rightTab, setRightTab] = useState<RightTab>('ops');
   const clockLabel = state.clock.paused ? '暫停' : `${state.clock.speed}×`;
+  const event = state.todayEvent;
 
   function togglePin(parcelId: ParcelId) {
     setPinnedIds((current) => {
@@ -45,8 +52,12 @@ export function App() {
           數據報表
         </button>
         <span className="meta" data-clock-readout="true">
-          第 {state.gameDay} 天 · {clockLabel} · 距日結 {ticksUntilDayClose(state.clock.simMs)} 刻
+          第 {state.gameDay} 天 · {clockLabel} · 距日結 {ticksUntilDayClose(state.clock.simMs)} 刻 ·
+          公司分數 {companyScore(state).toLocaleString()}
         </span>
+        <p className="day-event">
+          {event ? `${event.titleZh}。${event.detailZh}` : '平靜的一天。'}
+        </p>
       </header>
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
       <div className="shell-body">
@@ -81,42 +92,90 @@ export function App() {
               dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
             }
             onStopProduction={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
+            onSetShelfPrice={(parcelId, itemId: ConsumerItemId, unitPrice) =>
+              dispatch({ type: 'SET_SHELF_PRICE', parcelId, itemId, unitPrice })
+            }
           />
         </main>
         <aside className="shell-col shell-col-right">
-          <ProductionPanel
-            state={state}
-            selectedParcelId={selectedParcelId}
-            onStop={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
-            onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
-              dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
-            }
-            onAdvanceProduction={() => dispatch({ type: 'ADVANCE_PRODUCTION_TICK' })}
-            onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
-          />
-          <MarketPanel state={state} selectedParcelId={selectedParcelId} />
-          <BankPanel
-            state={state}
-            onOpenSavings={(amount) => dispatch({ type: 'OPEN_SAVINGS', amount })}
-            onWithdrawSavings={() => dispatch({ type: 'WITHDRAW_SAVINGS' })}
-            onDrawLoan={(productId, amount) => dispatch({ type: 'DRAW_LOAN', productId, amount })}
-            onRepayLoan={(loanId, amount) => dispatch({ type: 'REPAY_LOAN', loanId, amount })}
-            onBuyStock={(symbol, shares) => dispatch({ type: 'BUY_STOCK', symbol, shares })}
-            onSellStock={(symbol, shares) => dispatch({ type: 'SELL_STOCK', symbol, shares })}
-            onBuyCommodity={(commodityId, lots) =>
-              dispatch({ type: 'BUY_COMMODITY', commodityId, lots })
-            }
-            onSellCommodity={(commodityId, lots) =>
-              dispatch({ type: 'SELL_COMMODITY', commodityId, lots })
-            }
-          />
-          <SalesPanel
-            state={state}
-            selectedParcelId={selectedParcelId}
-            onSell={(offerId, quantity, shipFromParcelId) =>
-              dispatch({ type: 'SELL_TO_NPC', offerId, quantity, shipFromParcelId })
-            }
-          />
+          <div className="right-tabs" role="tablist" aria-label="右側面板">
+            {(
+              [
+                ['ops', '產銷'],
+                ['manage', '經營'],
+                ['finance', '資金'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={rightTab === id}
+                onClick={() => setRightTab(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {rightTab === 'ops' ? (
+            <>
+              <ProductionPanel
+                state={state}
+                selectedParcelId={selectedParcelId}
+                onStop={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
+                onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
+                  dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
+                }
+                onAdvanceProduction={() => dispatch({ type: 'ADVANCE_PRODUCTION_TICK' })}
+                onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
+              />
+              <MarketPanel state={state} selectedParcelId={selectedParcelId} />
+              <SalesPanel
+                state={state}
+                selectedParcelId={selectedParcelId}
+                onSell={(offerId, quantity, shipFromParcelId) =>
+                  dispatch({ type: 'SELL_TO_NPC', offerId, quantity, shipFromParcelId })
+                }
+              />
+            </>
+          ) : null}
+          {rightTab === 'manage' ? (
+            <OperationsPanel
+              state={state}
+              onHire={(candidateId) => dispatch({ type: 'HIRE_STAFF', candidateId })}
+              onDismiss={(staffId) => dispatch({ type: 'DISMISS_STAFF', staffId })}
+              onAssign={(staffId, parcelId) =>
+                dispatch({ type: 'ASSIGN_STAFF', staffId, parcelId })
+              }
+              onUnlock={(projectId) => dispatch({ type: 'UNLOCK_RESEARCH', projectId })}
+              onSetPrice={(parcelId, itemId, unitPrice) =>
+                dispatch({ type: 'SET_SHELF_PRICE', parcelId, itemId, unitPrice })
+              }
+              onBuyAd={(spend) => dispatch({ type: 'BUY_ADVERT', spend })}
+            />
+          ) : null}
+          {rightTab === 'finance' ? (
+            <BankPanel
+              state={state}
+              onOpenSavings={(amount) => dispatch({ type: 'OPEN_SAVINGS', amount })}
+              onWithdrawSavings={() => dispatch({ type: 'WITHDRAW_SAVINGS' })}
+              onDrawLoan={(productId, amount) =>
+                dispatch({ type: 'DRAW_LOAN', productId, amount })
+              }
+              onRepayLoan={(loanId, amount) => dispatch({ type: 'REPAY_LOAN', loanId, amount })}
+              onBuyStock={(symbol, shares) => dispatch({ type: 'BUY_STOCK', symbol, shares })}
+              onSellStock={(symbol, shares) => dispatch({ type: 'SELL_STOCK', symbol, shares })}
+              onBuyCommodity={(commodityId, lots) =>
+                dispatch({ type: 'BUY_COMMODITY', commodityId, lots })
+              }
+              onSellCommodity={(commodityId, lots) =>
+                dispatch({ type: 'SELL_COMMODITY', commodityId, lots })
+              }
+              onWithdrawCommodity={(commodityId, lots) =>
+                dispatch({ type: 'WITHDRAW_COMMODITY', commodityId, lots })
+              }
+            />
+          ) : null}
         </aside>
       </div>
       {reportOpen ? (

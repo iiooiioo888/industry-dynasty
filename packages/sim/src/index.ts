@@ -3,6 +3,7 @@ export * from './buildings/index.js';
 export * from './production/index.js';
 export * from './sales/index.js';
 export * from './bank/index.js';
+export * from './company/index.js';
 export * from './world/index.js';
 export {
   DEFAULT_ROSTER,

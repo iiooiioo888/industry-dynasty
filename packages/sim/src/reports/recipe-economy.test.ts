@@ -80,6 +80,7 @@ describe('配方毛利：哪條路線真的有錢賺', () => {
   it('單座工坊 25 天的最高可能毛利', () => {
     let best = { id: '', perDay: 0, total: 0 };
     for (const r of Object.values(RECIPES)) {
+      if ('researchId' in r && r.researchId) continue;
       if (!(r.buildings as readonly string[]).includes('workshop')) continue;
       const outVal = ITEMS[r.outputItemId].unitValue * r.outputQuantity * (r.outputMultiplier ?? 1);
       const inVal = r.inputs.reduce((s, i) => s + ITEMS[i.itemId].unitValue * i.quantity, 0);
@@ -146,7 +147,9 @@ describe('配方毛利：哪條路線真的有錢賺', () => {
   it('短路程名目毛利是開採 < 加工 < 成品，遠址則賣礦反超', () => {
     const perTick = (r: (typeof RECIPES)[keyof typeof RECIPES]): number => nominalProfitPerTick(r);
     const extraction = Object.values(RECIPES).filter((r) => r.stage === 'extract');
-    const processing = Object.values(RECIPES).filter((r) => r.stage !== 'extract');
+    const processing = Object.values(RECIPES).filter(
+      (r) => r.stage !== 'extract' && !('researchId' in r && r.researchId),
+    );
     const ironTick = perTick(RECIPES['extract-iron']);
     const bestProcess = Math.max(
       ...Object.values(RECIPES)

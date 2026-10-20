@@ -1,4 +1,7 @@
 import { getSiteLogisticsView } from '../buildings/adjacency.js';
+import { isProductiveFactory } from '../buildings/catalog.js';
+import { extraProductionTicks, foremanSkillAt } from '../company/staff.js';
+import { readResearch } from '../company/research.js';
 import { SIM_MS_PER_TICK } from './clock.js';
 import type { CompleteSite } from '../buildings/site.js';
 import { getSiteForParcel } from '../buildings/build-logic.js';
@@ -40,6 +43,9 @@ export function applyStartProduction(
   if (parcel.state !== 'building-ready') {
     return state;
   }
+  if (!isProductiveFactory(site.factoryTypeId)) {
+    return state;
+  }
 
   const recipe = RECIPES[recipeId];
   if (!recipe) {
@@ -51,6 +57,7 @@ export function applyStartProduction(
       resourceKind: parcel.resource.kind,
       factoryTypeId: site.factoryTypeId,
       crafted: state.craftedTotals[player.id],
+      unlockedResearch: readResearch(state).unlocked,
     })
   ) {
     return state;
@@ -198,10 +205,41 @@ export function applyProductionTick(state: WorldState): WorldState {
         [ownerId]: addItem(craftedTotals[ownerId] ?? {}, recipe.outputItemId, granted),
       };
     }
-    productionLines[key] = { ...result.line, progressAnchorMs, stallTicks };
+    let currentLine = { ...result.line, progressAnchorMs, stallTicks };
+    let currentParcel = result.parcel;
+    const extra = stalled
+      ? 0
+      : extraProductionTicks(foremanSkillAt(state, key), state.productionTick);
+    for (let step = 0; step < extra; step += 1) {
+      if (currentLine.status !== 'running') {
+        break;
+      }
+      const againBefore = getItemQty(inventories[ownerId] ?? {}, recipe.outputItemId);
+      const again = tickProductionLine(
+        currentLine,
+        recipe,
+        inventories[ownerId] ?? {},
+        currentParcel,
+      );
+      const againGranted = getItemQty(again.stock, recipe.outputItemId) - againBefore;
+      inventories = { ...inventories, [ownerId]: again.stock };
+      if (againGranted > 0) {
+        craftedTotals = {
+          ...craftedTotals,
+          [ownerId]: addItem(craftedTotals[ownerId] ?? {}, recipe.outputItemId, againGranted),
+        };
+      }
+      currentLine = {
+        ...again.line,
+        progressAnchorMs: state.clock.simMs,
+        stallTicks: again.line.status === 'waiting_inputs' ? again.line.stallTicks : 0,
+      };
+      currentParcel = again.parcel;
+    }
+    productionLines[key] = currentLine;
     map = {
       ...map,
-      parcels: map.parcels.map((p) => (p.id.value === key ? result.parcel : p)),
+      parcels: map.parcels.map((p) => (p.id.value === key ? currentParcel : p)),
     };
   }
 

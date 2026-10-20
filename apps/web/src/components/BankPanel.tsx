@@ -20,6 +20,8 @@ import {
   validateRepayLoan,
   validateSellCommodity,
   validateSellStock,
+  COMMODITY_INTAKE,
+  validateWithdrawCommodity,
   validateWithdrawSavings,
   type CommodityId,
   type LoanProductId,
@@ -39,6 +41,7 @@ export interface BankPanelProps {
   onSellStock: (symbol: StockSymbol, shares: number) => void;
   onBuyCommodity: (commodityId: CommodityId, lots: number) => void;
   onSellCommodity: (commodityId: CommodityId, lots: number) => void;
+  onWithdrawCommodity: (commodityId: CommodityId, lots: number) => void;
 }
 
 type BankTab = 'overview' | 'loans' | 'stocks' | 'wholesale';
@@ -109,6 +112,7 @@ export function BankPanel({
   onSellStock,
   onBuyCommodity,
   onSellCommodity,
+  onWithdrawCommodity,
 }: BankPanelProps) {
   const [tab, setTab] = useState<BankTab>('overview');
   const [notice, setNotice] = useState<string | null>(null);
@@ -509,7 +513,10 @@ export function BankPanel({
 
       {tab === 'wholesale' ? (
         <div role="tabpanel">
-          <p className="panel-muted">以手為單位。賣價比買價低 4%，同一週轉手一定虧損。</p>
+          <p className="panel-muted">
+            以手為單位。賣價比買價低 4%，同一週轉手一定虧損。煤炭與銅可以一手提領成 1
+            單位產線原料，市價高於自己開採。
+          </p>
           <ul className="bank-list">
             {COMMODITY_LIST.map((commodity) => {
               const ask = quoteCommodityAsk(commodity.id, state.financeTick);
@@ -576,6 +583,23 @@ export function BankPanel({
                     >
                       賣出
                     </button>
+                    {COMMODITY_INTAKE[commodity.id] ? (
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => {
+                          const check = validateWithdrawCommodity(state, commodity.id, lots);
+                          if (!check.ok) {
+                            reject(check.reason);
+                            return;
+                          }
+                          onWithdrawCommodity(commodity.id, lots);
+                          setNotice(`提領 ${commodity.nameZh} ${lots} 手進產線庫存`);
+                        }}
+                      >
+                        提領入庫
+                      </button>
+                    ) : null}
                   </div>
                 </li>
               );

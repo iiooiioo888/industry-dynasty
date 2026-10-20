@@ -1,10 +1,10 @@
+import { applyOperatingClose } from '../company/day.js';
 import {
   addPnL,
   emptyPnL,
   evaluateScenario,
   executeSellToNpc,
   findOfferById,
-  generateNpcBuyOffers,
 } from '../sales/index.js';
 import { HOLDING } from '../balance/targets.js';
 import { MACHINE_GRADES } from '../production/machines.js';
@@ -91,14 +91,20 @@ export function applyAdvanceDay(
   const nextPlayer: Player = { ...player, cash };
   pnl = aggregateProductionIdleLoss(next, playerId, pnl);
 
-  const scenario = evaluateScenario(next.scenario, gameDay, pnl);
-
-  return {
+  const closed = applyOperatingClose({
     ...next,
     gameDay,
     players: { ...next.players, [playerId]: nextPlayer },
     pnl: { ...next.pnl, [playerId]: pnl },
-    npcBuyOffers: generateNpcBuyOffers(gameDay),
+  });
+  const scenario = evaluateScenario(
+    closed.scenario,
+    gameDay,
+    closed.pnl[playerId] ?? pnl,
+  );
+
+  return {
+    ...closed,
     scenario,
   };
 }

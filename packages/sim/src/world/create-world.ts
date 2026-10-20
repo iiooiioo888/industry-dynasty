@@ -1,4 +1,7 @@
 import { emptyPlayerBank } from '../bank/logic.js';
+import { eventForDay } from '../company/events.js';
+import { emptyResearch } from '../company/research.js';
+import { createRivalBook } from '../company/rivals.js';
 import { initialSimClock } from './clock.js';
 import type { AuctionLot } from '../types/auction.js';
 import { DEFAULT_STARTING_STOCK } from '../production/items.js';
@@ -66,6 +69,12 @@ export function createInitialWorld(config: Partial<WorldConfig> = {}): WorldStat
     scenario: createScenarioState(),
     clock: initialSimClock(),
     shipments: [],
+    staff: [],
+    research: emptyResearch(),
+    shelfPrices: [],
+    brand: 0,
+    rivals: createRivalBook(map.cities),
+    todayEvent: eventForDay(0),
   };
 }
 

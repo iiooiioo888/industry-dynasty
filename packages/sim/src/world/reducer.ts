@@ -33,6 +33,10 @@ import { quoteLandSale } from './land-sale.js';
 import { applyTaxTickWithPnl } from './day-reducer.js';
 import { bumpPlayerPnl } from './pnl-helpers.js';
 import { applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
+import { assignStaff, dismissStaff, hireStaff, releaseStaffAt } from '../company/staff.js';
+import { unlockResearch } from '../company/research.js';
+import { buyAdvert, setShelfPrice } from '../company/retail.js';
+import { applyWithdrawCommodity } from '../supply/intake.js';
 import { findOpenLotForParcel, findParcel, type Player, type WorldState } from './state.js';
 
 function updateParcelInMap(map: WorldState['map'], parcel: Parcel): WorldState['map'] {
@@ -106,6 +110,20 @@ export function applyWorldAction(
       return setSimClock(state, { paused: action.paused, speed: action.speed });
     case 'ADVANCE_SIM_TIME':
       return advanceSimClock(state, action.deltaMs, config);
+    case 'HIRE_STAFF':
+      return hireStaff(state, action.candidateId);
+    case 'DISMISS_STAFF':
+      return dismissStaff(state, action.staffId);
+    case 'ASSIGN_STAFF':
+      return assignStaff(state, action.staffId, action.parcelId);
+    case 'UNLOCK_RESEARCH':
+      return unlockResearch(state, action.projectId);
+    case 'SET_SHELF_PRICE':
+      return setShelfPrice(state, action.parcelId, action.itemId, action.unitPrice);
+    case 'BUY_ADVERT':
+      return buyAdvert(state, action.spend);
+    case 'WITHDRAW_COMMODITY':
+      return applyWithdrawCommodity(state, action.commodityId, action.lots);
     default:
       return state;
   }
@@ -230,9 +248,10 @@ function applySellLand(state: WorldState, parcelId: ParcelId, config: WorldConfi
   const productionLines = { ...state.productionLines };
   delete productionLines[parcelId.value];
   const unpaidLandTax = { ...state.unpaidLandTax, [parcelId.value]: 0 };
+  const released = releaseStaffAt(state, parcelId.value);
 
   return {
-    ...state,
+    ...released,
     map: updateParcelInMap(state.map, nextParcel),
     sites,
     productionLines,
@@ -273,9 +292,10 @@ function applyDemolishAction(state: WorldState, parcelId: ParcelId): WorldState 
   const sites = { ...state.sites };
   delete sites[parcelId.value];
   const productionLines = clearProductionAtParcel(state.productionLines, parcelId.value);
+  const released = releaseStaffAt(state, parcelId.value);
 
   return {
-    ...state,
+    ...released,
     map: updateParcelInMap(state.map, applyDemolish(parcel)),
     sites,
     productionLines,

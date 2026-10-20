@@ -10,7 +10,10 @@ export type ItemId =
   | 'copper-ingot'
   | 'silica'
   | 'basic-part'
-  | 'alloy-plate';
+  | 'alloy-plate'
+  | 'tool-kit'
+  | 'wire-spool'
+  | 'sealant-coat';
 
 export interface ItemDef {
   readonly id: ItemId;
@@ -127,6 +130,27 @@ const V_ALLOY_PLATE = deriveOutputValue(
   1,
   processingMarginPerCycle(5, 'finish'),
 );
+const V_TOOL_KIT = deriveOutputValue(
+  [
+    { unitValue: V_BASIC_PART, quantity: 1 },
+    { unitValue: V_IRON_INGOT, quantity: 1 },
+  ],
+  1,
+  processingMarginPerCycle(4, 'finish'),
+);
+const V_WIRE_SPOOL = deriveOutputValue(
+  [{ unitValue: V_COPPER_INGOT, quantity: 2 }],
+  1,
+  processingMarginPerCycle(3, 'finish'),
+);
+const V_SEALANT = deriveOutputValue(
+  [
+    { unitValue: V_RESIN, quantity: 2 },
+    { unitValue: V_SILICA, quantity: 1 },
+  ],
+  1,
+  processingMarginPerCycle(3, 'finish'),
+);
 
 export const ITEMS = {
   'raw-ore': { id: 'raw-ore', nameZh: '原礦', tier: 'raw', unitValue: V_RAW_ORE, sellable: true },
@@ -181,6 +205,27 @@ export const ITEMS = {
     unitValue: V_ALLOY_PLATE,
     sellable: true,
   },
+  'tool-kit': {
+    id: 'tool-kit',
+    nameZh: '手持工具組',
+    tier: 'finished',
+    unitValue: V_TOOL_KIT,
+    sellable: true,
+  },
+  'wire-spool': {
+    id: 'wire-spool',
+    nameZh: '導電線捲',
+    tier: 'finished',
+    unitValue: V_WIRE_SPOOL,
+    sellable: true,
+  },
+  'sealant-coat': {
+    id: 'sealant-coat',
+    nameZh: '密封塗料',
+    tier: 'finished',
+    unitValue: V_SEALANT,
+    sellable: true,
+  },
 } as const satisfies Record<ItemId, ItemDef>;
 
 const ITEM_ORDER: readonly ItemId[] = [
@@ -194,6 +239,9 @@ const ITEM_ORDER: readonly ItemId[] = [
   'silica',
   'basic-part',
   'alloy-plate',
+  'tool-kit',
+  'wire-spool',
+  'sealant-coat',
 ];
 
 export const ITEM_LIST: readonly ItemDef[] = ITEM_ORDER.map((id) => ITEMS[id]);

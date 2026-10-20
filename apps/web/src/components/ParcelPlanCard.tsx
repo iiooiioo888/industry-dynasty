@@ -1,5 +1,6 @@
 import {
   FACTORY_TYPES,
+  readResearch,
   MACHINE_GRADES,
   RECIPE_LIST,
   RECIPES,
@@ -16,6 +17,8 @@ import {
   quoteParcelPlan,
   recipeBlockReason,
   validateBid,
+  type ConsumerItemId,
+  type FactoryTypeId,
   type MachineGradeId,
   type Parcel,
   type ParcelId,
@@ -26,6 +29,7 @@ import {
 import { useState } from 'react';
 import { BuildPanel } from './BuildPanel';
 import { MachineCompare } from './MachineCompare';
+import { ShelfDesk } from './OperationsPanel';
 import './ParcelPlanCard.css';
 
 const MAX_PINS = 3;
@@ -47,10 +51,11 @@ export interface ParcelPlanCardProps {
   ) => void;
   onInstallMachine: (parcelId: ParcelId, machineGradeId: MachineGradeId) => void;
   onStopProduction: (parcelId: ParcelId) => void;
+  onSetShelfPrice: (parcelId: ParcelId, itemId: ConsumerItemId, unitPrice: number) => void;
 }
 
 type ParcelPlanBuildProps = {
-  onStartBuild: (parcelId: ParcelId, factoryTypeId: 'workshop' | 'assembly-plant') => void;
+  onStartBuild: (parcelId: ParcelId, factoryTypeId: FactoryTypeId) => void;
 };
 
 function formatProfit(value: number): string {
@@ -86,6 +91,7 @@ export function ParcelPlanCard({
   onStartProduction,
   onInstallMachine,
   onStopProduction,
+  onSetShelfPrice,
 }: ParcelPlanCardProps) {
   const player = state.players[state.localPlayerId];
   const selected = selectedParcelId ? findParcel(state, selectedParcelId) : undefined;
@@ -236,7 +242,7 @@ export function ParcelPlanCard({
               onCancelBuild={onCancelBuild}
             />
           ) : null}
-          {factoryReady && selected && site?.phase === 'complete' ? (
+          {factoryReady && selected && site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].kind === 'works' ? (
             <FactorySchedule
               state={state}
               parcel={selected}
@@ -247,6 +253,15 @@ export function ParcelPlanCard({
               onInstall={onInstallMachine}
               onStop={onStopProduction}
             />
+          ) : null}
+          {factoryReady && site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].kind === 'lab' ? (
+            <p className="panel-hint">研發室不排產。到右側「經營」指派研發員，點數每刻增加，暫停時不進。</p>
+          ) : null}
+          {factoryReady && selected && site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].kind === 'store' ? (
+            <div className="plan-schedule">
+              <h3>門市定價</h3>
+              <ShelfDesk state={state} parcelId={selected.id} onSetPrice={onSetShelfPrice} />
+            </div>
           ) : null}
         </>
       )}
@@ -360,7 +375,7 @@ function FactorySchedule({
 }: {
   state: WorldState;
   parcel: Parcel;
-  factoryTypeId: 'workshop' | 'assembly-plant';
+  factoryTypeId: FactoryTypeId;
   line: ReturnType<typeof getProductionLine>;
   cash: number;
   onStart: (parcelId: ParcelId, recipeId: RecipeId, machineGradeId?: MachineGradeId) => void;
@@ -426,6 +441,7 @@ function FactorySchedule({
       resourceKind: parcel.resource.kind,
       factoryTypeId,
       crafted,
+      unlockedResearch: readResearch(state).unlocked,
     });
   })
     .map((recipe) => {

@@ -1,4 +1,9 @@
 import type { PlayerBank } from '../bank/types.js';
+import type { MarketEvent } from '../company/events.js';
+import type { ResearchProgress } from '../company/research.js';
+import type { ShelfPrice } from '../company/retail.js';
+import type { RivalBook } from '../company/rivals.js';
+import type { HiredStaff } from '../company/staff.js';
 import type { SimClock } from './clock.js';
 import type { ParcelSite } from '../buildings/site.js';
 import type { NpcBuyOffer } from '../sales/market.js';
@@ -41,6 +46,13 @@ export interface WorldState {
   readonly clock: SimClock;
   /** 在途出貨。缺省視為沒有，舊狀態仍可開局。到貨才入帳。 */
   readonly shipments?: readonly Shipment[];
+  /** 缺省視為沒人。日結才扣薪。 */
+  readonly staff?: readonly HiredStaff[];
+  readonly research?: ResearchProgress;
+  readonly shelfPrices?: readonly ShelfPrice[];
+  readonly brand?: number;
+  readonly rivals?: RivalBook;
+  readonly todayEvent?: MarketEvent;
 }
 
 export function findParcel(state: WorldState, parcelId: ParcelId): Parcel | undefined {
