@@ -16,7 +16,12 @@
 import { FACTORY_TYPES, type FactoryTypeId } from '../buildings/catalog.js';
 import { BUILD_MATERIALS, hasBuildMaterials } from '../buildings/materials.js';
 import { RECIPES, type RecipeId } from '../production/recipes.js';
-import { applyProductionPlans, planProductionSlots } from '../production/planning.js';
+import {
+  applyProductionPlans,
+  isRecipeUnlocked,
+  planProductionSlots,
+} from '../production/planning.js';
+import { techStage } from '../production/chain.js';
 import { getItemQty, ITEMS } from '../production/items.js';
 import { netProfit } from '../sales/pnl.js';
 import { addPnL, emptyPnL } from '../sales/pnl.js';
@@ -265,9 +270,20 @@ function reserveQtyFor(
     return 0;
   }
   let need = 0;
+  const unlocked = state.commerce?.unlocked ?? [];
+  const crafted = state.craftedTotals[playerId];
   for (const recipe of Object.values(RECIPES)) {
     if (recipe.inputs.length === 0) continue;
     if (!(recipe.stage === 'process' ? depth >= 1 : depth >= 2)) continue;
+    // 只保留「真的排得出來」的配方會吃到的原料。
+    //
+    // 這裡原本掃描**全部**配方 —— 不看產出是否可販售、也不看是否解鎖。
+    // 後果：只要有人新增一筆「理論上永遠不會被選到」的配方，
+    // 它的投入就會被誤認為需要保留，於是原本要賣的成品被扣住不賣，
+    // 量測結果整個跑掉（實測加了被鎖住的配方後，營收從 157,022 掉到 50,742）。
+    if (!ITEMS[recipe.outputItemId].sellable) continue;
+    if (!isRecipeUnlocked(recipe, unlocked)) continue;
+    if (techStage(crafted) < recipe.minTechStage) continue;
     const input = recipe.inputs.find((i) => i.itemId === itemId);
     if (input) {
       need = Math.max(need, input.quantity);
