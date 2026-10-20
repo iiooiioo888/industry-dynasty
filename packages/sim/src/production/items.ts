@@ -13,7 +13,8 @@ export type ItemId =
   | 'alloy-plate'
   | 'hand-tool'
   | 'wire-bundle'
-  | 'pack-module';
+  | 'pack-module'
+  | 'precision-module';
 
 export interface ItemDef {
   readonly id: ItemId;
@@ -151,6 +152,25 @@ const V_PACK_MODULE = deriveOutputValue(
   1,
   processingMarginPerCycle(4, 'finish'),
 );
+/**
+ * 三階產品：把合金板（原本的二階成品）再加工成精密模組。
+ *
+ * 合金板因此從「最終商品」變成「中間件」，價值鏈多一段。
+ * 這是後期唯一能再往上跳一階的手段 —— 目前技術樹只有兩階，
+ * 一階加工產值上限約 1.2M、二階約 2.9M，兩者之間沒有其他成長空間。
+ *
+ * **需要研發解鎖**（`researchId: 'consumer-line'`）：沒解鎖不會被排程選到。
+ * 毛利刻意設得比二階高，否則排程永遠不會選它（見下方 120,000 的說明）。
+ */
+const V_PRECISION_MODULE = deriveOutputValue(
+  [
+    { unitValue: V_ALLOY_PLATE, quantity: 2 },
+    { unitValue: V_BASIC_PART, quantity: 2 },
+  ],
+  1,
+  // 每週期毛利 120,000／8 刻 = 15,000，高於熔鑄合金板（8,450）與軋製（10,870）
+  120_000,
+);
 
 export const ITEMS = {
   'raw-ore': { id: 'raw-ore', nameZh: '原礦', tier: 'raw', unitValue: V_RAW_ORE, sellable: true },
@@ -226,6 +246,13 @@ export const ITEMS = {
     unitValue: V_PACK_MODULE,
     sellable: false,
   },
+  'precision-module': {
+    id: 'precision-module',
+    nameZh: '精密模組',
+    tier: 'finished',
+    unitValue: V_PRECISION_MODULE,
+    sellable: true,
+  },
 } as const satisfies Record<ItemId, ItemDef>;
 
 const ITEM_ORDER: readonly ItemId[] = [
@@ -242,6 +269,7 @@ const ITEM_ORDER: readonly ItemId[] = [
   'hand-tool',
   'wire-bundle',
   'pack-module',
+  'precision-module',
 ];
 
 export const ITEM_LIST: readonly ItemDef[] = ITEM_ORDER.map((id) => ITEMS[id]);
