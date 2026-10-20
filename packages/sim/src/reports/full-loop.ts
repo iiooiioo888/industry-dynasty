@@ -69,6 +69,13 @@ export interface FullLoopOptions {
   readonly extractorCount?: number;
   /** 除錯／量測用：每天排完生產後呼叫一次。 */
   readonly inspect?: (day: number, state: WorldState) => void;
+  /**
+   * 量測用：預設已解鎖的研究。
+   *
+   * 量測迴圈不會去蓋實驗室跑研究，所以「研究解鎖後的配方」在量測裡永遠
+   * 不可用。要評估三階這類研究解鎖內容，得能直接把解鎖狀態塞進去。
+   */
+  readonly unlockedResearch?: readonly string[];
 }
 
 export interface FullLoopDay {
@@ -270,17 +277,30 @@ function reserveQtyFor(
     return 0;
   }
   let need = 0;
+  // 保留**現在真的在跑的產線**所需原料。
+  //
+  // 這裡走過四種寫法，每一種踩到不同的坑，值得記下來：
+  // 1. 掃描全部配方 → 新增一筆被鎖住的配方就讓營收從 157,022 掉到 50,742
+  //    （無關的資料改變了量測）。
+  // 2. 加上「可販售＋已解鎖＋技術階段到」過濾 → 被鎖住的不再影響，
+  //    但解鎖後仍會為「永遠排不到」的配方囤料，營收一樣崩掉。
+  // 3. 只看實際排程結果 → 雞生蛋：配方要等庫存才排得到，
+  //    庫存又要先保留才累積得起來。
+  // 4. 只看正在跑的產線 → 一開始沒有任何產線，原料被賣光，鏈條起不來。
+  //
+  // 最後採用的規則：**保留原料與中間件，不保留成品**。
+  // 原料與中間件是所有加工的共同起點，不保留就永遠開不了工；
+  // 成品（合金板、精密模組…）不保留，因為「該不該拿成品再加工」是策略問題，
+  // 不該由量測工具替玩家決定 —— 先前正是在這裡把營收扣掉了 106,000。
+  const listed = ITEMS[itemId as keyof typeof ITEMS];
+  if (!listed || listed.tier === 'finished') {
+    return buildMaterialReserve(state, playerId, itemId, depth);
+  }
   const unlocked = state.commerce?.unlocked ?? [];
   const crafted = state.craftedTotals[playerId];
   for (const recipe of Object.values(RECIPES)) {
     if (recipe.inputs.length === 0) continue;
     if (!(recipe.stage === 'process' ? depth >= 1 : depth >= 2)) continue;
-    // 只保留「真的排得出來」的配方會吃到的原料。
-    //
-    // 這裡原本掃描**全部**配方 —— 不看產出是否可販售、也不看是否解鎖。
-    // 後果：只要有人新增一筆「理論上永遠不會被選到」的配方，
-    // 它的投入就會被誤認為需要保留，於是原本要賣的成品被扣住不賣，
-    // 量測結果整個跑掉（實測加了被鎖住的配方後，營收從 157,022 掉到 50,742）。
     if (!ITEMS[recipe.outputItemId].sellable) continue;
     if (!isRecipeUnlocked(recipe, unlocked)) continue;
     if (techStage(crafted) < recipe.minTechStage) continue;
@@ -450,6 +470,14 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
   const extractorCount = options.extractorCount ?? 2;
 
   let state = createInitialWorld(config);
+  // 量測迴圈不蓋實驗室、不跑研究，所以「研究解鎖後才可用的配方」在量測裡
+  // 永遠不會出現。要評估這類內容，得能直接把解鎖狀態塞進來。
+  if (options.unlockedResearch && options.unlockedResearch.length > 0 && state.commerce) {
+    state = {
+      ...state,
+      commerce: { ...state.commerce, unlocked: [...options.unlockedResearch] },
+    };
+  }
   const days: FullLoopDay[] = [];
   const resourceKinds = pickResourceKinds(state, options.recipeId, depth);
 
