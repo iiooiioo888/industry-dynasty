@@ -62,4 +62,5 @@ export type WorldAction =
       quantity: number;
       /** 省略時從公司庫出發。指定時從另一座完工建物的料倉出發。 */
       fromParcelId?: ParcelId | null;
-    };
+    }
+  | { type: 'RESTOCK_SITE'; parcelId: ParcelId };

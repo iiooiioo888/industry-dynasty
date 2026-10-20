@@ -6,7 +6,7 @@ import { createInitialWorld } from '../world/create-world.js';
 import { applyWorldAction } from '../world/reducer.js';
 import { findOpenLotForParcel, getPlayerInventory, getProductionLine } from '../world/state.js';
 import { parcelIdFromCoords } from '../types/map.js';
-import { downstreamOf, siteBin, upstreamOf } from './haul.js';
+import { downstreamOf, listSiteSupply, quoteRestock, siteBin, upstreamOf } from './haul.js';
 
 function ownAndComplete(x: number, y: number) {
   let state = createInitialWorld({ startingCash: 400_000 });
@@ -102,6 +102,43 @@ describe('廠間供應鏈', () => {
     );
     expect(getItemQty(getPlayerInventory(demolished, 'player-1'), 'coal')).toBe(3);
     expect(demolished.siteBins?.[parcelId.value]).toBeUndefined();
+  });
+
+  it('補一輪只送差額，在途已夠時不再出車', () => {
+    const land = createInitialWorld().map.parcels.find(
+      (parcel) =>
+        parcel.role === 'land' &&
+        parcel.resource.linkedItemId !== 'raw-ore' &&
+        parcel.resource.linkedItemId !== 'resin',
+    )!;
+    const built = ownAndComplete(land.x, land.y);
+    let state = built.state;
+    const parcelId = built.parcelId;
+    const idle = applyWorldAction(state, { type: 'RESTOCK_SITE', parcelId });
+    expect(idle).toBe(state);
+    expect(quoteRestock(state, parcelId).ok).toBe(false);
+
+    state = applyWorldAction(state, {
+      type: 'START_PRODUCTION',
+      parcelId,
+      recipeId: 'make-basic-part',
+      machineGradeId: 'balance-press',
+    });
+    const offers = state.npcBuyOffers;
+    const before = getItemQty(getPlayerInventory(state, 'player-1'), 'raw-ore');
+    const quote = quoteRestock(state, parcelId);
+    expect(quote.ok).toBe(true);
+    if (!quote.ok) {
+      return;
+    }
+    expect(quote.lines.map((line) => line.itemId)).toEqual(['raw-ore', 'resin']);
+    const sent = applyWorldAction(state, { type: 'RESTOCK_SITE', parcelId });
+    expect(sent.supplyHauls).toHaveLength(2);
+    expect(getItemQty(getPlayerInventory(sent, 'player-1'), 'raw-ore')).toBe(before - 2);
+    expect(sent.pnl['player-1']!.transportCost).toBe(quote.freight);
+    expect(sent.npcBuyOffers).toEqual(offers);
+    expect(listSiteSupply(sent)[0]?.inputs.find((input) => input.itemId === 'raw-ore')?.shortfall).toBe(0);
+    expect(applyWorldAction(sent, { type: 'RESTOCK_SITE', parcelId })).toBe(sent);
   });
 
   it('配方能對上上游與下游', () => {

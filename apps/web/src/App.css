@@ -7,7 +7,9 @@
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
-  background: var(--sys-bg);
+  background:
+    radial-gradient(1200px 420px at 50% -10%, rgba(231, 195, 106, 0.08), transparent 55%),
+    var(--sys-bg);
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
     env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
@@ -28,10 +30,21 @@
 }
 
 .shell-titlebar .brand {
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
   flex-shrink: 0;
   min-width: 0;
+}
+
+.brand-mark {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 2px;
+  background: linear-gradient(135deg, #ffe7a8, #c9892d);
+  box-shadow: 0 0 10px rgba(231, 195, 106, 0.7);
 }
 
 .report-launch {
@@ -55,23 +68,31 @@
 }
 
 .shell-titlebar .meta {
-  flex: 0 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.28rem;
+  flex: 1 1 auto;
   min-width: 0;
   font-family: var(--sys-mono);
   color: var(--sys-muted);
   font-size: 0.65rem;
   line-height: 1.35;
-  text-align: right;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.meta-chip {
+  padding: 0.08rem 0.42rem;
+  border-radius: 999px;
+  border: 1px solid var(--sys-border);
+  background: rgba(8, 12, 18, 0.45);
   white-space: nowrap;
 }
 
 .shell-body {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 300px;
-  gap: 4px;
-  padding: 4px;
+  grid-template-columns: 232px minmax(0, 1fr) 332px;
+  gap: 8px;
+  padding: 8px;
   flex: 1;
   min-height: 0;
   min-width: 0;
@@ -82,7 +103,7 @@
 .shell-col {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   min-height: 0;
   min-width: 0;
   max-width: 100%;

@@ -4,7 +4,7 @@
 }
 
 .pnl-net strong.pos {
-  color: #6dd96d;
+  color: var(--sys-good, #8ee0a8);
 }
 
 .pnl-net strong.neg {

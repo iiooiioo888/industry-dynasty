@@ -37,7 +37,7 @@ import { assignStaff, dismissStaff, hireStaff, releaseStaffAt } from '../company
 import { unlockResearch } from '../company/research.js';
 import { fillCityOrder } from '../company/orders.js';
 import { buyAdvert, setShelfPrice } from '../company/retail.js';
-import { dispatchSupply, releaseSiteBin } from '../supply/haul.js';
+import { dispatchSupply, releaseSiteBin, restockSite } from '../supply/haul.js';
 import { applyWithdrawCommodity } from '../supply/intake.js';
 import { findOpenLotForParcel, findParcel, type Player, type WorldState } from './state.js';
 
@@ -135,6 +135,8 @@ export function applyWorldAction(
         quantity: action.quantity,
         fromParcelId: action.fromParcelId,
       });
+    case 'RESTOCK_SITE':
+      return restockSite(state, action.parcelId);
     default:
       return state;
   }

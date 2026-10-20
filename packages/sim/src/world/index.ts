@@ -88,16 +88,23 @@ export { COMMODITY_INTAKE, applyWithdrawCommodity, validateWithdrawCommodity } f
 export {
   dispatchSupply,
   downstreamOf,
+  listSiteSupply,
   listSupplyHauls,
   listSupplyHaulViews,
+  quoteRestock,
   quoteSupplyDispatch,
   releaseSiteBin,
+  restockSite,
   settleSupplyHauls,
   siteBin,
   upstreamOf,
   type ChainNeighbor,
+  type RestockPart,
+  type SiteInputCover,
+  type SiteSupplyView,
   type SupplyHaul,
   type SupplyHaulView,
+  type SupplyStockLine,
 } from '../supply/haul.js';
 export { netProfit, emptyPnL, type PnLSummary } from '../sales/pnl.js';
 export {

@@ -23,6 +23,7 @@ import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
 import { ProductionPanel } from './components/ProductionPanel';
 import { SalesPanel } from './components/SalesPanel';
+import { SupplyBoard } from './components/SupplyBoard';
 import { useWorldState } from './game/useWorldState';
 import './App.css';
 
@@ -57,14 +58,19 @@ export function App() {
   return (
     <div className="shell">
       <header className="shell-titlebar">
-        <span className="brand">產業霸權 · 產業控制台</span>
+        <span className="brand">
+          <span className="brand-mark" aria-hidden="true" />
+          產業霸權
+        </span>
+        <span className="meta" data-clock-readout="true">
+          <span className="meta-chip">第 {state.gameDay} 天</span>
+          <span className="meta-chip">{clockLabel}</span>
+          <span className="meta-chip">距日結 {ticksUntilDayClose(state.clock.simMs)} 刻</span>
+          <span className="meta-chip">分數 {companyScore(state).toLocaleString()}</span>
+        </span>
         <button type="button" className="report-launch" onClick={() => setReportOpen(true)}>
           數據報表
         </button>
-        <span className="meta" data-clock-readout="true">
-          第 {state.gameDay} 天 · {clockLabel} · 距日結 {ticksUntilDayClose(state.clock.simMs)} 刻 ·
-          公司分數 {companyScore(state).toLocaleString()}
-        </span>
         <p className="day-event">
           {event ? `${event.titleZh}。${event.detailZh}` : '平靜的一天。'}
         </p>
@@ -196,6 +202,12 @@ export function App() {
           </div>
           {rightTab === 'ops' ? (
             <>
+              <SupplyBoard
+                state={state}
+                selectedParcelId={selectedParcelId}
+                onSelect={setSelectedParcelId}
+                onRestock={(parcelId) => dispatch({ type: 'RESTOCK_SITE', parcelId })}
+              />
               <ProductionPanel
                 state={state}
                 selectedParcelId={selectedParcelId}

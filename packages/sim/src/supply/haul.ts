@@ -1,3 +1,4 @@
+import { FACTORY_TYPES } from '../buildings/catalog.js';
 import { addItem, getItemQty, ITEMS, removeItem, type ItemId, type PlayerStock } from '../production/items.js';
 import { RECIPES, type RecipeId } from '../production/recipes.js';
 import { SUPPLY_HUB } from '../production/logistics.js';
@@ -6,7 +7,7 @@ import { TRANSPORT_RATE_PER_TILE } from '../sales/ship-route.js';
 import type { ParcelId } from '../types/map.js';
 import { SIM_MS_PER_TICK } from '../world/clock.js';
 import { findPath, pointAlongPath, type TilePoint } from '../world/pathfinding.js';
-import { findParcel, getPlayerInventory, type WorldState } from '../world/state.js';
+import { findParcel, getPlayerInventory, getProductionLine, type WorldState } from '../world/state.js';
 
 export interface SupplyHaul {
   readonly id: string;
@@ -247,6 +248,166 @@ export function listSupplyHaulViews(state: WorldState): SupplyHaulView[] {
       points,
     };
   });
+}
+
+export interface SupplyStockLine {
+  readonly itemId: ItemId;
+  readonly nameZh: string;
+  readonly quantity: number;
+}
+
+export interface SiteInputCover {
+  readonly itemId: ItemId;
+  readonly nameZh: string;
+  readonly perCycle: number;
+  readonly inBin: number;
+  readonly inbound: number;
+  readonly inCompany: number;
+  readonly shortfall: number;
+}
+
+export interface SiteSupplyView {
+  readonly parcelKey: string;
+  readonly x: number;
+  readonly y: number;
+  readonly factoryNameZh: string;
+  readonly recipeNameZh: string | null;
+  readonly waiting: boolean;
+  readonly bin: readonly SupplyStockLine[];
+  readonly inbound: readonly (SupplyStockLine & { readonly ticksLeft: number })[];
+  readonly inputs: readonly SiteInputCover[];
+}
+
+export interface RestockPart {
+  readonly itemId: ItemId;
+  readonly nameZh: string;
+  readonly quantity: number;
+  readonly freight: number;
+  readonly travelTicks: number;
+}
+
+export function listSiteSupply(state: WorldState): SiteSupplyView[] {
+  const playerId = state.localPlayerId;
+  const company = getPlayerInventory(state, playerId);
+  const hauls = listSupplyHauls(state).filter((haul) => haul.ownerId === playerId);
+  const views: SiteSupplyView[] = [];
+  for (const parcel of state.map.parcels) {
+    if (parcel.ownerId !== playerId) {
+      continue;
+    }
+    const site = state.sites[parcel.id.value];
+    if (!site || site.phase !== 'complete') {
+      continue;
+    }
+    const line = getProductionLine(state, parcel.id);
+    const recipe = line && line.status !== 'stopped' ? RECIPES[line.recipeId] : undefined;
+    const bin = siteBin(state, parcel.id.value);
+    const incoming = hauls.filter((haul) => haul.toParcelId === parcel.id.value);
+    const inboundQty = new Map<string, number>();
+    for (const haul of incoming) {
+      inboundQty.set(haul.itemId, (inboundQty.get(haul.itemId) ?? 0) + haul.quantity);
+    }
+    views.push({
+      parcelKey: parcel.id.value,
+      x: parcel.x,
+      y: parcel.y,
+      factoryNameZh: FACTORY_TYPES[site.factoryTypeId].nameZh,
+      recipeNameZh: recipe?.nameZh ?? null,
+      waiting: line?.status === 'waiting_inputs',
+      bin: stockLines(bin),
+      inbound: incoming.map((haul) => ({
+        itemId: haul.itemId,
+        nameZh: ITEMS[haul.itemId].nameZh,
+        quantity: haul.quantity,
+        ticksLeft: Math.max(0, Math.ceil((haul.arriveSimMs - state.clock.simMs) / SIM_MS_PER_TICK)),
+      })),
+      inputs: (recipe?.inputs ?? []).map((input) => {
+        const inBin = getItemQty(bin, input.itemId);
+        const inbound = inboundQty.get(input.itemId) ?? 0;
+        return {
+          itemId: input.itemId,
+          nameZh: ITEMS[input.itemId].nameZh,
+          perCycle: input.quantity,
+          inBin,
+          inbound,
+          inCompany: getItemQty(company, input.itemId),
+          shortfall: Math.max(0, input.quantity - inBin - inbound),
+        };
+      }),
+    });
+  }
+  return views;
+}
+
+export function quoteRestock(
+  state: WorldState,
+  parcelId: ParcelId,
+): { ok: true; freight: number; lines: readonly RestockPart[] } | { ok: false; reason: string } {
+  const view = listSiteSupply(state).find((entry) => entry.parcelKey === parcelId.value);
+  if (!view) {
+    return { ok: false, reason: '只能補自己的完工建物' };
+  }
+  if (!view.recipeNameZh) {
+    return { ok: false, reason: '先排產，再補一輪料' };
+  }
+  if (view.inputs.length === 0) {
+    return { ok: false, reason: '這條線直接吃礦脈' };
+  }
+  const shortages = view.inputs.filter((input) => input.shortfall > 0);
+  if (shortages.length === 0) {
+    return { ok: false, reason: '這一輪的料已經在倉或在路上' };
+  }
+  const lines: RestockPart[] = [];
+  for (const input of shortages) {
+    const quote = quoteSupplyDispatch(state, {
+      toParcelId: parcelId,
+      itemId: input.itemId,
+      quantity: input.shortfall,
+    });
+    if (!quote.ok) {
+      return quote;
+    }
+    lines.push({
+      itemId: input.itemId,
+      nameZh: input.nameZh,
+      quantity: input.shortfall,
+      freight: quote.freight,
+      travelTicks: quote.travelTicks,
+    });
+  }
+  const freight = lines.reduce((sum, line) => sum + line.freight, 0);
+  const player = state.players[state.localPlayerId];
+  if (!player || player.cash < freight) {
+    return { ok: false, reason: '運費不足' };
+  }
+  return { ok: true, freight, lines };
+}
+
+/** 依目前配方，把差一輪的料從公司庫一次送進料倉。料夠或沒排產時不改狀態。 */
+export function restockSite(state: WorldState, parcelId: ParcelId): WorldState {
+  const quote = quoteRestock(state, parcelId);
+  if (!quote.ok) {
+    return state;
+  }
+  let next = state;
+  for (const line of quote.lines) {
+    const dispatched = dispatchSupply(next, {
+      toParcelId: parcelId,
+      itemId: line.itemId,
+      quantity: line.quantity,
+    });
+    if (dispatched === next) {
+      return state;
+    }
+    next = dispatched;
+  }
+  return next;
+}
+
+function stockLines(stock: PlayerStock): SupplyStockLine[] {
+  return Object.entries(stock)
+    .filter((entry): entry is [ItemId, number] => entry[1] > 0 && entry[0] in ITEMS)
+    .map(([itemId, quantity]) => ({ itemId, nameZh: ITEMS[itemId].nameZh, quantity }));
 }
 
 export function mergeStock(company: PlayerStock, bin: PlayerStock): PlayerStock {

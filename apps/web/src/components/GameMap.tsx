@@ -5,7 +5,9 @@ import {
   listCityOrders,
   findOpenLotForParcel,
   listMapActors,
+  getProductionLine,
   listShipmentViews,
+  listSupplyHauls,
   listSupplyHaulViews,
   quoteLocalDemand,
   ticksUntilDayClose,
@@ -158,6 +160,7 @@ export function GameMap({
   const actors = listMapActors(state);
   const routes = listShipmentViews(state);
   const hauls = listSupplyHaulViews(state);
+  const inboundParcels = new Set(listSupplyHauls(state).map((haul) => haul.toParcelId));
   const floorBlock = selectedParcelId
     ? enterFloorBlock(state, selectedParcelId)
     : '先在大世界點一棟完工的建物';
@@ -275,6 +278,13 @@ export function GameMap({
               const hasCityOrder = orderCity
                 ? openOrders.some((order) => order.cityId === orderCity.id)
                 : false;
+              const lineHere = getProductionLine(state, parcel.id);
+              const supplyMark =
+                lineHere?.status === 'waiting_inputs'
+                  ? '缺'
+                  : inboundParcels.has(parcel.id.value)
+                    ? '送'
+                    : null;
               return (
                 <button
                   key={parcel.id.value}
@@ -311,6 +321,14 @@ export function GameMap({
                   {hasCityOrder ? (
                     <span className="map-cell-order-tag" aria-hidden="true">
                       約
+                    </span>
+                  ) : null}
+                  {supplyMark ? (
+                    <span
+                      className={`map-cell-supply-tag${supplyMark === '缺' ? ' is-short' : ''}`}
+                      aria-hidden="true"
+                    >
+                      {supplyMark}
                     </span>
                   ) : null}
                   {parcel.role === 'land' && (
@@ -356,8 +374,9 @@ export function GameMap({
                     .join(' ')}
                   fill="none"
                   stroke="#e3b341"
-                  strokeWidth={0.12}
-                  strokeDasharray="0.18 0.14"
+                  strokeWidth={0.2}
+                  strokeLinecap="round"
+                  strokeDasharray="0.22 0.12"
                 />
               ))}
             </svg>
@@ -451,6 +470,8 @@ export function GameMap({
         <span>
           <i className="swatch supply" /> 廠間送料
         </span>
+        <span>送 在途補料</span>
+        <span>缺 產線待料</span>
         <span>
           <i className="swatch city" /> 城市據點
         </span>
