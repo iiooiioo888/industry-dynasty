@@ -35,7 +35,10 @@ export {
   seedRivals,
 } from './logic.js';
 export {
+  AFTERMATH_PREFIX,
   MAX_CONCURRENT_EVENTS,
+  expireEvent,
+  isAftermathEvent,
   NEWS_TEMPLATES,
   combineMultiplier,
   rollNewsEvents,
@@ -65,3 +68,23 @@ export type {
   WorldEvent,
   WorldEventKind,
 } from './types.js';
+export {
+  CLERK_SKILL_MAX_BONUS,
+  OPERATOR_SKILL_MAX_BONUS,
+  STAFF_SKILL_MAX,
+  STAFF_SKILL_PER_DAY,
+  emptyStaffSkill,
+  growStaffSkill,
+  readStaffSkill,
+  skillRatio,
+  type StaffSkill,
+} from './staff.js';
+export {
+  MIN_BID_RATIO,
+  findBid,
+  resolveBid,
+  rivalBidFor,
+  upsertBid,
+  type BidOutcome,
+  type ContractBid,
+} from './bidding.js';

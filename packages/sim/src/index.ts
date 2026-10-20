@@ -7,6 +7,18 @@ export * from './npc/index.js';
 export * from './bank/index.js';
 export * from './desk/index.js';
 export * from './world/index.js';
+export * from './persistence/index.js';
+export * from './guidance/index.js';
+export * from './presentation/index.js';
+export {
+  FIRST_STAGE,
+  STAGES,
+  isFinalStage,
+  nextStage,
+  stageById,
+  stageByIndex,
+} from './balance/stages.js';
+export type { StageDef, StageTargets } from './balance/stages.js';
 export {
   DEFAULT_ROSTER,
   DEFAULT_SIMULATION,

@@ -12,7 +12,7 @@
  */
 import { applyWorldAction } from '../world/reducer.js';
 import type { WorldState } from '../world/state.js';
-import { ITEMS, getItemQty } from '../production/items.js';
+import { ITEMS, getItemQty, type PlayerStock } from '../production/items.js';
 import { RECIPES, type RecipeDef, type RecipeId, type RecipeStage } from '../production/recipes.js';
 import { techStage } from '../production/chain.js';
 
@@ -59,22 +59,63 @@ function marginPerCycle(recipe: RecipeDef): number {
   return outValue - inValue;
 }
 
+/**
+ * 這個配方現在能不能排？需要研究的配方必須先解鎖。
+ *
+ * 這是修掉的一個真 bug：`RecipeDef.researchId` 先前**完全沒被檢查**，
+ * 所以「研發解鎖」在自動排程裡形同虛設 —— 只要原料夠、毛利高就會被排進去。
+ * 目前所有帶 researchId 的配方產出都不可販售，所以問題還沒顯現；
+ * 一旦有「可用但要解鎖」的配方就會直接爆掉。
+ */
+export function isRecipeUnlocked(recipe: RecipeDef, unlocked: readonly string[]): boolean {
+  const researchId = recipe.researchId;
+  return !researchId || unlocked.includes(researchId);
+}
+
+/**
+ * 排程要吃掉多少原料才能安心開跑。
+ *
+ * 這是「搶料」問題的核心修正。原本每個工廠都獨立看**全部庫存**，
+ * 於是兩座組裝廠會同時判定「合金板夠」而一起開工 —— 實際上只有一份，
+ * 第二座隨後就餓死，變成閒置（土地稅與維護照付）。
+ *
+ * 這裡要求每個配方至少能撐 `PLAN_INPUT_BUFFER` 個週期才排。
+ */
+export const PLAN_INPUT_BUFFER = 1;
+
+/** 目前庫存夠不夠跑這個配方（含緩衝）。 */
+export function hasInputsForRecipe(
+  stock: PlayerStock | undefined,
+  recipe: RecipeDef,
+  buffer = PLAN_INPUT_BUFFER,
+): boolean {
+  const source: PlayerStock = stock ?? {};
+  return recipe.inputs.every(
+    (input) => getItemQty(source, input.itemId) >= input.quantity * buffer,
+  );
+}
+
 function bestReadyRecipe(
   state: WorldState,
   playerId: string,
   siteFactoryTypeId: string,
   stage: RecipeStage,
+  reserved: Readonly<Record<string, number>> = {},
 ): RecipeId | null {
   const stock = state.inventories[playerId] ?? {};
   const crafted = state.craftedTotals[playerId];
+  const unlocked = state.commerce?.unlocked ?? [];
+  // 扣掉前面幾座工廠已經預定走的原料 —— 否則同一個原料會被重複規劃
+  const available: PlayerStock = Object.fromEntries(
+    Object.entries(stock).map(([itemId, qty]) => [itemId, qty - (reserved[itemId] ?? 0)]),
+  );
   const candidates = Object.values(RECIPES)
     .filter((recipe) => recipe.stage === stage && recipe.inputs.length > 0)
     .filter((recipe) => ITEMS[recipe.outputItemId].sellable)
     .filter((recipe) => techStage(crafted) >= recipe.minTechStage)
+    .filter((recipe) => isRecipeUnlocked(recipe, unlocked))
     .filter((recipe) => (recipe.buildings as readonly string[]).includes(siteFactoryTypeId))
-    .filter((recipe) =>
-      recipe.inputs.every((input) => getItemQty(stock, input.itemId) >= input.quantity),
-    )
+    .filter((recipe) => hasInputsForRecipe(available, recipe))
     .map((recipe) => ({ recipe, marginPerCycle: marginPerCycle(recipe) }))
     .filter((candidate) => candidate.marginPerCycle > 0)
     .sort((a, b) => b.marginPerCycle - a.marginPerCycle || a.recipe.id.localeCompare(b.recipe.id));
@@ -162,6 +203,14 @@ export function planProductionSlots(
     depth >= 2 && ordered.some((key) => state.sites[key]?.factoryTypeId === 'assembly-plant');
 
   const plans: SlotPlan[] = [];
+  // 已經被前面工廠預定走的原料。沒有這個，兩座同型工廠會同時判定
+  // 「原料夠」而一起開工，實際上只有一份 —— 第二座隨後餓死變閒置。
+  const reserved: Record<string, number> = {};
+  const reserveInputs = (recipeId: RecipeId): void => {
+    for (const input of RECIPES[recipeId].inputs) {
+      reserved[input.itemId] = (reserved[input.itemId] ?? 0) + input.quantity;
+    }
+  };
   for (const key of ordered) {
     const parcel = state.map.parcels.find((p) => p.id.value === key);
     const site = state.sites[key];
@@ -179,15 +228,17 @@ export function planProductionSlots(
             : 'process';
 
     if (wanted) {
-      const picked = bestReadyRecipe(state, playerId, site.factoryTypeId, wanted);
+      const picked = bestReadyRecipe(state, playerId, site.factoryTypeId, wanted, reserved);
       if (picked) {
         plans.push({ parcelKey: key, recipeId: picked, processing: true });
+        reserveInputs(picked);
         continue;
       }
       if (wanted === 'finish') {
-        const feeder = bestReadyRecipe(state, playerId, site.factoryTypeId, 'process');
+        const feeder = bestReadyRecipe(state, playerId, site.factoryTypeId, 'process', reserved);
         if (feeder) {
           plans.push({ parcelKey: key, recipeId: feeder, processing: true });
+          reserveInputs(feeder);
           continue;
         }
       }

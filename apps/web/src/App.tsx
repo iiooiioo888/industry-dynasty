@@ -3,6 +3,7 @@ import {
   marketShareOf,
   readCommerce,
   type MarketId,
+  STAGES,
   ticksUntilDayClose,
   type FactoryTypeId,
   type ItemId,
@@ -11,7 +12,7 @@ import {
   type RecipeId,
   type StaffRole,
 } from '@industry-dynasty/sim';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AuctionAlertBanner } from './components/AuctionAlertBanner';
 import { MarketNewsBanner } from './components/MarketNewsBanner';
 import { NpcPanel } from './components/NpcPanel';
@@ -25,8 +26,18 @@ import { MarketPanel } from './components/MarketPanel';
 import { ParcelPlanCard } from './components/ParcelPlanCard';
 import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
+import { TrendPanel } from './components/TrendPanel';
+import { SaveControlsBar } from './components/SaveControls';
+import { StageResultOverlay } from './components/StageResultOverlay';
+import { StageSelect } from './components/StageSelect';
+import { StageBriefing } from './components/StageBriefing';
+import { ProductionStatusPanel } from './components/ProductionStatusPanel';
+import { GuidanceBanner } from './components/GuidanceBanner';
+import { computeStageProgress, currentStage } from './game/stage-progress';
+import { loadProgress, markStageCleared } from './game/campaign-storage';
 import { OpsPanel } from './components/OpsPanel';
 import { ProductionPanel } from './components/ProductionPanel';
+import { LandSaleSection } from './components/LandSaleSection';
 import { SalesPanel } from './components/SalesPanel';
 import { useWorldState } from './game/useWorldState';
 import './App.css';
@@ -46,7 +57,7 @@ const PAGES = [
 type PageId = (typeof PAGES)[number][0];
 
 export function App() {
-  const { state, dispatch } = useWorldState();
+  const { state, dispatch, saves, startStage } = useWorldState();
   const [selectedParcelId, setSelectedParcelId] = useState<ParcelId | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
@@ -54,6 +65,41 @@ export function App() {
   const clockLabel = state.clock.paused ? '暫停' : `${state.clock.speed}×`;
   const sharePct = Math.round(marketShareOf(readCommerce(state)) * 100);
   const cash = state.players[state.localPlayerId]?.cash ?? 0;
+  // 關卡資訊與結算（見 `game/stage-progress.ts`）
+  const stage = currentStage(state);
+  const stageProgress = useMemo(() => computeStageProgress(state), [state]);
+  // 戰役進度（跨局保留）與關卡選擇
+  const [campaign, setCampaign] = useState(() => loadProgress());
+  const [stageSelectOpen, setStageSelectOpen] = useState(false);
+  // 開場簡報：每一關第一次進入時顯示，玩家按「開始」才關掉。
+  // 用「關卡 id + 天數」當 key —— 重玩同一關時會再顯示一次，這是刻意的。
+  const [dismissedBriefing, setDismissedBriefing] = useState<string | null>(null);
+  const briefingKey = stage ? `${stage.id}:${state.gameDay}` : null;
+  const briefingOpen = stage !== null && state.gameDay === 0 && dismissedBriefing !== briefingKey;
+
+  // 通關就把這一關記進戰役進度（含最佳成績），並自動解鎖下一關
+  useEffect(() => {
+    if (state.scenario.status !== 'won') {
+      return;
+    }
+    const stageId = state.scenario.config.stageId;
+    if (!stageId) {
+      return;
+    }
+    setCampaign(
+      markStageCleared(stageId, {
+        netProfit: Math.round(stageProgress.netProfit),
+        craftedValue: Math.round(stageProgress.craftedValue),
+        day: state.gameDay,
+      }),
+    );
+  }, [
+    state.scenario.status,
+    state.scenario.config.stageId,
+    state.gameDay,
+    stageProgress.netProfit,
+    stageProgress.craftedValue,
+  ]);
 
   function togglePin(parcelId: ParcelId) {
     setPinnedIds((current) => {
@@ -68,6 +114,11 @@ export function App() {
     <div className="shell">
       <header className="shell-titlebar">
         <span className="brand">產業霸權</span>
+        {stage && (
+          <span className="stage-chip">
+            {stage.nameZh}｜{stage.eraLabel}
+          </span>
+        )}
         <span className="meta" data-clock-readout="true">
           <span>第 {state.gameDay} 天</span>
           <span>{clockLabel}</span>
@@ -89,39 +140,48 @@ export function App() {
           </button>
         ))}
       </nav>
+      <div className="shell-save">
+        <SaveControlsBar
+          saves={saves}
+          onOpenStages={() => setStageSelectOpen(true)}
+          clearedStages={campaign.clearedStageIds.length}
+          totalStages={STAGES.length}
+        />
+      </div>
+      <GuidanceBanner state={state} />
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
       <MarketNewsBanner state={state} />
       {page === 'map' ? (
-      <div className="shell-body">
-        <main className="shell-col shell-col-center">
-          <GameMap
-            state={state}
-            selectedParcelId={selectedParcelId}
-            onSelectParcel={setSelectedParcelId}
-            onTogglePause={() => dispatch({ type: 'SET_CLOCK', paused: !state.clock.paused })}
-            onSetSpeed={(speed) => dispatch({ type: 'SET_CLOCK', paused: false, speed })}
-          />
-          <ParcelPlanCard
-            state={state}
-            selectedParcelId={selectedParcelId}
-            pinnedIds={pinnedIds}
-            onTogglePin={togglePin}
-            onBid={(parcelId, amount) => dispatch({ type: 'BID', parcelId, amount })}
-            onSettle={(parcelId) => dispatch({ type: 'SETTLE_AUCTION', parcelId })}
-            onStartBuild={(parcelId, factoryTypeId: FactoryTypeId) =>
-              dispatch({ type: 'START_BUILD', parcelId, factoryTypeId })
-            }
-            onCancelBuild={(parcelId) => dispatch({ type: 'CANCEL_BUILD', parcelId })}
-            onStartProduction={(parcelId, recipeId: RecipeId, machineGradeId?: MachineGradeId) =>
-              dispatch({ type: 'START_PRODUCTION', parcelId, recipeId, machineGradeId })
-            }
-            onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
-              dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
-            }
-            onStopProduction={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
-          />
-        </main>
-      </div>
+        <div className="shell-body">
+          <main className="shell-col shell-col-center">
+            <GameMap
+              state={state}
+              selectedParcelId={selectedParcelId}
+              onSelectParcel={setSelectedParcelId}
+              onTogglePause={() => dispatch({ type: 'SET_CLOCK', paused: !state.clock.paused })}
+              onSetSpeed={(speed) => dispatch({ type: 'SET_CLOCK', paused: false, speed })}
+            />
+            <ParcelPlanCard
+              state={state}
+              selectedParcelId={selectedParcelId}
+              pinnedIds={pinnedIds}
+              onTogglePin={togglePin}
+              onBid={(parcelId, amount) => dispatch({ type: 'BID', parcelId, amount })}
+              onSettle={(parcelId) => dispatch({ type: 'SETTLE_AUCTION', parcelId })}
+              onStartBuild={(parcelId, factoryTypeId: FactoryTypeId) =>
+                dispatch({ type: 'START_BUILD', parcelId, factoryTypeId })
+              }
+              onCancelBuild={(parcelId) => dispatch({ type: 'CANCEL_BUILD', parcelId })}
+              onStartProduction={(parcelId, recipeId: RecipeId, machineGradeId?: MachineGradeId) =>
+                dispatch({ type: 'START_PRODUCTION', parcelId, recipeId, machineGradeId })
+              }
+              onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
+                dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
+              }
+              onStopProduction={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
+            />
+          </main>
+        </div>
       ) : (
         <div className="page-sheet">
           {page === 'produce' ? (
@@ -136,7 +196,15 @@ export function App() {
               onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
             />
           ) : null}
-          {page === 'market' ? <MarketPanel state={state} selectedParcelId={selectedParcelId} /> : null}
+          {page === 'produce' ? (
+            <LandSaleSection
+              state={state}
+              onSellLand={(parcelId) => dispatch({ type: 'SELL_LAND', parcelId })}
+            />
+          ) : null}
+          {page === 'market' ? (
+            <MarketPanel state={state} selectedParcelId={selectedParcelId} />
+          ) : null}
           {page === 'sales' ? (
             <SalesPanel
               state={state}
@@ -149,6 +217,9 @@ export function App() {
               }
               onAcceptContract={(contractId, shipFromParcelId) =>
                 dispatch({ type: 'ACCEPT_CONTRACT', contractId, shipFromParcelId })
+              }
+              onBidContract={(contractId, unitPrice) =>
+                dispatch({ type: 'BID_CONTRACT', contractId, unitPrice })
               }
             />
           ) : null}
@@ -200,6 +271,8 @@ export function App() {
               <LedgerPanel state={state} />
               <PnLPanel state={state} />
               <PlayerOverview state={state} />
+              <TrendPanel state={state} />
+              <ProductionStatusPanel state={state} />
               <InventoryPanel state={state} />
               <button type="button" className="report-launch" onClick={() => setReportOpen(true)}>
                 數據報表
@@ -216,6 +289,27 @@ export function App() {
           startingCash={DEFAULT_WORLD_CONFIG.startingCash}
         />
       ) : null}
+      <StageResultOverlay
+        state={state}
+        scenario={state.scenario}
+        progress={stageProgress}
+        onNextStage={(next) => startStage(next.id)}
+        onReplay={() => startStage(state.scenario.config.stageId ?? 'stage-01')}
+      />
+      {stageSelectOpen && (
+        <StageSelect
+          progress={campaign}
+          currentStageId={state.scenario.config.stageId ?? null}
+          onPick={(picked) => {
+            setStageSelectOpen(false);
+            startStage(picked.id);
+          }}
+          onClose={() => setStageSelectOpen(false)}
+        />
+      )}
+      {briefingOpen && stage && (
+        <StageBriefing stage={stage} onStart={() => setDismissedBriefing(briefingKey)} />
+      )}
     </div>
   );
 }

@@ -1,0 +1,70 @@
+.audio-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.audio-toggle {
+  min-width: 2rem;
+  border: 1px solid var(--sys-border);
+  background: var(--sys-panel);
+  color: inherit;
+  border-radius: 4px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.audio-toggle:hover {
+  border-color: var(--sys-accent);
+}
+
+.audio-popover {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  right: 0;
+  z-index: 40;
+  width: 13rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem 0.65rem;
+  border: 1px solid var(--sys-border);
+  border-radius: 6px;
+  background: var(--sys-panel);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 40%);
+  font-size: 0.7rem;
+}
+
+.audio-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.audio-row span:first-child {
+  min-width: 4.2rem;
+  color: var(--sys-muted);
+}
+
+.audio-row input[type='range'] {
+  flex: 1;
+  accent-color: var(--sys-accent);
+}
+
+.audio-value {
+  min-width: 1.6rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--sys-muted);
+}
+
+.audio-reset {
+  margin-top: 0.15rem;
+  border: 1px solid var(--sys-border);
+  background: var(--sys-bg);
+  color: inherit;
+  border-radius: 4px;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.66rem;
+  cursor: pointer;
+}

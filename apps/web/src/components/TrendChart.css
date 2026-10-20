@@ -1,0 +1,74 @@
+.trend-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--sys-border);
+  border-radius: 5px;
+  background: var(--sys-bg);
+}
+
+.trend-chart.is-empty {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.trend-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.68rem;
+}
+
+.trend-label {
+  color: var(--sys-muted);
+}
+
+.trend-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.trend-value.is-up {
+  color: var(--sys-accent);
+}
+
+.trend-value.is-down {
+  color: var(--sys-warn);
+}
+
+.trend-range {
+  margin-left: auto;
+  color: var(--sys-muted);
+  font-size: 0.62rem;
+}
+
+.trend-svg {
+  width: 100%;
+  height: 64px;
+  display: block;
+}
+
+.trend-svg.is-up polyline {
+  stroke: var(--sys-accent);
+}
+
+.trend-svg.is-down polyline {
+  stroke: var(--sys-warn);
+}
+
+.trend-dot {
+  fill: currentcolor;
+}
+
+.trend-empty {
+  color: var(--sys-muted);
+  font-size: 0.68rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trend-svg {
+    transition: none;
+  }
+}

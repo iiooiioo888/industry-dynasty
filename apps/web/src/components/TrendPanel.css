@@ -1,0 +1,11 @@
+.trend-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.4rem;
+}

@@ -16,7 +16,12 @@
 import { FACTORY_TYPES, type FactoryTypeId } from '../buildings/catalog.js';
 import { BUILD_MATERIALS, hasBuildMaterials } from '../buildings/materials.js';
 import { RECIPES, type RecipeId } from '../production/recipes.js';
-import { applyProductionPlans, planProductionSlots } from '../production/planning.js';
+import {
+  applyProductionPlans,
+  isRecipeUnlocked,
+  planProductionSlots,
+} from '../production/planning.js';
+import { techStage } from '../production/chain.js';
 import { getItemQty, ITEMS } from '../production/items.js';
 import { netProfit } from '../sales/pnl.js';
 import { addPnL, emptyPnL } from '../sales/pnl.js';
@@ -29,7 +34,7 @@ import { DEFAULT_WORLD_CONFIG, type WorldConfig } from '../world/config.js';
 import { getPlayerHoldings, type WorldState } from '../world/state.js';
 import { craftedValue } from '../production/chain.js';
 import { scenarioProgress } from '../sales/scenario.js';
-import { DEFAULT_SCENARIO } from '../sales/scenario.js';
+import { DEFAULT_SCENARIO, createScenarioState } from '../sales/scenario.js';
 import { recognizeDispatchedShipments } from './settle-shipments.js';
 
 export interface FullLoopOptions {
@@ -64,6 +69,13 @@ export interface FullLoopOptions {
   readonly extractorCount?: number;
   /** 除錯／量測用：每天排完生產後呼叫一次。 */
   readonly inspect?: (day: number, state: WorldState) => void;
+  /**
+   * 量測用：預設已解鎖的研究。
+   *
+   * 量測迴圈不會去蓋實驗室跑研究，所以「研究解鎖後的配方」在量測裡永遠
+   * 不可用。要評估三階這類研究解鎖內容，得能直接把解鎖狀態塞進去。
+   */
+  readonly unlockedResearch?: readonly string[];
 }
 
 export interface FullLoopDay {
@@ -265,9 +277,33 @@ function reserveQtyFor(
     return 0;
   }
   let need = 0;
+  // 保留**現在真的在跑的產線**所需原料。
+  //
+  // 這裡走過四種寫法，每一種踩到不同的坑，值得記下來：
+  // 1. 掃描全部配方 → 新增一筆被鎖住的配方就讓營收從 157,022 掉到 50,742
+  //    （無關的資料改變了量測）。
+  // 2. 加上「可販售＋已解鎖＋技術階段到」過濾 → 被鎖住的不再影響，
+  //    但解鎖後仍會為「永遠排不到」的配方囤料，營收一樣崩掉。
+  // 3. 只看實際排程結果 → 雞生蛋：配方要等庫存才排得到，
+  //    庫存又要先保留才累積得起來。
+  // 4. 只看正在跑的產線 → 一開始沒有任何產線，原料被賣光，鏈條起不來。
+  //
+  // 最後採用的規則：**保留原料與中間件，不保留成品**。
+  // 原料與中間件是所有加工的共同起點，不保留就永遠開不了工；
+  // 成品（合金板、精密模組…）不保留，因為「該不該拿成品再加工」是策略問題，
+  // 不該由量測工具替玩家決定 —— 先前正是在這裡把營收扣掉了 106,000。
+  const listed = ITEMS[itemId as keyof typeof ITEMS];
+  if (!listed || listed.tier === 'finished') {
+    return buildMaterialReserve(state, playerId, itemId, depth);
+  }
+  const unlocked = state.commerce?.unlocked ?? [];
+  const crafted = state.craftedTotals[playerId];
   for (const recipe of Object.values(RECIPES)) {
     if (recipe.inputs.length === 0) continue;
     if (!(recipe.stage === 'process' ? depth >= 1 : depth >= 2)) continue;
+    if (!ITEMS[recipe.outputItemId].sellable) continue;
+    if (!isRecipeUnlocked(recipe, unlocked)) continue;
+    if (techStage(crafted) < recipe.minTechStage) continue;
     const input = recipe.inputs.find((i) => i.itemId === itemId);
     if (input) {
       need = Math.max(need, input.quantity);
@@ -434,6 +470,19 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
   const extractorCount = options.extractorCount ?? 2;
 
   let state = createInitialWorld(config);
+  // 報表量的是**經濟本身**，不是關卡進度 —— 所以用舊的單局目標（DEFAULT_SCENARIO），
+  // 而不是 createInitialWorld 依 stageId 帶進來的關卡目標。
+  // 第 20 回合把關卡目標重新校準到百萬級之後，若沿用關卡目標，
+  // 所有歷史報表的門檻都會一次失效。
+  state = { ...state, scenario: createScenarioState(DEFAULT_SCENARIO) };
+  // 量測迴圈不蓋實驗室、不跑研究，所以「研究解鎖後才可用的配方」在量測裡
+  // 永遠不會出現。要評估這類內容，得能直接把解鎖狀態塞進來。
+  if (options.unlockedResearch && options.unlockedResearch.length > 0 && state.commerce) {
+    state = {
+      ...state,
+      commerce: { ...state.commerce, unlocked: [...options.unlockedResearch] },
+    };
+  }
   const days: FullLoopDay[] = [];
   const resourceKinds = pickResourceKinds(state, options.recipeId, depth);
 
@@ -546,9 +595,12 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
 
     record();
 
-    if (state.scenario.status !== 'playing') {
-      break;
-    }
+    // 注意：這裡**不因為 `scenario.status` 變成 lost 就提早結束**。
+    //
+    // 這個 harness 是量測工具，目的是「跑滿指定天數看能賺多少」。
+    // 第 20 回合把關卡天數從 25 縮到 12 之後，這裡若照狀態中斷，
+    // 所有報表的數字會跟著變，讓「平衡有沒有變」變得無法比較。
+    // 要不要看通關與否，由呼叫端自己判斷 `status`。
   }
 
   const playerId = state.localPlayerId;

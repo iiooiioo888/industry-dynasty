@@ -19,6 +19,7 @@ export {
   DEFAULT_SCENARIO,
   evaluateScenario,
   resolveScenarioConfig,
+  scenarioForStage,
   scenarioProgress,
   type ScenarioConfig,
   type ScenarioProgress,

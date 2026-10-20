@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  expireEvent,
+  isAftermathEvent,
   MAX_CONCURRENT_EVENTS,
   NEWS_TEMPLATES,
   combineMultiplier,
@@ -122,5 +124,95 @@ describe('新聞事件系統', () => {
         expect(template.headline, `${template.id} 需要城市就該有代換點`).toContain('{city}');
       }
     }
+  });
+});
+
+describe('事件餘波', () => {
+  const base = {
+    id: 'evt-typhoon-port-5',
+    kind: 'freight-up' as const,
+    headline: '颱風逼近港口，船班延誤，運費應聲上漲。',
+    remainingDays: 1,
+    magnitude: 1.25,
+  };
+
+  it('有餘波的樣板到期會留下較弱的後續事件', () => {
+    const next = expireEvent(base, []);
+    expect(next).not.toBeNull();
+    expect(next!.magnitude).toBeLessThan(base.magnitude);
+    expect(next!.magnitude).toBeGreaterThan(1);
+    expect(next!.remainingDays).toBeGreaterThan(0);
+    expect(next!.kind).toBe(base.kind);
+    expect(next!.headline).not.toBe(base.headline);
+  });
+
+  it('餘波事件 id 有前綴，且不會再產生餘波', () => {
+    const first = expireEvent(base, [])!;
+    expect(isAftermathEvent(first)).toBe(true);
+    expect(expireEvent(first, [])).toBeNull();
+  });
+
+  it('沒有餘波的樣板到期就直接消失', () => {
+    const plain = { ...base, id: 'evt-city-payday-3' };
+    const template = NEWS_TEMPLATES.find((t) => t.id === 'city-payday');
+    // 這個樣板如果日後加了餘波，這條測試就該改成跟著調整
+    if (template && !template.aftermath) {
+      expect(expireEvent(plain, [])).toBeNull();
+    }
+  });
+
+  it('同類型事件已在跑時不再產生餘波（避免乘數堆疊）', () => {
+    expect(expireEvent(base, ['freight-up'])).toBeNull();
+  });
+
+  it('城市事件的城市會被保留（不會變成全市場事件）', () => {
+    const cityEvent = {
+      ...base,
+      id: 'evt-city-festival-7',
+      kind: 'city-demand-up' as const,
+      cityId: 'xiwan',
+      cityName: '西灣市',
+    };
+    const next = expireEvent(cityEvent, []);
+    expect(next?.cityId).toBe('xiwan');
+    expect(next?.cityName).toBe('西灣市');
+    // 標題裡的 {city} 會被換掉
+    expect(next?.headline).not.toContain('{city}');
+    expect(next?.headline).toContain('西灣市');
+  });
+
+  it('餘波仍然吃 combineMultiplier（疊加時取乘積）', () => {
+    const aft = expireEvent(base, [])!;
+    const product = combineMultiplier([aft], 'freight-up');
+    expect(product).toBeCloseTo(aft.magnitude, 10);
+  });
+
+  it('餘波比原事件弱（往中性靠，不是往極端走）', () => {
+    // magnitude 的語意隨類型不同：
+    // - freight-up / port-raw-down 是**乘數**（中性 = 1）
+    // - city-demand-up 是**加成**（中性 = 0）
+    const neutral = (kind: string): number => (kind === 'city-demand-up' ? 0 : 1);
+    const distance = (kind: string, value: number): number => Math.abs(value - neutral(kind));
+
+    for (const template of NEWS_TEMPLATES) {
+      if (!template.aftermath) {
+        continue;
+      }
+      const before = distance(template.kind, template.magnitude);
+      const after = distance(template.kind, template.aftermath.magnitude);
+      expect(
+        after,
+        `${template.id} 的餘波應該比原事件弱（${template.magnitude} → ${template.aftermath.magnitude}）`,
+      ).toBeLessThan(before);
+      expect(template.aftermath.magnitude).toBeGreaterThan(0);
+      expect(template.aftermath.days).toBeGreaterThan(0);
+    }
+  });
+
+  it('至少有一半的運費事件有餘波（實質效果不是只有一條）', () => {
+    const freight = NEWS_TEMPLATES.filter((t) => t.kind === 'freight-up');
+    const withAftermath = freight.filter((t) => t.aftermath);
+    expect(withAftermath.length).toBeGreaterThan(0);
+    expect(withAftermath.length * 2).toBeGreaterThanOrEqual(freight.length);
   });
 });

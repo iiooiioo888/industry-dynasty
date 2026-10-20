@@ -1,0 +1,130 @@
+.stage-select {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 55%);
+  backdrop-filter: blur(2px);
+}
+
+.stage-select-card {
+  width: min(44rem, 94vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--sys-border);
+  border-radius: 8px;
+  background: var(--sys-panel);
+  color: inherit;
+  overflow: hidden;
+}
+
+.stage-select-card header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--sys-border);
+}
+
+.stage-select-card h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.stage-select-progress {
+  font-size: 0.72rem;
+  color: var(--sys-muted);
+}
+
+.stage-select-close {
+  margin-left: auto;
+  border: 1px solid var(--sys-border);
+  background: var(--sys-bg);
+  color: inherit;
+  border-radius: 4px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.stage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+  gap: 0.35rem;
+}
+
+.stage-item button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1.8rem 1fr auto auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--sys-border);
+  border-radius: 5px;
+  background: var(--sys-bg);
+  color: inherit;
+  font-size: 0.74rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stage-item.is-locked button {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.stage-item.is-done button {
+  border-color: var(--sys-accent);
+}
+
+.stage-item.is-current button {
+  background: rgb(255 255 255 / 6%);
+}
+
+.stage-no {
+  color: var(--sys-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stage-name {
+  font-weight: 600;
+}
+
+.stage-era,
+.stage-diff {
+  font-size: 0.68rem;
+  color: var(--sys-muted);
+}
+
+.stage-mark {
+  font-size: 0.7rem;
+}
+
+.stage-select-hint {
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  border-top: 1px solid var(--sys-border);
+  font-size: 0.7rem;
+  color: var(--sys-muted);
+}
+
+.stage-best {
+  margin: 0.1rem 0 0.25rem 2.3rem;
+  font-size: 0.62rem;
+  color: var(--sys-muted);
+}
+
+.stage-scale {
+  margin: 0.1rem 0 0.25rem 2.3rem;
+  font-size: 0.62rem;
+  color: var(--sys-accent);
+  opacity: 0.8;
+}

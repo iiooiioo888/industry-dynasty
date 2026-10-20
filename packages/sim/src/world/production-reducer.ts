@@ -1,6 +1,7 @@
 import { getSiteLogisticsView } from '../buildings/adjacency.js';
 import { operatorThroughputFactor, readCommerce } from '../commerce/logic.js';
 import { qualityCycleStretch } from '../commerce/quality.js';
+import { readStaffSkill } from '../commerce/staff.js';
 import { SIM_MS_PER_TICK } from './clock.js';
 import type { CompleteSite } from '../buildings/site.js';
 import { getSiteForParcel } from '../buildings/build-logic.js';
@@ -177,7 +178,12 @@ export function applyProductionTick(state: WorldState): WorldState {
   const runningLines = Object.values(productionLines).filter(
     (line) => line.status !== 'stopped',
   ).length;
-  const staffFactor = operatorThroughputFactor(readCommerce(state).staff.operators, runningLines);
+  const staff = readCommerce(state).staff;
+  const staffFactor = operatorThroughputFactor(
+    staff.operators,
+    runningLines,
+    readStaffSkill(staff).operator,
+  );
 
   for (const [key, line] of Object.entries(productionLines)) {
     if (line.status === 'stopped') {

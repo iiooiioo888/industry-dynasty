@@ -1,4 +1,5 @@
 import { getPlayerHoldings, quoteLocalDemand, type WorldState } from '@industry-dynasty/sim';
+import { AnimatedNumber } from './AnimatedNumber';
 import './PlayerOverview.css';
 
 export interface PlayerOverviewProps {
@@ -16,7 +17,10 @@ export function PlayerOverview({ state }: PlayerOverviewProps) {
         <h2>資產總覽</h2>
       </header>
       <p className="cash-line">
-        現金 <strong>${player.cash.toLocaleString()}</strong>
+        現金{' '}
+        <strong>
+          $<AnimatedNumber value={player.cash} />
+        </strong>
       </p>
       <p className="panel-hint">日結跟標題列倒數走。歸零時一次扣土地稅、計息，並收工廠維護。</p>
       <h3>持有土地 ({holdings.length})</h3>

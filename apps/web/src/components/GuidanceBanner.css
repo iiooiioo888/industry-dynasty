@@ -1,0 +1,46 @@
+.guidance-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.72rem;
+  background: rgb(120 190 255 / 8%);
+  border-bottom: 1px solid var(--sys-border);
+}
+
+.guidance-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--sys-muted);
+  border: 1px solid var(--sys-border);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  font-size: 0.66rem;
+}
+
+.guidance-banner strong {
+  color: var(--sys-accent);
+  white-space: nowrap;
+}
+
+.guidance-detail {
+  color: var(--sys-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guidance-banner button {
+  margin-left: auto;
+  border: 1px solid var(--sys-border);
+  background: transparent;
+  color: var(--sys-muted);
+  border-radius: 4px;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.66rem;
+  cursor: pointer;
+}
+
+.guidance-banner button:hover {
+  color: inherit;
+}

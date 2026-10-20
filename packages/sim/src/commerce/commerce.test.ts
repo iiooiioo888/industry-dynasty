@@ -118,6 +118,12 @@ describe('合約、研發與新聞', () => {
         [state.localPlayerId]: { [contract.itemId]: contract.quantity },
       },
     };
+    // 合約要競標：先出價壓過對手（用對手報價本身，等於剛好壓線）
+    state = applyWorldAction(state, {
+      type: 'BID_CONTRACT',
+      contractId: contract.id,
+      unitPrice: contract.rivalUnitPrice ?? contract.unitPrice,
+    });
     const cashBefore = state.players[state.localPlayerId]!.cash;
     state = applyWorldAction(state, {
       type: 'ACCEPT_CONTRACT',
@@ -157,6 +163,12 @@ describe('合約、研發與新聞', () => {
         ),
       },
     };
+    // 逾期案例也要先投標才接得到
+    late = applyWorldAction(late, {
+      type: 'BID_CONTRACT',
+      contractId: lateContract.id,
+      unitPrice: lateContract.rivalUnitPrice ?? lateContract.unitPrice,
+    });
     late = applyWorldAction(late, {
       type: 'ACCEPT_CONTRACT',
       contractId: lateContract.id,

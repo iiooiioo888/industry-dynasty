@@ -45,7 +45,12 @@ import {
   applySetShelf,
   applyStartResearch,
 } from '../commerce/logic.js';
-import { applyAcceptContract, applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
+import {
+  applyAcceptContract,
+  applyAdvanceDay,
+  applyBidContract,
+  applySellToNpc,
+} from './sales-reducer.js';
 import { findOpenLotForParcel, findParcel, type Player, type WorldState } from './state.js';
 
 function cashOf(state: WorldState): number {
@@ -105,6 +110,8 @@ export function applyWorldAction(
         action.unitPrice,
         action.quantity,
       );
+    case 'BID_CONTRACT':
+      return applyBidContract(state, action.contractId, action.unitPrice);
     case 'ACCEPT_CONTRACT':
       return applyAcceptContract(state, action.contractId, action.shipFromParcelId);
     case 'HIRE_STAFF':

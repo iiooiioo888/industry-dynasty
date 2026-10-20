@@ -1,0 +1,61 @@
+.save-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+}
+
+.save-controls button {
+  border: 1px solid var(--sys-border);
+  background: var(--sys-panel);
+  color: inherit;
+  border-radius: 4px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    transform 90ms ease;
+}
+
+.save-controls button:hover {
+  border-color: var(--sys-accent);
+}
+
+.save-controls button:active {
+  transform: scale(0.96);
+}
+
+.save-controls button.save-reset {
+  color: var(--sys-warn);
+}
+
+.save-controls button.stage-select-open {
+  border-color: var(--sys-accent);
+  color: var(--sys-accent);
+  background: transparent;
+}
+
+.save-controls button.sound-toggle {
+  min-width: 2rem;
+  text-align: center;
+}
+
+.save-info {
+  color: var(--sys-muted);
+}
+
+.save-message {
+  color: var(--sys-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .save-controls button {
+    transition: none;
+  }
+
+  .save-controls button:active {
+    transform: none;
+  }
+}
