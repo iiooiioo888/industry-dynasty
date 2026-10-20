@@ -14,6 +14,7 @@ import {
 import { useState } from 'react';
 import { AuctionAlertBanner } from './components/AuctionAlertBanner';
 import { MarketNewsBanner } from './components/MarketNewsBanner';
+import { NpcPanel } from './components/NpcPanel';
 import { BankPanel } from './components/BankPanel';
 import { DataReportPanel } from './components/DataReportPanel';
 import { ExchangePanel } from './components/ExchangePanel';
@@ -35,6 +36,7 @@ const PAGES = [
   ['produce', '生產'],
   ['market', '市場'],
   ['sales', '銷售'],
+  ['people', '人物'],
   ['ops', '經營'],
   ['bank', '銀行'],
   ['exchange', '金融'],
@@ -65,10 +67,13 @@ export function App() {
   return (
     <div className="shell">
       <header className="shell-titlebar">
-        <span className="brand">產業霸權 · 產業控制台</span>
+        <span className="brand">產業霸權</span>
         <span className="meta" data-clock-readout="true">
-          第 {state.gameDay} 天 · {clockLabel} · 距日結 {ticksUntilDayClose(state.clock.simMs)} 刻 · 市佔 {sharePct}% · $
-          {cash.toLocaleString()}
+          <span>第 {state.gameDay} 天</span>
+          <span>{clockLabel}</span>
+          <span>日結 {ticksUntilDayClose(state.clock.simMs)}</span>
+          <span>市佔 {sharePct}%</span>
+          <span>${cash.toLocaleString()}</span>
         </span>
       </header>
       <nav className="shell-nav" aria-label="頁面">
@@ -147,6 +152,12 @@ export function App() {
               }
             />
           ) : null}
+          {page === 'people' ? (
+            <NpcPanel
+              state={state}
+              onAccept={(dealId) => dispatch({ type: 'ACCEPT_NPC_DEAL', dealId })}
+            />
+          ) : null}
           {page === 'ops' ? (
             <OpsPanel
               state={state}
@@ -180,6 +191,8 @@ export function App() {
                 dispatch({ type: 'PLACE_LIMIT', marketId, side, limitPrice, quantity })
               }
               onCancel={(orderId) => dispatch({ type: 'CANCEL_LIMIT', orderId })}
+              onBuyBond={(bondId, units) => dispatch({ type: 'BUY_BOND', bondId, units })}
+              onSellBond={(bondId, units) => dispatch({ type: 'SELL_BOND', bondId, units })}
             />
           ) : null}
           {page === 'books' ? (

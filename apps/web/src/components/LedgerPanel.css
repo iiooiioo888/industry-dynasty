@@ -22,7 +22,7 @@
 .credit-track {
   height: 4px;
   margin: 0.55rem 0 0;
-  background: #10141c;
+  background: var(--sys-bg-deep);
   border-radius: 99px;
   overflow: hidden;
 }

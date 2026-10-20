@@ -1,4 +1,5 @@
 import type { CommerceState } from '../commerce/types.js';
+import type { NpcDeal } from '../npc/roster.js';
 import type { PlayerBank } from '../bank/types.js';
 import type { SimClock } from './clock.js';
 import type { ParcelSite } from '../buildings/site.js';
@@ -44,6 +45,8 @@ export interface WorldState {
   readonly shipments?: readonly Shipment[];
   /** 門市、合約、人力、研發、廣告與對手。舊存檔缺這欄時由讀取端補空帳。 */
   readonly commerce?: CommerceState;
+  /** 今日 NPC 開價。換日整批換新。 */
+  readonly npcDeals?: readonly NpcDeal[];
 }
 
 export function findParcel(state: WorldState, parcelId: ParcelId): Parcel | undefined {

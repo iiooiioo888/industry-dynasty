@@ -1,14 +1,21 @@
 import {
+  BOND_LIST,
+  formatBps,
   freeToSell,
   getPlayerBank,
-  indexSeries,
+  indexHistory,
   listBoard,
+  marketSeries,
+  quoteBond,
   quoteIndex,
+  quoteRates,
   readCommerce,
+  type BondId,
   type MarketId,
   type WorldState,
 } from '@industry-dynasty/sim';
 import { useState } from 'react';
+import { MarketChart } from './MarketChart';
 import './ExchangePanel.css';
 
 function money(amount: number): string {
@@ -19,16 +26,29 @@ export interface ExchangePanelProps {
   state: WorldState;
   onPlace: (marketId: MarketId, side: 'buy' | 'sell', limitPrice: number, quantity: number) => void;
   onCancel: (orderId: string) => void;
+  onBuyBond: (bondId: BondId, units: number) => void;
+  onSellBond: (bondId: BondId, units: number) => void;
 }
 
-export function ExchangePanel({ state, onPlace, onCancel }: ExchangePanelProps) {
+export function ExchangePanel({
+  state,
+  onPlace,
+  onCancel,
+  onBuyBond,
+  onSellBond,
+}: ExchangePanelProps) {
   const events = readCommerce(state).events;
   const board = listBoard(state.financeTick, events);
+  const rates = quoteRates(state.financeTick);
   const index = quoteIndex(state.financeTick);
-  const series = indexSeries(state.financeTick);
   const book = getPlayerBank(state, state.localPlayerId);
   const [marketId, setMarketId] = useState<MarketId>('IRON');
+  const [chartKind, setChartKind] = useState<'index' | 'market'>('market');
   const selected = board.find((row) => row.marketId === marketId) ?? board[0];
+  const chartPoints =
+    chartKind === 'index' || !selected
+      ? indexHistory(state.financeTick)
+      : marketSeries(selected.marketId, state.financeTick, events);
   const [limitPrice, setLimitPrice] = useState(selected?.ask ?? 1);
   const [quantity, setQuantity] = useState(1);
   const holdingShares =
@@ -42,10 +62,64 @@ export function ExchangePanel({ state, onPlace, onCancel }: ExchangePanelProps) 
         <span className="sys-panel-tag">MKT</span>
         <h2>金融</h2>
         <p className={index.delta > 0 ? 'quote-rise' : index.delta < 0 ? 'quote-fall' : undefined}>
-          指數 {index.level} {index.delta > 0 ? '▲' : index.delta < 0 ? '▼' : '–'} {Math.abs(index.delta)}
+          指數 {index.level} {index.delta > 0 ? '▲' : index.delta < 0 ? '▼' : '–'}{' '}
+          {Math.abs(index.delta)}
         </p>
       </header>
-      <IndexLine levels={series} />
+      <dl className="rate-strip">
+        <div>
+          <dt>政策</dt>
+          <dd>{formatBps(rates.policyAnnualBps)}</dd>
+        </div>
+        <div>
+          <dt>通膨</dt>
+          <dd>{formatBps(rates.inflationAnnualBps)}</dd>
+        </div>
+        <div>
+          <dt>實質</dt>
+          <dd>{formatBps(rates.realAnnualBps)}</dd>
+        </div>
+        <div>
+          <dt>隔夜</dt>
+          <dd>{formatBps(rates.idleBps)}</dd>
+        </div>
+        <div>
+          <dt>定期</dt>
+          <dd>{formatBps(rates.savingsBps)}</dd>
+        </div>
+        <div>
+          <dt>短債</dt>
+          <dd>{formatBps(rates.billBps)}</dd>
+        </div>
+        <div>
+          <dt>長債</dt>
+          <dd>{formatBps(rates.longBps)}</dd>
+        </div>
+      </dl>
+      <MarketChart
+        name={chartKind === 'index' || !selected ? '產業指數' : selected.nameZh}
+        code={chartKind === 'index' || !selected ? 'INDEX' : selected.marketId}
+        points={chartPoints}
+        delta={chartKind === 'index' || !selected ? index.delta : selected.delta}
+      />
+      <div className="chart-switch" role="tablist" aria-label="圖表">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={chartKind === 'market'}
+          onClick={() => setChartKind('market')}
+        >
+          {selected?.nameZh ?? '標的'}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={chartKind === 'index'}
+          onClick={() => setChartKind('index')}
+        >
+          指數
+        </button>
+      </div>
       <table className="exchange-board">
         <thead>
           <tr>
@@ -64,6 +138,7 @@ export function ExchangePanel({ state, onPlace, onCancel }: ExchangePanelProps) 
               onClick={() => {
                 setMarketId(row.marketId);
                 setLimitPrice(row.ask);
+                setChartKind('market');
               }}
             >
               <td>
@@ -72,7 +147,9 @@ export function ExchangePanel({ state, onPlace, onCancel }: ExchangePanelProps) 
               </td>
               <td>{money(row.bid)}</td>
               <td>{money(row.ask)}</td>
-              <td className={row.delta > 0 ? 'quote-rise' : row.delta < 0 ? 'quote-fall' : undefined}>
+              <td
+                className={row.delta > 0 ? 'quote-rise' : row.delta < 0 ? 'quote-fall' : undefined}
+              >
                 {row.delta > 0 ? '+' : ''}
                 {row.delta}
               </td>
@@ -121,6 +198,49 @@ export function ExchangePanel({ state, onPlace, onCancel }: ExchangePanelProps) 
           </button>
         </div>
       ) : null}
+      <table className="exchange-board">
+        <thead>
+          <tr>
+            <th>債券</th>
+            <th>殖利率</th>
+            <th>價格</th>
+            <th>剩餘</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {BOND_LIST.map((bond) => {
+            const quote = quoteBond(bond.id, state.financeTick);
+            const owned = (book.bonds ?? [])
+              .filter((holding) => holding.bondId === bond.id)
+              .reduce((sum, holding) => sum + holding.units, 0);
+            return (
+              <tr key={bond.id}>
+                <td>
+                  {bond.nameZh}
+                  <small>{owned > 0 ? `${owned} 張` : bond.id}</small>
+                </td>
+                <td>{formatBps(quote.yieldBps)}</td>
+                <td>{money(quote.price)}</td>
+                <td>{quote.periodsLeft}</td>
+                <td>
+                  <button type="button" onClick={() => onBuyBond(bond.id, 1)}>
+                    買
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={owned < 1}
+                    onClick={() => onSellBond(bond.id, 1)}
+                  >
+                    賣
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
       <div className="exchange-books">
         <div>
           <h3>掛單</h3>
@@ -131,8 +251,8 @@ export function ExchangePanel({ state, onPlace, onCancel }: ExchangePanelProps) 
               {book.orders.map((order) => (
                 <li key={order.id}>
                   <span>
-                    {order.side === 'buy' ? '買' : '賣'} {order.marketId} {money(order.limitPrice)} ×{' '}
-                    {order.quantity}
+                    {order.side === 'buy' ? '買' : '賣'} {order.marketId} {money(order.limitPrice)}{' '}
+                    × {order.quantity}
                   </span>
                   <button type="button" onClick={() => onCancel(order.id)}>
                     撤
@@ -150,8 +270,8 @@ export function ExchangePanel({ state, onPlace, onCancel }: ExchangePanelProps) 
             <ul>
               {book.fills.map((fill) => (
                 <li key={fill.id}>
-                  第 {fill.tick} 期 {fill.side === 'buy' ? '買' : '賣'} {fill.marketId} {money(fill.price)} ×{' '}
-                  {fill.quantity}
+                  第 {fill.tick} 期 {fill.side === 'buy' ? '買' : '賣'} {fill.marketId}{' '}
+                  {money(fill.price)} × {fill.quantity}
                 </li>
               ))}
             </ul>
@@ -159,25 +279,5 @@ export function ExchangePanel({ state, onPlace, onCancel }: ExchangePanelProps) 
         </div>
       </div>
     </section>
-  );
-}
-
-function IndexLine({ levels }: { levels: readonly number[] }) {
-  const width = 280;
-  const height = 36;
-  const min = Math.min(...levels);
-  const max = Math.max(...levels);
-  const span = max - min || 1;
-  const points = levels
-    .map((level, index) => {
-      const x = levels.length === 1 ? 4 : (index / (levels.length - 1)) * (width - 8) + 4;
-      const y = height - 4 - ((level - min) / span) * (height - 10);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(' ');
-  return (
-    <svg className="index-line" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
-      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
   );
 }

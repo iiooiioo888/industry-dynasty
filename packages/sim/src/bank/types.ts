@@ -4,6 +4,17 @@ export type StockSymbol = 'IRON' | 'PORT' | 'GRID' | 'TOOL';
 
 export type CommodityId = 'copper' | 'coal' | 'yarn' | 'steel';
 
+export type BondId = 'bill' | 'note' | 'long';
+
+export interface BondHolding {
+  readonly bondId: BondId;
+  readonly units: number;
+  /** 買進時鎖定的每期票息，基點。 */
+  readonly couponBps: number;
+  readonly periodsLeft: number;
+  readonly avgCost: number;
+}
+
 export interface LoanBook {
   readonly id: string;
   readonly productId: LoanProductId;
@@ -36,6 +47,8 @@ export interface FinanceSettlement {
   readonly loanInterestPaid: number;
   readonly loanPrincipalPaid: number;
   readonly arrearsAdded: number;
+  readonly bondCoupon: number;
+  readonly bondRedemption: number;
 }
 
 export interface PlayerBank {
@@ -46,6 +59,7 @@ export interface PlayerBank {
   readonly loans: readonly LoanBook[];
   readonly stocks: readonly StockHolding[];
   readonly commodities: readonly CommodityHolding[];
+  readonly bonds: readonly BondHolding[];
   readonly lastSettlement: FinanceSettlement | null;
   /** 最近幾期銀行結算，新的在前。 */
   readonly statements: readonly FinanceStatement[];
@@ -104,4 +118,6 @@ export const ZERO_SETTLEMENT: FinanceSettlement = {
   loanInterestPaid: 0,
   loanPrincipalPaid: 0,
   arrearsAdded: 0,
+  bondCoupon: 0,
+  bondRedemption: 0,
 };

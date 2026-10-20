@@ -22,8 +22,10 @@ export {
   emptyPlayerBank,
   nextLoanDue,
   getPlayerBank,
+  applyBuyBond,
   applyCancelLimit,
   applyPlaceLimit,
+  applySellBond,
   previewCoupledWeek,
   settleFinancePeriod,
   summarizeBank,
@@ -40,15 +42,19 @@ export {
 } from './logic.js';
 export {
   fillOrders,
+  indexHistory,
   indexSeries,
   listBoard,
+  marketSeries,
   freeToSell,
   placeLimit,
   quoteBoard,
   quoteIndex,
   type BoardQuote,
+  type ChartPoint,
   type IndexQuote,
 } from './exchange.js';
+export { BOND_LIST, BONDS, bondPrice, quoteBond, quoteRates, type RateQuote } from './rates.js';
 export {
   formatBps,
   interestOn,
@@ -60,6 +66,8 @@ export {
 } from './quotes.js';
 export {
   ZERO_SETTLEMENT,
+  type BondHolding,
+  type BondId,
   type BankCheck,
   type CommodityHolding,
   type CommodityId,

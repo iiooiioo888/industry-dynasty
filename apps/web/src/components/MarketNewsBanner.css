@@ -1,9 +1,11 @@
 .market-news-banner {
   flex-shrink: 0;
-  padding: 0.35rem 0.65rem;
-  background: #1c2433;
-  border-bottom: 1px solid #3d5a80;
-  color: #d6e4f0;
+  margin: 8px 16px 0;
+  padding: 0.45rem 0.8rem;
+  background: var(--sys-surface);
+  border: 1px solid var(--sys-border);
+  border-radius: 14px;
+  color: var(--sys-text);
   font-size: 0.75rem;
 }
 
@@ -15,6 +17,7 @@
 }
 
 .market-news-banner strong {
-  color: #8ec5ff;
-  letter-spacing: 0.06em;
+  color: var(--sys-text);
+  font-weight: 600;
+  letter-spacing: 0;
 }

@@ -1,11 +1,13 @@
 import {
   applyBuyCommodity,
+  applyBuyBond,
   applyBuyStock,
   applyCancelLimit,
   applyPlaceLimit,
   applyDrawLoan,
   applyOpenSavings,
   applyRepayLoan,
+  applySellBond,
   applySellCommodity,
   applySellStock,
   applyWithdrawSavings,
@@ -34,6 +36,7 @@ import { advanceSimClock, setSimClock, stepOneSimTick } from './clock-advance.js
 import { quoteLandSale } from './land-sale.js';
 import { applyTaxTickWithPnl } from './day-reducer.js';
 import { bumpPlayerPnl } from './pnl-helpers.js';
+import { applyNpcDeal } from '../npc/deals.js';
 import {
   applyBuyCampaign,
   applyFireStaff,
@@ -129,6 +132,12 @@ export function applyWorldAction(
       return applyPlaceLimit(state, action.marketId, action.side, action.limitPrice, action.quantity);
     case 'CANCEL_LIMIT':
       return applyCancelLimit(state, action.orderId);
+    case 'BUY_BOND':
+      return applyBuyBond(state, action.bondId, action.units);
+    case 'ACCEPT_NPC_DEAL':
+      return applyNpcDeal(state, action.dealId);
+    case 'SELL_BOND':
+      return applySellBond(state, action.bondId, action.units);
     case 'START_BUILD':
       return applyStart(state, action.parcelId, action.factoryTypeId);
     case 'ADVANCE_BUILD_TICK':

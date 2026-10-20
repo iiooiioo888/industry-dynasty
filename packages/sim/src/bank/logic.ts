@@ -8,9 +8,12 @@ import { COMMODITIES, LOAN_PRODUCTS, STOCKS } from './catalog.js';
 import { cancelLimit, fillOrders, placeLimit } from './exchange.js';
 import { DEFAULT_BANK_CONFIG, type BankConfig } from './config.js';
 import { interestOn, quoteCommodityAsk, quoteCommodityBid, quoteStock } from './quotes.js';
+import { bondPrice, bondYieldBps, BONDS, loanPeriodBps, quoteBond, quoteRates } from './rates.js';
 import {
   ZERO_SETTLEMENT,
   type BankCheck,
+  type BondHolding,
+  type BondId,
   type CommodityHolding,
   type CommodityId,
   type FinanceSettlement,
@@ -31,6 +34,7 @@ export function emptyPlayerBank(): PlayerBank {
     loans: [],
     stocks: [],
     commodities: [],
+    bonds: [],
     lastSettlement: null,
     statements: [],
     orders: [],
@@ -63,6 +67,7 @@ export interface BankSnapshot {
   readonly factoryValue: number;
   readonly inventoryValue: number;
   readonly shelfValue: number;
+  readonly bondValue: number;
   readonly netWorth: number;
 }
 
@@ -144,6 +149,7 @@ export function summarizeBank(
   }, 0);
   const inventoryValue = inventoryBookValue(state.inventories[playerId]);
   const shelfValue = shelfBookValue(state, playerId);
+  const bondValue = bondBookValue(book, state.financeTick);
 
   return {
     financeTick: state.financeTick,
@@ -166,6 +172,7 @@ export function summarizeBank(
     factoryValue,
     inventoryValue,
     shelfValue,
+    bondValue,
     netWorth:
       cash +
       book.savingsPrincipal +
@@ -175,7 +182,8 @@ export function summarizeBank(
       landValue +
       factoryValue +
       inventoryValue +
-      shelfValue -
+      shelfValue +
+      bondValue -
       creditUsed,
   };
 }
@@ -199,6 +207,39 @@ function shelfBookValue(state: WorldState, playerId: string): number {
     }
   }
   return total;
+}
+
+function bondBookValue(book: PlayerBank, tick: number): number {
+  return (book.bonds ?? []).reduce((sum, holding) => {
+    const face = BONDS[holding.bondId].face;
+    return (
+      sum +
+      bondPrice(face, holding.couponBps, holding.periodsLeft, bondYieldBps(tick, holding.bondId)) *
+        holding.units
+    );
+  }, 0);
+}
+
+function settleBondBook(book: PlayerBank): {
+  bonds: PlayerBank['bonds'];
+  cash: number;
+  coupon: number;
+  redemption: number;
+} {
+  let coupon = 0;
+  let redemption = 0;
+  const bonds: BondHolding[] = [];
+  for (const holding of book.bonds ?? []) {
+    const face = BONDS[holding.bondId].face;
+    coupon += Math.floor((face * holding.couponBps * holding.units) / 10_000);
+    const periodsLeft = holding.periodsLeft - 1;
+    if (periodsLeft <= 0) {
+      redemption += face * holding.units;
+      continue;
+    }
+    bonds.push({ ...holding, periodsLeft });
+  }
+  return { bonds, cash: coupon + redemption, coupon, redemption };
 }
 
 function inventoryBookValue(stock: Readonly<Record<string, number>> | undefined): number {
@@ -333,7 +374,12 @@ function settlePlayerBook(
     }
   }
 
-  const idleInterest = interestOn(cash, config.idleInterestBps);
+  const coupons = settleBondBook(book);
+  cash += coupons.cash;
+  const bonds = coupons.bonds;
+  const live = quoteRates(financeTick);
+  const useLive = config.idleInterestBps === DEFAULT_BANK_CONFIG.idleInterestBps;
+  const idleInterest = interestOn(cash, useLive ? live.idleBps : config.idleInterestBps);
   cash += idleInterest;
 
   let savingsPrincipal = book.savingsPrincipal;
@@ -343,7 +389,11 @@ function settlePlayerBook(
   let savingsPayout = 0;
 
   if (savingsPrincipal > 0) {
-    savingsInterest = interestOn(savingsPrincipal, config.savingsInterestBps);
+    const savingsBps =
+      config.savingsInterestBps === DEFAULT_BANK_CONFIG.savingsInterestBps
+        ? live.savingsBps
+        : config.savingsInterestBps;
+    savingsInterest = interestOn(savingsPrincipal, savingsBps);
     savingsAccrued += savingsInterest;
     if (financeTick + 1 >= savingsUnlockTick) {
       savingsPayout = savingsPrincipal + savingsAccrued;
@@ -362,6 +412,8 @@ function settlePlayerBook(
     loanInterestPaid: interestPaid,
     loanPrincipalPaid: principalPaid,
     arrearsAdded,
+    bondCoupon: coupons.coupon,
+    bondRedemption: coupons.redemption,
   };
 
   return {
@@ -372,6 +424,7 @@ function settlePlayerBook(
       savingsAccrued,
       savingsUnlockTick,
       loans,
+      bonds,
       lastSettlement,
       statements: [
         {
@@ -593,7 +646,10 @@ export function applyDrawLoan(
     id: nextLoanId(book, state.financeTick),
     productId,
     principal: amount,
-    rateBps: product.rateBps,
+    rateBps:
+      config.idleInterestBps === DEFAULT_BANK_CONFIG.idleInterestBps
+        ? loanPeriodBps(state.financeTick, productId)
+        : product.rateBps,
     installment: Math.ceil(amount / product.termTicks),
     ticksRemaining: product.termTicks,
     arrears: 0,
@@ -878,4 +934,62 @@ export function applySellCommodity(
       commodities: upsertCommodity(book.commodities, holding, commodityId),
     },
   );
+}
+
+export function applyBuyBond(state: WorldState, bondId: BondId, units: number): WorldState {
+  const player = localPlayer(state);
+  if (!player || !BONDS[bondId] || !Number.isInteger(units) || units <= 0) {
+    return state;
+  }
+  const quote = quoteBond(bondId, state.financeTick);
+  const cost = quote.price * units;
+  if (player.cash < cost) {
+    return state;
+  }
+  const book = getPlayerBank(state, player.id);
+  const holding: BondHolding = {
+    bondId,
+    units,
+    couponBps: quote.yieldBps,
+    periodsLeft: quote.periodsLeft,
+    avgCost: quote.price,
+  };
+  return writeBook(
+    state,
+    { ...player, cash: player.cash - cost },
+    { ...book, bonds: [...(book.bonds ?? []), holding] },
+  );
+}
+
+export function applySellBond(state: WorldState, bondId: BondId, units: number): WorldState {
+  const player = localPlayer(state);
+  if (!player || !BONDS[bondId] || !Number.isInteger(units) || units <= 0) {
+    return state;
+  }
+  const book = getPlayerBank(state, player.id);
+  let left = units;
+  let proceeds = 0;
+  const bonds: BondHolding[] = [];
+  for (const holding of book.bonds ?? []) {
+    if (holding.bondId !== bondId || left <= 0) {
+      bonds.push(holding);
+      continue;
+    }
+    const sold = Math.min(holding.units, left);
+    const price = bondPrice(
+      BONDS[bondId].face,
+      holding.couponBps,
+      holding.periodsLeft,
+      bondYieldBps(state.financeTick, bondId),
+    );
+    proceeds += price * sold;
+    left -= sold;
+    if (holding.units > sold) {
+      bonds.push({ ...holding, units: holding.units - sold });
+    }
+  }
+  if (left > 0) {
+    return state;
+  }
+  return writeBook(state, { ...player, cash: player.cash + proceeds }, { ...book, bonds });
 }

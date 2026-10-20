@@ -6,7 +6,7 @@
 .overview-panel .meta-line {
   margin: 0;
   font-size: 0.8rem;
-  color: #8b949e;
+  color: var(--sys-muted);
 }
 
 .sys-btn.full {
@@ -19,7 +19,7 @@
   margin: 0;
   padding-left: 1.1rem;
   font-size: 0.85rem;
-  color: #c4cad4;
+  color: var(--sys-text);
   max-height: 12rem;
   overflow-y: auto;
 }

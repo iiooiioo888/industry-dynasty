@@ -126,6 +126,51 @@ export function indexSeries(tick: number): readonly number[] {
   return levels;
 }
 
+export interface ChartPoint {
+  readonly tick: number;
+  readonly value: number;
+  readonly volume: number;
+}
+
+const CHART_POINTS = 32;
+
+/** 已印出的報價。窗口最長 32 期，終點是本期，不包含下一期。 */
+export function marketSeries(
+  marketId: MarketId,
+  tick: number,
+  events: readonly WorldEvent[] = [],
+): readonly ChartPoint[] {
+  return chartWindow(tick).map((step) => {
+    const quote = quoteBoard(marketId, step, step === safeTick(tick) ? events : []);
+    return { tick: step, value: quote.mid, volume: quote.volume };
+  });
+}
+
+export function indexHistory(tick: number): readonly ChartPoint[] {
+  return chartWindow(tick).map((step) => ({
+    tick: step,
+    value: indexLevel(step),
+    volume: STOCK_LIST.reduce((sum, stock) => sum + printedVolume(stock.symbol, step), 0),
+  }));
+}
+
+function safeTick(tick: number): number {
+  if (!Number.isFinite(tick)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(tick));
+}
+
+function chartWindow(tick: number): number[] {
+  const end = safeTick(tick);
+  const start = Math.max(0, end - (CHART_POINTS - 1));
+  const steps: number[] = [];
+  for (let step = start; step <= end; step += 1) {
+    steps.push(step);
+  }
+  return steps;
+}
+
 function indexLevel(tick: number): number {
   const now = STOCK_LIST.reduce((sum, stock) => sum + quoteStock(stock.symbol, tick), 0);
   const base = STOCK_LIST.reduce((sum, stock) => sum + stock.basePrice, 0);
@@ -245,7 +290,12 @@ export function fillOrders(
       if (quote.kind === 'stock') {
         stocks = addShares(stocks, order.marketId as StockSymbol, order.quantity, pay);
       } else {
-        commodities = addUnits(commodities, order.marketId as CommodityId, quote.unit * order.quantity, pay);
+        commodities = addUnits(
+          commodities,
+          order.marketId as CommodityId,
+          quote.unit * order.quantity,
+          pay,
+        );
       }
       fills.unshift(fillOf(tick, order, quote.ask, -pay));
       continue;
@@ -259,7 +309,11 @@ export function fillOrders(
       }
       stocks = next;
     } else {
-      const next = removeUnits(commodities, order.marketId as CommodityId, quote.unit * order.quantity);
+      const next = removeUnits(
+        commodities,
+        order.marketId as CommodityId,
+        quote.unit * order.quantity,
+      );
       if (!next) {
         resting.push(order);
         continue;
@@ -312,8 +366,13 @@ function addShares(
 ): StockHolding[] {
   const current = stocks.find((holding) => holding.symbol === symbol);
   const nextShares = (current?.shares ?? 0) + shares;
-  const avgCost = Math.floor(((current?.shares ?? 0) * (current?.avgCost ?? 0) + cost) / nextShares);
-  return [...stocks.filter((holding) => holding.symbol !== symbol), { symbol, shares: nextShares, avgCost }];
+  const avgCost = Math.floor(
+    ((current?.shares ?? 0) * (current?.avgCost ?? 0) + cost) / nextShares,
+  );
+  return [
+    ...stocks.filter((holding) => holding.symbol !== symbol),
+    { symbol, shares: nextShares, avgCost },
+  ];
 }
 
 function removeShares(

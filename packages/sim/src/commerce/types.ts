@@ -77,6 +77,8 @@ export interface CommerceState {
   readonly campaigns: readonly AdCampaign[];
   readonly events: readonly WorldEvent[];
   readonly rivals: readonly RivalOutlet[];
+  /** 掌櫃自己的擴張資金，不進玩家現金。 */
+  readonly npcTreasury?: Readonly<Record<string, number>>;
   readonly consumerRevenue: number;
   readonly addressableValue: number;
   readonly wagesPaid: number;

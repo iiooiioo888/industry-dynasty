@@ -1,4 +1,6 @@
 import { FACTORY_TYPES } from '../buildings/catalog.js';
+import { buildNpcDeals } from '../npc/deals.js';
+import { expandNpcBlocks } from '../npc/expand.js';
 import {
   applyCommerceDay,
   freightMultiplier,
@@ -187,14 +189,15 @@ export function applyAdvanceDay(
     consumerRevenue: book.consumerRevenue,
   });
 
-  return {
+  return expandNpcBlocks({
     ...next,
     gameDay,
     players: { ...next.players, [playerId]: nextPlayer },
     pnl: { ...next.pnl, [playerId]: pnl },
     npcBuyOffers: generateNpcBuyOffers(gameDay, { rawPriceMul: rawPortMultiplier(book.events) }),
+    npcDeals: buildNpcDeals(next.map.cities, gameDay),
     scenario,
-  };
+  });
 }
 
 function aggregateProductionIdleLoss(
