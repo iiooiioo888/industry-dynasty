@@ -1,9 +1,9 @@
-import type { SaveControls, SoundControls } from '../game/useWorldState';
+import type { SaveControls } from '../game/useWorldState';
+import { AudioMenu } from './AudioMenu';
 import './SaveControls.css';
 
 export interface SaveControlsProps {
   saves: SaveControls;
-  sound: SoundControls;
   onOpenStages: () => void;
   clearedStages: number;
   totalStages: number;
@@ -11,7 +11,6 @@ export interface SaveControlsProps {
 
 export function SaveControlsBar({
   saves,
-  sound,
   onOpenStages,
   clearedStages,
   totalStages,
@@ -30,15 +29,7 @@ export function SaveControlsBar({
       <button type="button" className="save-reset" onClick={saves.reset} title="清除存檔並重新開局">
         新局
       </button>
-      <button
-        type="button"
-        className="sound-toggle"
-        onClick={sound.toggleMute}
-        title={sound.muted ? '開啟音效' : '關閉音效'}
-        aria-pressed={!sound.muted}
-      >
-        {sound.muted ? '🔇' : '🔊'}
-      </button>
+      <AudioMenu />
       <span className="save-info">
         {saves.info ? `上次存檔：第 ${saves.info.gameDay} 天` : '尚無存檔'}
       </span>

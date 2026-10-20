@@ -54,7 +54,7 @@ const PAGES = [
 type PageId = (typeof PAGES)[number][0];
 
 export function App() {
-  const { state, dispatch, saves, sound, startStage } = useWorldState();
+  const { state, dispatch, saves, startStage } = useWorldState();
   const [selectedParcelId, setSelectedParcelId] = useState<ParcelId | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
@@ -135,7 +135,6 @@ export function App() {
       <div className="shell-save">
         <SaveControlsBar
           saves={saves}
-          sound={sound}
           onOpenStages={() => setStageSelectOpen(true)}
           clearedStages={campaign.clearedStageIds.length}
           totalStages={STAGES.length}

@@ -8,7 +8,7 @@ import {
   type WorldState,
 } from '@industry-dynasty/sim';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { isMuted, playCue, toggleMuted } from '../audio/player';
+import { playCue, startAmbient } from '../audio/player';
 import { clearSave, loadGame, readSaveInfo, saveGame, type StoredSaveInfo } from './save-storage';
 
 export interface SaveControls {
@@ -20,16 +20,10 @@ export interface SaveControls {
   readonly reset: () => void;
 }
 
-export interface SoundControls {
-  readonly muted: boolean;
-  readonly toggleMute: () => void;
-}
-
 export function useWorldState(): {
   state: WorldState;
   dispatch: (action: WorldAction) => void;
   saves: SaveControls;
-  sound: SoundControls;
   /** 以指定關卡開新局（跨局推進用） */
   startStage: (stageId: string) => void;
 } {
@@ -54,7 +48,6 @@ export function useWorldState(): {
     }
     return null;
   });
-  const [muted, setMutedState] = useState(() => isMuted());
 
   const dispatch = useCallback((action: WorldAction) => {
     const before = stateRef.current;
@@ -68,15 +61,18 @@ export function useWorldState(): {
     }
   }, []);
 
-  const sound = useMemo<SoundControls>(
-    () => ({
-      muted,
-      toggleMute: () => {
-        setMutedState(toggleMuted());
-      },
-    }),
-    [muted],
-  );
+  // 瀏覽器要求先有使用者互動才能播聲音，所以環境音在第一次點擊／按鍵時才啟動
+  useEffect(() => {
+    const start = () => {
+      startAmbient();
+    };
+    window.addEventListener('pointerdown', start, { once: true });
+    window.addEventListener('keydown', start, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', start);
+      window.removeEventListener('keydown', start);
+    };
+  }, []);
 
   const save = useCallback(() => {
     setState((current) => {
@@ -136,7 +132,7 @@ export function useWorldState(): {
   );
 
   return useMemo(
-    () => ({ state, dispatch, saves, sound, startStage }),
-    [state, dispatch, saves, sound, startStage],
+    () => ({ state, dispatch, saves, startStage }),
+    [state, dispatch, saves, startStage],
   );
 }
