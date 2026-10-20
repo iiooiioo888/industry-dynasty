@@ -4,6 +4,15 @@ import { quoteLocalDemand } from '../world/demand.js';
 import type { Parcel } from '../types/map.js';
 import type { ParcelId } from '../types/map.js';
 import type { Player, WorldState } from '../world/state.js';
+import { itemCityDemandFactor } from './cohorts.js';
+import { MAX_CONCURRENT_EVENTS, combineMultiplier, rollNewsEvents } from './news.js';
+import {
+  advanceQualityBand,
+  parcelSuitability,
+  qualityPriceMultiplier,
+  type QualityBand,
+} from './quality.js';
+import { respondToPlayerShare } from './rivals.js';
 import {
   EMPTY_STAFF,
   type AdCampaign,
@@ -18,7 +27,11 @@ import {
 } from './types.js';
 
 export const CONSUMER_RESEARCH_ID = 'consumer-line';
-export const CONSUMER_ITEM_IDS = ['hand-tool', 'wire-bundle', 'pack-module'] as const satisfies readonly ItemId[];
+export const CONSUMER_ITEM_IDS = [
+  'hand-tool',
+  'wire-bundle',
+  'pack-module',
+] as const satisfies readonly ItemId[];
 
 export const RESEARCH_COST = 2_800;
 export const RESEARCH_TICKS = 16;
@@ -35,7 +48,12 @@ export const CITY_DAILY_UNITS = 4;
 
 export const STAFF_TABLE: Record<
   StaffRole,
-  { readonly nameZh: string; readonly hireCost: number; readonly dailyWage: number; readonly cap: number }
+  {
+    readonly nameZh: string;
+    readonly hireCost: number;
+    readonly dailyWage: number;
+    readonly cap: number;
+  }
 > = {
   operator: { nameZh: '產線技師', hireCost: 400, dailyWage: 80, cap: 12 },
   clerk: { nameZh: '門市店員', hireCost: 350, dailyWage: 70, cap: 12 },
@@ -75,7 +93,9 @@ export function consumerReferencePrice(): number {
   return Math.max(1, Math.round(sum / CONSUMER_ITEM_IDS.length));
 }
 
-export function marketShareOf(commerce: Pick<CommerceState, 'consumerRevenue' | 'addressableValue'>): number {
+export function marketShareOf(
+  commerce: Pick<CommerceState, 'consumerRevenue' | 'addressableValue'>,
+): number {
   if (commerce.addressableValue <= 0) {
     return 0;
   }
@@ -95,7 +115,7 @@ export function seedRivals(cities: readonly { id: string; name: string }[]): Riv
 export function createOpeningContracts(
   cities: readonly { id: string; name: string }[],
   gameDay: number,
-  qualityBand: 0 | 1,
+  qualityBand: QualityBand,
 ): CityContract[] {
   return cities.map((city, index) => createCityContract(city, gameDay, index, qualityBand));
 }
@@ -104,10 +124,10 @@ function createCityContract(
   city: { id: string; name: string },
   gameDay: number,
   index: number,
-  qualityBand: 0 | 1,
+  qualityBand: QualityBand,
 ): CityContract {
   const itemId = CONSUMER_ITEM_IDS[(gameDay + index) % CONSUMER_ITEM_IDS.length] ?? 'hand-tool';
-  const quality = qualityBand > 0 ? QUALITY_PRICE_MUL : 1;
+  const quality = qualityPriceMultiplier(qualityBand);
   const unitPrice = Math.max(1, Math.round(ITEMS[itemId].unitValue * 0.72 * quality));
   const quantity = 2 + ((gameDay + index) % 3);
   return {
@@ -171,7 +191,7 @@ export function quoteRetailDay(args: {
   parcel: Parcel;
   itemId: ItemId;
   unitPrice: number;
-  qualityBand: 0 | 1;
+  qualityBand: QualityBand;
   clerks: number;
   activeStores: number;
   rivals: readonly RivalOutlet[];
@@ -179,7 +199,7 @@ export function quoteRetailDay(args: {
   events: readonly WorldEvent[];
 }): RetailQuote {
   const local = quoteLocalDemand(args.parcel);
-  const quality = args.qualityBand > 0 ? QUALITY_PRICE_MUL : 1;
+  const quality = qualityPriceMultiplier(args.qualityBand);
   const referencePrice = Math.max(
     1,
     Math.round(
@@ -199,12 +219,17 @@ export function quoteRetailDay(args: {
     )?.magnitude ?? 0;
   const rivalFactor = Math.max(0.2, 1 - presence + ad);
   // 規劃日不是日曆週。密集區大約三天可以消化一週的在地需求，門市才有得排班。
+  // 人口分級：同一座城市裡，賣對商品的需求量高於賣錯商品。
+  // 係數已正規化成消費品平均為 1，所以整體市場規模不變（見 `commerce/cohorts.ts`）。
+  const cityName = args.parcel.nearestCityName;
+  const cohortFactor = cityName ? itemCityDemandFactor(cityName, args.itemId) : 1;
   let units =
     Math.max(1, Math.round(local.weeklyVolume / 3)) *
     elasticity *
     (0.35 + 0.65 * clamp01(args.parcel.roadAccess)) *
     rivalFactor *
-    (1 + eventBoost);
+    (1 + eventBoost) *
+    cohortFactor;
   if (args.parcel.cityProximity <= 0 && args.parcel.populationDensity < 20) {
     units *= 0.15;
   }
@@ -219,53 +244,28 @@ export function quoteRetailDay(args: {
   };
 }
 
+/**
+ * 舊的單一事件抽取器（`day % 9` 的硬寫桶子）已由 `commerce/news.ts`
+ * 的樣板表取代。這裡保留一個薄包裝，回傳當天的第一個事件，
+ * 讓既有呼叫端與測試不必一次全改；新程式碼請用 `rollNewsEvents`。
+ */
 export function rollWorldEvent(
   day: number,
   cities: readonly { id: string; name: string }[],
 ): WorldEvent | null {
-  const bucket = day % 9;
-  if (bucket === 2) {
-    return {
-      id: `evt-freight-${day}`,
-      kind: 'freight-up',
-      headline: '港灣裝卸壅塞，運費短升',
-      remainingDays: 2,
-      magnitude: 1.25,
-    };
-  }
-  if (bucket === 5 && cities.length > 0) {
-    const city = cities[day % cities.length];
-    if (!city) {
-      return null;
-    }
-    return {
-      id: `evt-demand-${day}`,
-      kind: 'city-demand-up',
-      headline: `${city.name}工地趕工，消費品需求短升`,
-      remainingDays: 2,
-      magnitude: 0.35,
-      cityId: city.id,
-      cityName: city.name,
-    };
-  }
-  if (bucket === 8) {
-    return {
-      id: `evt-port-${day}`,
-      kind: 'port-raw-down',
-      headline: '港區原料庫滿，收購價短跌',
-      remainingDays: 2,
-      magnitude: 0.93,
-    };
-  }
-  return null;
+  return rollNewsEvents(day, { cities })[0] ?? null;
 }
 
+/**
+ * 運費乘數。多個事件並存時取**乘積**（`combineMultiplier`），
+ * 而不是只認第一個 —— 否則同時兩個運費事件只有一個生效。
+ */
 export function freightMultiplier(events: readonly WorldEvent[]): number {
-  return events.find((event) => event.kind === 'freight-up')?.magnitude ?? 1;
+  return combineMultiplier(events, 'freight-up');
 }
 
 export function rawPortMultiplier(events: readonly WorldEvent[]): number {
-  return events.find((event) => event.kind === 'port-raw-down')?.magnitude ?? 1;
+  return combineMultiplier(events, 'port-raw-down');
 }
 
 function staffCount(staff: StaffRoster, role: StaffRole): number {
@@ -438,11 +438,23 @@ export function advanceResearch(state: WorldState): WorldState {
   if (progressTicks < job.totalTicks) {
     return writeCommerce(state, { ...commerce, research: { ...job, progressTicks } });
   }
+  // 研發完成後，品質檔位依「旗下最佳地塊的土壤／水質」決定能升到第幾檔
+  // （見 `commerce/quality.ts`）。原本一律升到 1，地點毫無影響。
+  const bestSuitability = state.map.parcels
+    .filter((parcel) => parcel.ownerId === state.localPlayerId)
+    .reduce((best, parcel) => Math.max(best, parcelSuitability(parcel).overall), 0);
+  const qualityBand = advanceQualityBand({
+    current: commerce.qualityBand,
+    researched: true,
+    bestSuitability,
+  });
   return writeCommerce(state, {
     ...commerce,
     research: null,
-    unlocked: commerce.unlocked.includes(job.id) ? commerce.unlocked : [...commerce.unlocked, job.id],
-    qualityBand: 1,
+    unlocked: commerce.unlocked.includes(job.id)
+      ? commerce.unlocked
+      : [...commerce.unlocked, job.id],
+    qualityBand,
   });
 }
 
@@ -469,7 +481,11 @@ export function applyBuyCampaign(state: WorldState, cityId: string): WorldState 
   );
 }
 
-function refreshContracts(commerce: CommerceState, state: WorldState, gameDay: number): CityContract[] {
+function refreshContracts(
+  commerce: CommerceState,
+  state: WorldState,
+  gameDay: number,
+): CityContract[] {
   const kept = commerce.contracts.filter((contract) => {
     if (contract.status === 'shipping') {
       return true;
@@ -563,11 +579,15 @@ export function applyCommerceDay(state: WorldState, gameDay: number): CommerceDa
   const events = commerce.events
     .map((event) => ({ ...event, remainingDays: event.remainingDays - 1 }))
     .filter((event) => event.remainingDays > 0);
-  if (events.length === 0) {
-    const rolled = rollWorldEvent(gameDay, state.map.cities);
-    if (rolled) {
-      events.push(rolled);
-    }
+  // 事件改成資料驅動的樣板表（見 `commerce/news.ts`），仍然一天最多一個，
+  // 且同類型不重複，避免乘數疊加失控。
+  if (events.length < MAX_CONCURRENT_EVENTS) {
+    const rolled = rollNewsEvents(
+      gameDay,
+      { cities: state.map.cities },
+      events.map((event) => event.kind),
+    );
+    events.push(...rolled);
   }
   const campaigns = commerce.campaigns
     .map((campaign) => ({ ...campaign, remainingDays: campaign.remainingDays - 1 }))
@@ -577,12 +597,25 @@ export function applyCommerceDay(state: WorldState, gameDay: number): CommerceDa
     commerce.addressableValue +
     state.map.cities.length * CITY_DAILY_UNITS * consumerReferencePrice();
 
+  // 對手會依玩家整體市佔反制（見 `commerce/rivals.ts`）：
+  // 吃下市場會讓對手加碼，聲勢回落則慢慢退場。
+  const shareNow = marketShareOf({
+    consumerRevenue: commerce.consumerRevenue + retailRevenue,
+    addressableValue,
+  });
+  const rivalResponse = respondToPlayerShare(commerce.rivals, shareNow);
+
   const nextCommerce: CommerceState = {
     ...commerce,
     shelves,
-    contracts: refreshContracts({ ...commerce, contracts, qualityBand: commerce.qualityBand }, state, gameDay),
+    contracts: refreshContracts(
+      { ...commerce, contracts, qualityBand: commerce.qualityBand },
+      state,
+      gameDay,
+    ),
     campaigns,
     events,
+    rivals: rivalResponse.rivals,
     consumerRevenue: commerce.consumerRevenue + retailRevenue,
     addressableValue,
     wagesPaid: commerce.wagesPaid + paidWages,
@@ -602,7 +635,11 @@ export function applyCommerceDay(state: WorldState, gameDay: number): CommerceDa
   };
 }
 
-export function noteContractRevenue(state: WorldState, grossRevenue: number, contractId: string): WorldState {
+export function noteContractRevenue(
+  state: WorldState,
+  grossRevenue: number,
+  contractId: string,
+): WorldState {
   const commerce = readCommerce(state);
   return {
     ...state,

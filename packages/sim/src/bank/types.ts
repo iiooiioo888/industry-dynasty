@@ -57,6 +57,14 @@ export interface PlayerBank {
   /** 定期滿期時的 financeTick。0 表示沒有定期。 */
   readonly savingsUnlockTick: number;
   readonly loans: readonly LoanBook[];
+  /**
+   * 累計清償的貸款金額（本金＋欠款）。
+   *
+   * 原型的關卡有「清償貸款」這一維目標；只看期末負債餘額無法區分
+   * 「從沒借過」與「借了又還清」，所以記累計值。
+   * 舊存檔沒有這個欄位，讀取時一律以 0 處理。
+   */
+  readonly lifetimeRepaid?: number;
   readonly stocks: readonly StockHolding[];
   readonly commodities: readonly CommodityHolding[];
   readonly bonds: readonly BondHolding[];

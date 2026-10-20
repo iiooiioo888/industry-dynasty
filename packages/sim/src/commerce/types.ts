@@ -1,3 +1,4 @@
+import type { QualityBand } from './quality.js';
 import type { ItemId } from '../production/items.js';
 
 export type StaffRole = 'operator' | 'clerk' | 'researcher';
@@ -73,7 +74,7 @@ export interface CommerceState {
   readonly staff: StaffRoster;
   readonly research: ResearchJob | null;
   readonly unlocked: readonly string[];
-  readonly qualityBand: 0 | 1;
+  readonly qualityBand: QualityBand;
   readonly campaigns: readonly AdCampaign[];
   readonly events: readonly WorldEvent[];
   readonly rivals: readonly RivalOutlet[];

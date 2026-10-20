@@ -33,6 +33,7 @@ import {
   clearProductionAtParcel,
 } from './production-reducer.js';
 import { advanceSimClock, setSimClock, stepOneSimTick } from './clock-advance.js';
+import { consumeBuildMaterials } from '../buildings/materials.js';
 import { quoteLandSale } from './land-sale.js';
 import { applyTaxTickWithPnl } from './day-reducer.js';
 import { bumpPlayerPnl } from './pnl-helpers.js';
@@ -97,7 +98,13 @@ export function applyWorldAction(
     case 'SELL_TO_NPC':
       return applySellToNpc(state, action.offerId, action.quantity, action.shipFromParcelId);
     case 'SET_SHELF':
-      return applySetShelf(state, action.parcelId, action.itemId, action.unitPrice, action.quantity);
+      return applySetShelf(
+        state,
+        action.parcelId,
+        action.itemId,
+        action.unitPrice,
+        action.quantity,
+      );
     case 'ACCEPT_CONTRACT':
       return applyAcceptContract(state, action.contractId, action.shipFromParcelId);
     case 'HIRE_STAFF':
@@ -129,7 +136,13 @@ export function applyWorldAction(
     case 'SELL_COMMODITY':
       return applySellCommodity(state, action.commodityId, action.lots, config.bank);
     case 'PLACE_LIMIT':
-      return applyPlaceLimit(state, action.marketId, action.side, action.limitPrice, action.quantity);
+      return applyPlaceLimit(
+        state,
+        action.marketId,
+        action.side,
+        action.limitPrice,
+        action.quantity,
+      );
     case 'CANCEL_LIMIT':
       return applyCancelLimit(state, action.orderId);
     case 'BUY_BOND':
@@ -245,9 +258,17 @@ function applyStart(
     return state;
   }
 
+  // 擴廠要吃材料（見 `buildings/materials.ts`）：工坊免材料，其餘要備料。
+  // 材料不足就整筆擋下、狀態不變 —— 呼叫端必須先確認庫存。
+  const nextStock = consumeBuildMaterials(state.inventories[player.id], factoryTypeId);
+  if (!nextStock) {
+    return state;
+  }
+
   const factoryType = FACTORY_TYPES[factoryTypeId];
   return {
     ...state,
+    inventories: { ...state.inventories, [player.id]: nextStock },
     map: updateParcelInMap(state.map, result.parcel),
     players: updatePlayer(state.players, result.player),
     sites: {

@@ -14,6 +14,7 @@
  * 正式遊玩的規劃日是 48 刻，見 `balance/targets.ts` 的假設說明。
  */
 import { FACTORY_TYPES, type FactoryTypeId } from '../buildings/catalog.js';
+import { BUILD_MATERIALS, hasBuildMaterials } from '../buildings/materials.js';
 import { RECIPES, type RecipeId } from '../production/recipes.js';
 import { applyProductionPlans, planProductionSlots } from '../production/planning.js';
 import { getItemQty, ITEMS } from '../production/items.js';
@@ -196,7 +197,9 @@ function isProductionSite(factoryTypeId: FactoryTypeId): boolean {
 function countCompleteFactories(state: WorldState, playerId: string): number {
   return Object.entries(state.sites).filter(
     ([, site]) =>
-      site.phase === 'complete' && site.ownerId === playerId && isProductionSite(site.factoryTypeId),
+      site.phase === 'complete' &&
+      site.ownerId === playerId &&
+      isProductionSite(site.factoryTypeId),
   ).length;
 }
 
@@ -271,7 +274,34 @@ function reserveQtyFor(
     }
   }
   // 每座加工廠保留「每輪需求 × 3 輪」的緩衝
-  return need * processors * 3;
+  const feedReserve = need * processors * 3;
+  return feedReserve + buildMaterialReserve(state, playerId, itemId, depth);
+}
+
+/**
+ * 為「還沒蓋的下一座建築」保留材料，避免把零件賣光導致永遠蓋不了。
+ *
+ * 建廠要吃材料（`buildings/materials.ts`）；這個量測迴圈每天把可賣的東西
+ * 全部賣掉，若不保留，二階加工就會卡在「有錢但沒有零件」而永遠蓋不出組裝廠
+ * （實測 8 塊地二階直接虧損）。
+ */
+function buildMaterialReserve(
+  state: WorldState,
+  playerId: string,
+  itemId: string,
+  depth: 0 | 1 | 2,
+): number {
+  if (depth < 2) {
+    return 0;
+  }
+  const ownsAssembly = Object.values(state.sites).some(
+    (site) => site.ownerId === playerId && site.factoryTypeId === 'assembly-plant',
+  );
+  if (ownsAssembly) {
+    return 0;
+  }
+  const material = BUILD_MATERIALS['assembly-plant'].find((entry) => entry.itemId === itemId);
+  return material ? material.quantity : 0;
 }
 
 /** 把庫存裡所有可販售品項賣給當日報價最佳的 NPC，回傳新狀態。 */
@@ -464,9 +494,17 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
         maxParcels,
         factoryTypeId,
       );
-      const slotCost = FACTORY_TYPES[slotType].buildCost;
+      // 建廠要吃材料（見 `buildings/materials.ts`）。材料不足時**先不蓋**，
+      // 保留那個位置給真正需要的廠型 —— 這裡不能「退回蓋工坊」：
+      // 每個空地都算出「該蓋組裝廠」、都缺料、於是連工坊都蓋不出來，
+      // 或是最後一格被工坊佔走，二階加工就永遠起不來（兩者都實測過）。
+      // 材料由 `buildMaterialReserve` 在賣出前先囤起來。
       const cash = state.players[state.localPlayerId]?.cash ?? 0;
-      if (cash < slotCost) {
+      const stock = state.inventories[state.localPlayerId];
+      if (cash < FACTORY_TYPES[slotType].buildCost) {
+        continue;
+      }
+      if (!hasBuildMaterials(stock, slotType)) {
         continue;
       }
       state = applyWorldAction(state, {

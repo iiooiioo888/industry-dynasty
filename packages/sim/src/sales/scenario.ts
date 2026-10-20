@@ -29,6 +29,8 @@ export interface ScenarioConfig {
   /** 消費品銷售額佔城市需求的比例。 */
   readonly targetShare?: number;
   readonly minConsumerRevenue?: number;
+  /** 累計清償貸款門檻 */
+  readonly targetDebtRepaid: number;
 }
 
 export const DEFAULT_SCENARIO: ScenarioConfig = {
@@ -37,6 +39,7 @@ export const DEFAULT_SCENARIO: ScenarioConfig = {
   maxDays: BALANCE.maxDays,
   targetShare: SHARE_TARGET,
   minConsumerRevenue: SHARE_MIN_REVENUE,
+  targetDebtRepaid: BALANCE.targetDebtRepaid,
 };
 
 export type ScenarioStatus = 'playing' | 'won' | 'lost';
@@ -57,6 +60,7 @@ export function resolveScenarioConfig(config: Partial<ScenarioConfig>): Scenario
     maxDays: config.maxDays ?? BALANCE.maxDays,
     targetShare: config.targetShare ?? SHARE_TARGET,
     minConsumerRevenue: config.minConsumerRevenue ?? SHARE_MIN_REVENUE,
+    targetDebtRepaid: config.targetDebtRepaid ?? BALANCE.targetDebtRepaid,
   };
 }
 
@@ -73,7 +77,7 @@ export interface CommerceSnapshot {
 /**
  * 判定通關所需的額外資訊。
  *
- * 用單一物件而不是位置參數，因為兩條路線各自需要不同的資料，
+ * 用單一物件而不是位置參數，因為各條路線需要不同的資料，
  * 而且日後再加維度時不會一直改簽名。
  */
 export interface WinContext {
@@ -81,19 +85,28 @@ export interface WinContext {
   readonly craftedValue?: number;
   /** 城市需求佔比與消費營收（商業路線） */
   readonly commerce?: CommerceSnapshot;
+  /** 累計清償貸款金額（還款路線） */
+  readonly debtRepaid?: number;
+  /** 目前仍未清償的負債總額（本金＋欠款） */
+  readonly outstandingDebt?: number;
 }
 
-/** 通關進度，供 UI 顯示兩條路線各自差多少。 */
+/** 通關進度，供 UI 顯示各條路線各自差多少。 */
 export interface ScenarioProgress {
   readonly netProfit: number;
   readonly craftedValue: number;
   readonly commerce: CommerceSnapshot;
+  readonly debtRepaid: number;
+  readonly outstandingDebt: number;
   /** 工業化路線的兩個條件 */
   readonly profitMet: boolean;
   readonly craftedMet: boolean;
   /** 商業路線的兩個條件 */
   readonly minRevenueMet: boolean;
   readonly shareMet: boolean;
+  /** 還款路線的三個條件 */
+  readonly repaidMet: boolean;
+  readonly debtClear: boolean;
   /** 任一整條路線達成 */
   readonly won: boolean;
 }
@@ -107,29 +120,44 @@ export function scenarioProgress(
   const profit = netProfit(pnl);
   const crafted = context.craftedValue ?? 0;
   const commerce: CommerceSnapshot = context.commerce ?? { share: 0, consumerRevenue: 0 };
+  const debtRepaid = context.debtRepaid ?? 0;
+  const outstandingDebt = context.outstandingDebt ?? 0;
 
   const profitMet = profit >= config.targetNetProfit;
   const craftedMet = crafted >= config.targetCraftedValue;
   const minRevenueMet =
     commerce.consumerRevenue >= (config.minConsumerRevenue ?? SHARE_MIN_REVENUE);
   const shareMet = commerce.share >= (config.targetShare ?? SHARE_TARGET);
+  const repaidMet = debtRepaid >= config.targetDebtRepaid;
+  const debtClear = outstandingDebt <= 0;
 
   return {
     netProfit: profit,
     craftedValue: crafted,
     commerce,
+    debtRepaid,
+    outstandingDebt,
     profitMet,
     craftedMet,
     minRevenueMet,
     shareMet,
-    won: (profitMet && craftedMet) || (minRevenueMet && shareMet),
+    repaidMet,
+    debtClear,
+    won:
+      (profitMet && craftedMet) ||
+      (minRevenueMet && shareMet) ||
+      // 還款路線也必須獲利 —— 否則「借一筆立刻還掉」就能刷滿累計清償
+      (profitMet && repaidMet && debtClear),
   };
 }
 
 /**
  * 判定通關。
  *
- * 兩條路線取聯集：工業化（淨利 ＋ 加工產值）或商業（營收 ＋ 需求佔比）。
+ * 三條路線取聯集：
+ * - 工業化：淨利 ＋ 加工產值
+ * - 商業：消費營收 ＋ 城市需求佔比
+ * - 還款：淨利 ＋ 累計清償 ＋ 期末零負債
  */
 export function evaluateScenario(
   scenario: ScenarioState,
