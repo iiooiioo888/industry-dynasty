@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { grantBuildMaterials } from '../buildings/materials.js';
 import { FACTORY_TYPES } from '../buildings/catalog.js';
 import { emptyPnL, netProfit } from '../sales/pnl.js';
 import { parcelIdFromCoords } from '../types/map.js';
@@ -45,6 +46,14 @@ function runMounted(
   const lot = findOpenLotForParcel(state, parcelId)!;
   state = applyWorldAction(state, { type: 'BID', parcelId, amount: lot.minPrice });
   state = applyWorldAction(state, { type: 'SETTLE_AUCTION', parcelId });
+  // 建廠要吃材料；這個測試專心測機械檔位，所以直接補齊。
+  state = {
+    ...state,
+    inventories: {
+      ...state.inventories,
+      [state.localPlayerId]: grantBuildMaterials(state.inventories[state.localPlayerId], factory),
+    },
+  };
   state = applyWorldAction(state, { type: 'START_BUILD', parcelId, factoryTypeId: factory });
   for (let i = 0; i < FACTORY_TYPES[factory].buildTimeTicks; i += 1) {
     state = applyWorldAction(state, { type: 'ADVANCE_BUILD_TICK' });
@@ -144,9 +153,7 @@ describe('加工機械', () => {
     const iron = createInitialWorld({ startingCash: 500_000 })
       .map.parcels.filter(
         (parcel) =>
-          parcel.role === 'land' &&
-          parcel.resource.kind === 'iron-vein' &&
-          parcel.x + parcel.y > 0,
+          parcel.role === 'land' && parcel.resource.kind === 'iron-vein' && parcel.x + parcel.y > 0,
       )
       .sort((a, b) => a.x + a.y - (b.x + b.y))[0]!;
     const mineKiln = runMounted(iron.x, iron.y, 'workshop', 'extract-iron', 'neighbor-kiln', stock);

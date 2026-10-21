@@ -82,6 +82,11 @@ export function BuildPanel({
                 <p>
                   ${def.buildCost.toLocaleString()} · {def.buildTimeTicks} 刻
                 </p>
+                <p className="factory-meta">
+                  {def.role === 'production'
+                    ? `物流 ${def.baseLogisticsEfficiency.toFixed(2)}×`
+                    : `$${def.dailyUpkeep}/日`}
+                </p>
                 <button
                   type="button"
                   disabled={!affordable}

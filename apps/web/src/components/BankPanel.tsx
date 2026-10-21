@@ -7,6 +7,8 @@ import {
   formatBps,
   getPlayerBank,
   interestOn,
+  nextLoanDue,
+  quoteRates,
   previewCoupledWeek,
   quoteCommodityAsk,
   quoteCommodityBid,
@@ -137,6 +139,7 @@ export function BankPanel({
   const player = state.players[state.localPlayerId];
   const book = getPlayerBank(state, state.localPlayerId);
   const snapshot = useMemo(() => summarizeBank(state), [state]);
+  const rates = useMemo(() => quoteRates(state.financeTick), [state.financeTick]);
   const preview = useMemo(() => previewCoupledWeek(state), [state]);
 
   function reject(reason: string | undefined) {
@@ -148,7 +151,9 @@ export function BankPanel({
       <header className="sys-panel-head bank-heading">
         <span className="sys-panel-tag">BNK</span>
         <h2>銀行</h2>
-        <p className="bank-kicker">第 {state.financeTick} 期</p>
+        <p className="bank-kicker">
+          第 {state.financeTick} 期 · 政策 {formatBps(rates.policyAnnualBps)}
+        </p>
       </header>
 
       <dl className="bank-ledger">
@@ -186,19 +191,37 @@ export function BankPanel({
 
       {tab === 'overview' ? (
         <div role="tabpanel">
-          <p className="bank-rule">
-            閒置現金每期自動計息 {formatBps(DEFAULT_BANK_CONFIG.idleInterestBps)}
-            ，不必先存入。日結時先扣土地稅與貸款，再入息。
-          </p>
           <ul className="bank-breakdown">
-            <li>定期本金 {money(snapshot.savingsPrincipal)}</li>
+            <li>定期 {money(snapshot.savingsPrincipal)}</li>
             <li>未入帳利息 {money(snapshot.savingsAccrued)}</li>
-            <li>股票市值 {money(snapshot.stockValue)}</li>
-            <li>大宗變現 {money(snapshot.commodityBidValue)}</li>
+            <li>股票 {money(snapshot.stockValue)}</li>
+            <li>大宗 {money(snapshot.commodityBidValue)}</li>
             <li>土地 {money(snapshot.landValue)}</li>
             <li>廠房 {money(snapshot.factoryValue)}</li>
             <li>庫存 {money(snapshot.inventoryValue)}</li>
+            <li>架上 {money(snapshot.shelfValue)}</li>
+            <li>
+              授信 {money(snapshot.creditUsed)} / {money(snapshot.creditLimit)}
+            </li>
+            <li>
+              下期還款{' '}
+              {money(book.loans.reduce((sum, loan) => sum + nextLoanDue(loan).total, 0))}
+            </li>
           </ul>
+          {book.statements.length > 0 ? (
+            <table className="bank-statements">
+              <tbody>
+                {book.statements.slice(0, 6).map((row) => (
+                  <tr key={row.tick}>
+                    <td>第 {row.tick} 期</td>
+                    <td className="money-plus">{signedMoney(row.idleInterest)}</td>
+                    <td>{row.loanInterestCharged > 0 ? `息 ${money(row.loanInterestCharged)}` : ''}</td>
+                    <td>{row.loanPrincipalPaid > 0 ? `本 ${money(row.loanPrincipalPaid)}` : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
           {book.lastSettlement ? (
             <p className="panel-hint">
               上期入息 {signedMoney(book.lastSettlement.idleInterest)}
@@ -297,7 +320,8 @@ export function BankPanel({
               <li key={product.id} className="bank-card">
                 <strong>{product.nameZh}</strong>
                 <p>
-                  {formatBps(product.rateBps)} · {product.termTicks} 期 · {product.blurb}
+                  {formatBps(product.id === 'construction' ? rates.constructionBps : rates.workingCapitalBps)} ·{' '}
+                  {product.termTicks} 期
                 </p>
                 <label className="bid-field">
                   <span>撥款金額</span>
@@ -354,10 +378,11 @@ export function BankPanel({
                   <li key={loan.id} className="bank-card">
                     <strong>{product?.nameZh ?? loan.productId}</strong>
                     <p>
-                      本金 {money(loan.principal)} · 積欠 {money(loan.arrears)} · 剩餘{' '}
-                      {loan.ticksRemaining} 期
+                      本金 {money(loan.principal)} · 積欠 {money(loan.arrears)} · 剩 {loan.ticksRemaining} 期
                     </p>
-                    <p className="panel-muted">每期預定還本 {money(loan.installment)}</p>
+                    <p className="panel-muted">
+                      下期息 {money(nextLoanDue(loan).interest)} · 本 {money(nextLoanDue(loan).principal)}
+                    </p>
                     <div className="panel-actions">
                       {loan.arrears > 0 ? (
                         <button

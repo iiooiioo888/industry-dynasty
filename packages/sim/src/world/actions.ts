@@ -1,4 +1,12 @@
-import type { CommodityId, LoanProductId, StockSymbol } from '../bank/types.js';
+import type {
+  BondId,
+  CommodityId,
+  LoanProductId,
+  MarketId,
+  OrderSide,
+  StockSymbol,
+} from '../bank/types.js';
+import type { StaffRole } from '../commerce/types.js';
 import type { ConsumerItemId } from '../company/retail.js';
 import type { ClockSpeed } from './clock.js';
 import type { FactoryTypeId } from '../buildings/catalog.js';
@@ -20,6 +28,17 @@ export type WorldAction =
   | { type: 'SELL_STOCK'; symbol: StockSymbol; shares: number }
   | { type: 'BUY_COMMODITY'; commodityId: CommodityId; lots: number }
   | { type: 'SELL_COMMODITY'; commodityId: CommodityId; lots: number }
+  | {
+      type: 'PLACE_LIMIT';
+      marketId: MarketId;
+      side: OrderSide;
+      limitPrice: number;
+      quantity: number;
+    }
+  | { type: 'CANCEL_LIMIT'; orderId: string }
+  | { type: 'BUY_BOND'; bondId: BondId; units: number }
+  | { type: 'SELL_BOND'; bondId: BondId; units: number }
+  | { type: 'ACCEPT_NPC_DEAL'; dealId: string }
   | { type: 'START_BUILD'; parcelId: ParcelId; factoryTypeId: FactoryTypeId }
   | { type: 'ADVANCE_BUILD_TICK' }
   | { type: 'CANCEL_BUILD'; parcelId: ParcelId }
@@ -44,10 +63,21 @@ export type WorldAction =
   | { type: 'STOP_PRODUCTION'; parcelId: ParcelId }
   | { type: 'ADVANCE_PRODUCTION_TICK' }
   | { type: 'SELL_TO_NPC'; offerId: string; quantity: number; shipFromParcelId: ParcelId }
+  | { type: 'SET_SHELF'; parcelId: ParcelId; itemId: ItemId; unitPrice: number; quantity: number }
+  | { type: 'ACCEPT_CONTRACT'; contractId: string; shipFromParcelId: ParcelId }
+  /**
+   * 對城市合約出價。出價必須 ≤ 對手報價才標得到（見 commerce/bidding.ts）。
+   * 出越低越容易贏，但成交價也越低 —— 這是取捨。
+   */
+  | { type: 'BID_CONTRACT'; contractId: string; unitPrice: number }
+  | { type: 'HIRE_STAFF'; role: StaffRole; count: number }
+  | { type: 'HIRE_STAFF'; candidateId: string }
+  | { type: 'FIRE_STAFF'; role: StaffRole; count: number }
+  | { type: 'START_RESEARCH'; parcelId: ParcelId; researchId?: string }
+  | { type: 'BUY_CAMPAIGN'; cityId: string }
   | { type: 'ADVANCE_DAY' }
   | { type: 'SET_CLOCK'; paused?: boolean; speed?: ClockSpeed }
   | { type: 'ADVANCE_SIM_TIME'; deltaMs: number }
-  | { type: 'HIRE_STAFF'; candidateId: string }
   | { type: 'DISMISS_STAFF'; staffId: string }
   | { type: 'ASSIGN_STAFF'; staffId: string; parcelId: ParcelId | null }
   | { type: 'UNLOCK_RESEARCH'; projectId: string }

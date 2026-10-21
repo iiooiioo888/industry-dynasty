@@ -1,0 +1,90 @@
+/* 共用的動態效果：面板進場、數字脈動、清單淡入 */
+
+@keyframes sys-fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sys-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes sys-flash-up {
+  0% {
+    color: var(--sys-accent);
+    transform: translateY(-1px);
+  }
+
+  100% {
+    color: inherit;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sys-flash-down {
+  0% {
+    color: var(--sys-warn);
+    transform: translateY(1px);
+  }
+
+  100% {
+    color: inherit;
+    transform: translateY(0);
+  }
+}
+
+/* 橫幅與提示列進場 */
+.guidance-banner,
+.shell-save,
+.market-news-banner,
+.auction-alert-banner {
+  animation: sys-fade-slide-in 180ms ease-out;
+}
+
+/* 覆蓋層卡片進場 */
+.stage-card,
+.stage-select-card {
+  animation: sys-pop-in 160ms ease-out;
+}
+
+.animated-number {
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+}
+
+.animated-number.is-up {
+  animation: sys-flash-up 600ms ease-out;
+}
+
+.animated-number.is-down {
+  animation: sys-flash-down 600ms ease-out;
+}
+
+/* 使用者要求減少動態時，全部關掉 */
+@media (prefers-reduced-motion: reduce) {
+  .guidance-banner,
+  .shell-save,
+  .market-news-banner,
+  .auction-alert-banner,
+  .stage-card,
+  .stage-select-card,
+  .animated-number.is-up,
+  .animated-number.is-down {
+    animation: none;
+  }
+}

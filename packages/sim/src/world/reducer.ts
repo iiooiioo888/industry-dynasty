@@ -1,9 +1,13 @@
 import {
   applyBuyCommodity,
+  applyBuyBond,
   applyBuyStock,
+  applyCancelLimit,
+  applyPlaceLimit,
   applyDrawLoan,
   applyOpenSavings,
   applyRepayLoan,
+  applySellBond,
   applySellCommodity,
   applySellStock,
   applyWithdrawSavings,
@@ -29,17 +33,52 @@ import {
   clearProductionAtParcel,
 } from './production-reducer.js';
 import { advanceSimClock, setSimClock, stepOneSimTick } from './clock-advance.js';
+import { consumeBuildMaterials } from '../buildings/materials.js';
 import { quoteLandSale } from './land-sale.js';
 import { applyTaxTickWithPnl } from './day-reducer.js';
 import { bumpPlayerPnl } from './pnl-helpers.js';
-import { applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
+import { applyNpcDeal } from '../npc/deals.js';
+import {
+  applyBuyCampaign,
+  applyFireStaff,
+  applyHireStaff,
+  applySetShelf,
+  applyStartResearch,
+} from '../commerce/logic.js';
+import type { ResearchId } from '../commerce/research.js';
 import { assignStaff, dismissStaff, hireStaff, releaseStaffAt } from '../company/staff.js';
 import { unlockResearch } from '../company/research.js';
 import { fillCityOrder } from '../company/orders.js';
 import { buyAdvert, setShelfPrice } from '../company/retail.js';
 import { dispatchSupply, releaseSiteBin, restockSite } from '../supply/haul.js';
 import { applyWithdrawCommodity } from '../supply/intake.js';
+import {
+  applyAcceptContract,
+  applyAdvanceDay,
+  applyBidContract,
+  applySellToNpc,
+} from './sales-reducer.js';
 import { findOpenLotForParcel, findParcel, type Player, type WorldState } from './state.js';
+
+function cashOf(state: WorldState): number {
+  return state.players[state.localPlayerId]?.cash ?? 0;
+}
+
+function chargeWages(before: WorldState, after: WorldState): WorldState {
+  const spent = cashOf(before) - cashOf(after);
+  if (spent <= 0) {
+    return after;
+  }
+  return { ...after, pnl: bumpPlayerPnl(after, before.localPlayerId, { wages: spent }) };
+}
+
+function chargeBuild(before: WorldState, after: WorldState): WorldState {
+  const spent = cashOf(before) - cashOf(after);
+  if (spent <= 0) {
+    return after;
+  }
+  return { ...after, pnl: bumpPlayerPnl(after, before.localPlayerId, { buildSpend: spent }) };
+}
 
 function updateParcelInMap(map: WorldState['map'], parcel: Parcel): WorldState['map'] {
   return {
@@ -70,6 +109,36 @@ export function applyWorldAction(
       return applyTaxTickWithPnl(state, config);
     case 'SELL_TO_NPC':
       return applySellToNpc(state, action.offerId, action.quantity, action.shipFromParcelId);
+    case 'SET_SHELF':
+      return applySetShelf(
+        state,
+        action.parcelId,
+        action.itemId,
+        action.unitPrice,
+        action.quantity,
+      );
+    case 'BID_CONTRACT':
+      return applyBidContract(state, action.contractId, action.unitPrice);
+    case 'ACCEPT_CONTRACT':
+      return applyAcceptContract(state, action.contractId, action.shipFromParcelId);
+    case 'HIRE_STAFF':
+      if ('candidateId' in action) {
+        return hireStaff(state, action.candidateId);
+      }
+      return chargeWages(state, applyHireStaff(state, action.role, action.count));
+    case 'FIRE_STAFF':
+      return applyFireStaff(state, action.role, action.count);
+    case 'START_RESEARCH':
+      return chargeBuild(
+        state,
+        applyStartResearch(
+          state,
+          action.parcelId,
+          (action.researchId as ResearchId | undefined) ?? undefined,
+        ),
+      );
+    case 'BUY_CAMPAIGN':
+      return chargeBuild(state, applyBuyCampaign(state, action.cityId));
     case 'ADVANCE_DAY':
       return applyAdvanceDay(state, config);
     case 'ADVANCE_FINANCE_TICK':
@@ -90,6 +159,22 @@ export function applyWorldAction(
       return applyBuyCommodity(state, action.commodityId, action.lots);
     case 'SELL_COMMODITY':
       return applySellCommodity(state, action.commodityId, action.lots, config.bank);
+    case 'PLACE_LIMIT':
+      return applyPlaceLimit(
+        state,
+        action.marketId,
+        action.side,
+        action.limitPrice,
+        action.quantity,
+      );
+    case 'CANCEL_LIMIT':
+      return applyCancelLimit(state, action.orderId);
+    case 'BUY_BOND':
+      return applyBuyBond(state, action.bondId, action.units);
+    case 'ACCEPT_NPC_DEAL':
+      return applyNpcDeal(state, action.dealId);
+    case 'SELL_BOND':
+      return applySellBond(state, action.bondId, action.units);
     case 'START_BUILD':
       return applyStart(state, action.parcelId, action.factoryTypeId);
     case 'ADVANCE_BUILD_TICK':
@@ -112,8 +197,6 @@ export function applyWorldAction(
       return setSimClock(state, { paused: action.paused, speed: action.speed });
     case 'ADVANCE_SIM_TIME':
       return advanceSimClock(state, action.deltaMs, config);
-    case 'HIRE_STAFF':
-      return hireStaff(state, action.candidateId);
     case 'DISMISS_STAFF':
       return dismissStaff(state, action.staffId);
     case 'ASSIGN_STAFF':
@@ -222,9 +305,17 @@ function applyStart(
     return state;
   }
 
+  // 擴廠要吃材料（見 `buildings/materials.ts`）：工坊免材料，其餘要備料。
+  // 材料不足就整筆擋下、狀態不變 —— 呼叫端必須先確認庫存。
+  const nextStock = consumeBuildMaterials(state.inventories[player.id], factoryTypeId);
+  if (!nextStock) {
+    return state;
+  }
+
   const factoryType = FACTORY_TYPES[factoryTypeId];
   return {
     ...state,
+    inventories: { ...state.inventories, [player.id]: nextStock },
     map: updateParcelInMap(state.map, result.parcel),
     players: updatePlayer(state.players, result.player),
     sites: {

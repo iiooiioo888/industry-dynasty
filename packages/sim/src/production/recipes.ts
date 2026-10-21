@@ -30,6 +30,11 @@ export type RecipeId =
   | 'fire-silica'
   | 'make-alloy-plate'
   | 'roll-alloy'
+  | 'make-hand-tool'
+  | 'make-wire-bundle'
+  | 'make-pack-module'
+  | 'assemble-precision'
+  | 'assemble-control'
   | 'pack-tool-kit'
   | 'pack-wire-spool'
   | 'pack-sealant';
@@ -51,10 +56,7 @@ export interface RecipeDef {
   readonly sourceKind: ParcelResourceKind | null;
   readonly reserveCost: number;
   readonly buildings: readonly FactoryTypeId[];
-  /**
-   * 有值時必須先在研發室解鎖。
-   * 缺省代表開局就能排，量測迴圈不會選到這些城市消費品。
-   */
+  /** 有值時，研發室解鎖前不能排產。港區不收購這些產出。 */
   readonly researchId?: string;
 }
 
@@ -261,6 +263,102 @@ export const RECIPES = {
     reserveCost: 0,
     buildings: ['assembly-plant'],
   },
+  'make-hand-tool': {
+    id: 'make-hand-tool',
+    nameZh: '組裝手工具',
+    inputs: [
+      { itemId: 'iron-ingot', quantity: 1 },
+      { itemId: 'basic-part', quantity: 1 },
+    ],
+    outputItemId: 'hand-tool',
+    outputQuantity: 1,
+    outputMultiplier: 1,
+    baseCycleTicks: 4,
+    travelTickPerDistance: 1,
+    stage: 'finish',
+    minTechStage: 2,
+    sourceKind: null,
+    reserveCost: 0,
+    buildings: ['assembly-plant'],
+    researchId: 'consumer-line',
+  },
+  'make-wire-bundle': {
+    id: 'make-wire-bundle',
+    nameZh: '絞製導電線束',
+    inputs: [{ itemId: 'copper-ingot', quantity: 1 }],
+    outputItemId: 'wire-bundle',
+    outputQuantity: 1,
+    outputMultiplier: 1,
+    baseCycleTicks: 3,
+    travelTickPerDistance: 1,
+    stage: 'finish',
+    minTechStage: 2,
+    sourceKind: null,
+    reserveCost: 0,
+    buildings: ['assembly-plant'],
+    researchId: 'consumer-line',
+  },
+  'make-pack-module': {
+    id: 'make-pack-module',
+    nameZh: '封裝模組',
+    inputs: [
+      { itemId: 'silica', quantity: 1 },
+      { itemId: 'resin', quantity: 1 },
+    ],
+    outputItemId: 'pack-module',
+    outputQuantity: 1,
+    outputMultiplier: 1,
+    baseCycleTicks: 4,
+    travelTickPerDistance: 1,
+    stage: 'finish',
+    minTechStage: 2,
+    sourceKind: null,
+    reserveCost: 0,
+    buildings: ['assembly-plant'],
+    researchId: 'consumer-line',
+  },
+  'assemble-precision': {
+    id: 'assemble-precision',
+    nameZh: '組裝精密模組',
+    // 第三階：拿二階成品（合金板）再加工，合金板因此變成中間件。
+    // 需要研發解鎖 —— 沒解鎖就不會被自動排程選到。
+    inputs: [
+      { itemId: 'alloy-plate', quantity: 2 },
+      { itemId: 'basic-part', quantity: 2 },
+    ],
+    outputItemId: 'precision-module',
+    outputQuantity: 1,
+    outputMultiplier: 1,
+    baseCycleTicks: 8,
+    travelTickPerDistance: 1,
+    stage: 'finish',
+    minTechStage: 2,
+    sourceKind: null,
+    reserveCost: 0,
+    buildings: ['assembly-plant'],
+    researchId: 'precision-line',
+  },
+  'assemble-control': {
+    id: 'assemble-control',
+    nameZh: '組裝控制單元',
+    // 第四階：精密模組再加工。需要 3 天的「控制模組」研究 ——
+    // 後期關卡的節奏就是靠這件事撐起來的，不是靠調目標數字。
+    inputs: [
+      { itemId: 'precision-module', quantity: 2 },
+      { itemId: 'silica', quantity: 2 },
+    ],
+    outputItemId: 'control-unit',
+    outputQuantity: 1,
+    outputMultiplier: 1,
+    baseCycleTicks: 10,
+    travelTickPerDistance: 1,
+    stage: 'finish',
+    minTechStage: 2,
+    sourceKind: null,
+    reserveCost: 0,
+    buildings: ['assembly-plant'],
+    researchId: 'control-line',
+  },
   'pack-tool-kit': {
     id: 'pack-tool-kit',
     nameZh: '組裝手持工具組',
@@ -329,6 +427,11 @@ export const RECIPE_LIST: readonly RecipeDef[] = [
   RECIPES['fire-silica'],
   RECIPES['make-alloy-plate'],
   RECIPES['roll-alloy'],
+  RECIPES['make-hand-tool'],
+  RECIPES['make-wire-bundle'],
+  RECIPES['make-pack-module'],
+  RECIPES['assemble-precision'],
+  RECIPES['assemble-control'],
   RECIPES['pack-tool-kit'],
   RECIPES['pack-wire-spool'],
   RECIPES['pack-sealant'],

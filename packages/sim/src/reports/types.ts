@@ -1,4 +1,4 @@
-/** 模擬機器人策略。規則型負責聚落／趕工／圈地，隨機型提供對照。 */
+﻿/** 模擬機器人策略。規則型負責聚落／趕工／圈地，隨機型提供對照。 */
 export type StrategyId = 'cluster' | 'rapid-assembly' | 'speculator' | 'random';
 
 export const STRATEGY_LABEL: Record<StrategyId, string> = {

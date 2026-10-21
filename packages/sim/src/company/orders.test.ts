@@ -5,6 +5,7 @@ import { parcelIdFromCoords } from '../types/map.js';
 import { applyWorldAction } from '../world/reducer.js';
 import { createInitialWorld } from '../world/create-world.js';
 import { findOpenLotForParcel } from '../world/state.js';
+import { rawPortMultiplier, readCommerce } from '../commerce/logic.js';
 import { CITY_ORDER_PAY_RATE, listCityOrders } from './orders.js';
 
 function ownLand(x: number, y: number) {
@@ -26,7 +27,11 @@ describe('城市供貨', () => {
       true,
     );
     const next = applyWorldAction(state, { type: 'ADVANCE_DAY' });
-    expect(next.npcBuyOffers).toEqual(generateNpcBuyOffers(next.gameDay));
+    expect(next.npcBuyOffers).toEqual(
+      generateNpcBuyOffers(next.gameDay, {
+        rawPriceMul: rawPortMultiplier(readCommerce(next).events),
+      }),
+    );
     expect(listCityOrders(next)[0]?.itemId).not.toBe(orders[0]?.itemId);
   });
 

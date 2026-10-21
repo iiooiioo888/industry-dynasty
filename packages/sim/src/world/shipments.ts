@@ -1,3 +1,5 @@
+import { marketShareOf, noteContractRevenue, readCommerce } from '../commerce/logic.js';
+import { craftedValue } from '../production/chain.js';
 import { ITEMS } from '../production/items.js';
 import type { Shipment } from '../sales/shipment.js';
 import { addPnL, emptyPnL, evaluateScenario } from '../sales/index.js';
@@ -33,11 +35,18 @@ export function createShipment(args: {
   grossRevenue: number;
   transportCost: number;
   netCash: number;
+  to?: TilePoint;
+  contractId?: string;
 }): Shipment {
-  const travelTicks = shipmentTravelTicks(args.state, args.parcel);
+  const destination = args.to ?? { x: MARKET_HUB.x, y: MARKET_HUB.y };
+  const path = findPath(args.state.map, { x: args.parcel.x, y: args.parcel.y }, destination);
+  const travelTicks = Math.max(1, path.length - 1);
   const departSimMs = args.state.clock.simMs;
   return {
     id: `ship-${departSimMs}-${args.parcel.x}-${args.parcel.y}-${args.itemId}-${args.quantity}`,
+    toX: destination.x,
+    toY: destination.y,
+    contractId: args.contractId,
     ownerId: args.ownerId,
     offerId: args.offerId,
     itemId: args.itemId,
@@ -66,6 +75,7 @@ export function settleArrivedShipments(state: WorldState): WorldState {
   const pending = shipments.filter((shipment) => state.clock.simMs < shipment.arriveSimMs);
   let players = state.players;
   let pnl = state.pnl;
+  let nextState: WorldState = state;
   for (const shipment of due) {
     const player = players[shipment.ownerId];
     if (!player) {
@@ -80,14 +90,30 @@ export function settleArrivedShipments(state: WorldState): WorldState {
         transportCost: shipment.transportCost,
       }),
     };
+    if (shipment.contractId) {
+      nextState = noteContractRevenue(
+        { ...nextState, players, pnl },
+        shipment.grossRevenue,
+        shipment.contractId,
+      );
+      players = nextState.players;
+      pnl = nextState.pnl;
+    }
   }
   const localPnl = pnl[state.localPlayerId];
+  const settled: WorldState = { ...nextState, players, pnl, shipments: pending };
+  const commerce = readCommerce(settled);
   return {
-    ...state,
-    players,
-    pnl,
-    shipments: pending,
-    scenario: localPnl ? evaluateScenario(state.scenario, state.gameDay, localPnl) : state.scenario,
+    ...settled,
+    scenario: localPnl
+      ? evaluateScenario(state.scenario, state.gameDay, localPnl, {
+          craftedValue: craftedValue(state.craftedTotals[state.localPlayerId]),
+          commerce: {
+            share: marketShareOf(commerce),
+            consumerRevenue: commerce.consumerRevenue,
+          },
+        })
+      : state.scenario,
   };
 }
 
@@ -112,7 +138,7 @@ export function listShipmentViews(state: WorldState): ShipmentView[] {
     const points = findPath(
       state.map,
       { x: shipment.fromX, y: shipment.fromY },
-      { x: MARKET_HUB.x, y: MARKET_HUB.y },
+      { x: shipment.toX ?? MARKET_HUB.x, y: shipment.toY ?? MARKET_HUB.y },
     );
     const span = Math.max(1, shipment.arriveSimMs - shipment.departSimMs);
     const progress = Math.min(1, Math.max(0, (state.clock.simMs - shipment.departSimMs) / span));
@@ -128,8 +154,8 @@ export function listShipmentViews(state: WorldState): ShipmentView[] {
       quantity: shipment.quantity,
       fromX: shipment.fromX,
       fromY: shipment.fromY,
-      toX: MARKET_HUB.x,
-      toY: MARKET_HUB.y,
+      toX: shipment.toX ?? MARKET_HUB.x,
+      toY: shipment.toY ?? MARKET_HUB.y,
       x: point.x,
       y: point.y,
       progress,

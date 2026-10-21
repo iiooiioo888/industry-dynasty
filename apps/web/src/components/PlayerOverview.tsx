@@ -1,4 +1,5 @@
 import { getPlayerHoldings, type WorldState } from '@industry-dynasty/sim';
+import { AnimatedNumber } from './AnimatedNumber';
 import './PlayerOverview.css';
 
 export interface PlayerOverviewProps {
@@ -16,7 +17,9 @@ export function PlayerOverview({ state }: PlayerOverviewProps) {
         <h2>資產總覽</h2>
       </header>
       <p className="cash-line">
-        <strong>${player.cash.toLocaleString()}</strong>
+        <strong>
+          $<AnimatedNumber value={player.cash} />
+        </strong>
       </p>
       <h3>土地 {holdings.length}</h3>
       {holdings.length === 0 ? (

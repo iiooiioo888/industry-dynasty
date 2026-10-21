@@ -4,6 +4,17 @@ export type StockSymbol = 'IRON' | 'PORT' | 'GRID' | 'TOOL';
 
 export type CommodityId = 'copper' | 'coal' | 'yarn' | 'steel';
 
+export type BondId = 'bill' | 'note' | 'long';
+
+export interface BondHolding {
+  readonly bondId: BondId;
+  readonly units: number;
+  /** 買進時鎖定的每期票息，基點。 */
+  readonly couponBps: number;
+  readonly periodsLeft: number;
+  readonly avgCost: number;
+}
+
 export interface LoanBook {
   readonly id: string;
   readonly productId: LoanProductId;
@@ -36,6 +47,8 @@ export interface FinanceSettlement {
   readonly loanInterestPaid: number;
   readonly loanPrincipalPaid: number;
   readonly arrearsAdded: number;
+  readonly bondCoupon: number;
+  readonly bondRedemption: number;
 }
 
 export interface PlayerBank {
@@ -44,9 +57,60 @@ export interface PlayerBank {
   /** 定期滿期時的 financeTick。0 表示沒有定期。 */
   readonly savingsUnlockTick: number;
   readonly loans: readonly LoanBook[];
+  /**
+   * 累計清償的貸款金額（本金＋欠款）。
+   *
+   * 原型的關卡有「清償貸款」這一維目標；只看期末負債餘額無法區分
+   * 「從沒借過」與「借了又還清」，所以記累計值。
+   * 舊存檔沒有這個欄位，讀取時一律以 0 處理。
+   */
+  readonly lifetimeRepaid?: number;
   readonly stocks: readonly StockHolding[];
   readonly commodities: readonly CommodityHolding[];
+  readonly bonds: readonly BondHolding[];
   readonly lastSettlement: FinanceSettlement | null;
+  /** 最近幾期銀行結算，新的在前。 */
+  readonly statements: readonly FinanceStatement[];
+  /** 交易所掛單。買方現金已圈存。 */
+  readonly orders: readonly LimitOrder[];
+  /** 最近撮合成交，新的在前。 */
+  readonly fills: readonly MarketFill[];
+}
+
+export type MarketId = StockSymbol | CommodityId;
+
+export type OrderSide = 'buy' | 'sell';
+
+export interface LimitOrder {
+  readonly id: string;
+  readonly marketId: MarketId;
+  readonly side: OrderSide;
+  /** 每股或每手的限價。 */
+  readonly limitPrice: number;
+  /** 剩餘股數或手數。 */
+  readonly quantity: number;
+  /** 買方圈存的現金。賣方為 0。 */
+  readonly escrow: number;
+}
+
+export interface MarketFill {
+  readonly id: string;
+  readonly tick: number;
+  readonly marketId: MarketId;
+  readonly side: OrderSide;
+  readonly quantity: number;
+  readonly price: number;
+  readonly cash: number;
+}
+
+export interface FinanceStatement {
+  readonly tick: number;
+  readonly idleInterest: number;
+  readonly savingsInterest: number;
+  readonly savingsPayout: number;
+  readonly loanInterestCharged: number;
+  readonly loanPrincipalPaid: number;
+  readonly arrearsAdded: number;
 }
 
 export interface BankCheck {
@@ -62,4 +126,6 @@ export const ZERO_SETTLEMENT: FinanceSettlement = {
   loanInterestPaid: 0,
   loanPrincipalPaid: 0,
   arrearsAdded: 0,
+  bondCoupon: 0,
+  bondRedemption: 0,
 };

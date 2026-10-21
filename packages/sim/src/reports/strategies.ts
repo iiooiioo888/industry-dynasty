@@ -1,4 +1,4 @@
-import { getAdjacentParcelIds } from '../buildings/adjacency.js';
+import { getParcelAt } from '../buildings/adjacency.js';
 import { FACTORY_TYPES, type FactoryTypeId } from '../buildings/catalog.js';
 import type { Parcel, ParcelId } from '../types/map.js';
 import type { AuctionLot } from '../types/auction.js';
@@ -17,6 +17,13 @@ const CLUSTER_RESERVE_TICKS = 3;
 const ASSEMBLY_RESERVE_TICKS = 6;
 const CLUSTER_PREMIUM = 320;
 const ASSEMBLY_PREMIUM = 200;
+
+const CARDINAL_OFFSETS_4 = [
+  { dx: 1, dy: 0 },
+  { dx: -1, dy: 0 },
+  { dx: 0, dy: 1 },
+  { dx: 0, dy: -1 },
+] as const;
 
 const DIAGONAL_OFFSETS = [
   { dx: 1, dy: 1 },
@@ -343,17 +350,15 @@ function countSites(state: WorldState, playerId: string): number {
 
 function proximityScore(state: WorldState, parcel: Parcel, playerId: string): number {
   let score = 0;
-  for (const neighborId of getAdjacentParcelIds(state.map, parcel)) {
-    const neighbor = findParcel(state, neighborId);
-    if (neighbor?.ownerId === playerId) {
+  // 原本先 `getAdjacentParcelIds`（配置一個陣列）再用 `findParcel` 各掃一次，
+  // 加上斜向 4 趟 `parcels.find`。這裡直接走 O(1) 索引，結果完全相同。
+  for (const { dx, dy } of CARDINAL_OFFSETS_4) {
+    if (getParcelAt(state.map, parcel.x + dx, parcel.y + dy)?.ownerId === playerId) {
       score += 3;
     }
   }
   for (const { dx, dy } of DIAGONAL_OFFSETS) {
-    const neighbor = state.map.parcels.find(
-      (item) => item.x === parcel.x + dx && item.y === parcel.y + dy,
-    );
-    if (neighbor?.ownerId === playerId) {
+    if (getParcelAt(state.map, parcel.x + dx, parcel.y + dy)?.ownerId === playerId) {
       score += 1;
     }
   }

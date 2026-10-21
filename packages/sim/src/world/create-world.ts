@@ -2,10 +2,17 @@ import { emptyPlayerBank } from '../bank/logic.js';
 import { eventForDay } from '../company/events.js';
 import { emptyResearch } from '../company/research.js';
 import { createRivalBook } from '../company/rivals.js';
+import { createOpeningContracts, emptyCommerce, seedRivals } from '../commerce/logic.js';
+import { buildNpcDeals } from '../npc/deals.js';
 import { initialSimClock } from './clock.js';
 import type { AuctionLot } from '../types/auction.js';
 import { DEFAULT_STARTING_STOCK } from '../production/items.js';
-import { createScenarioState, emptyPnL, generateNpcBuyOffers } from '../sales/index.js';
+import {
+  createScenarioState,
+  emptyPnL,
+  generateNpcBuyOffers,
+  scenarioForStage,
+} from '../sales/index.js';
 import type { GameMap, Parcel } from '../types/map.js';
 import { createAuctionLot } from './auction-logic.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
@@ -47,6 +54,9 @@ export function createInitialWorld(config: Partial<WorldConfig> = {}): WorldStat
   };
 
   const map = buildMap(merged);
+  const commerce = emptyCommerce();
+  const outletRivals = seedRivals(map.cities);
+  const contracts = createOpeningContracts(map.cities, 0, 0);
 
   return {
     map,
@@ -66,9 +76,11 @@ export function createInitialWorld(config: Partial<WorldConfig> = {}): WorldStat
     gameDay: 0,
     npcBuyOffers: generateNpcBuyOffers(0),
     pnl: { [player.id]: emptyPnL() },
-    scenario: createScenarioState(),
+    scenario: createScenarioState(scenarioForStage(merged.stageId)),
     clock: initialSimClock(),
     shipments: [],
+    commerce: { ...commerce, rivals: outletRivals, contracts },
+    npcDeals: buildNpcDeals(map.cities, 0),
     staff: [],
     research: emptyResearch(),
     shelfPrices: [],

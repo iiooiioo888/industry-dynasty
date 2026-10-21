@@ -2,6 +2,19 @@
   min-width: 0;
 }
 
+.bank-statements {
+  width: 100%;
+  margin-top: 0.6rem;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-statements td {
+  padding: 0.2rem 0.3rem;
+  border-bottom: 1px solid var(--sys-border);
+}
+
 .bank-panel h3 {
   margin: 0.85rem 0 0.4rem;
   font-size: 0.82rem;
@@ -19,7 +32,7 @@
 .bank-kicker {
   margin: 0;
   font-size: 0.75rem;
-  color: #8b949e;
+  color: var(--sys-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -32,7 +45,7 @@
 
 .bank-ledger dt {
   font-size: 0.7rem;
-  color: #8b949e;
+  color: var(--sys-muted);
 }
 
 .bank-ledger dd {
@@ -42,7 +55,7 @@
 }
 
 .money-plus {
-  color: #e3b341;
+  color: var(--sys-text);
 }
 
 .money-debt {
@@ -50,26 +63,31 @@
 }
 
 .bank-tabs {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.35rem;
-  margin: 0.85rem 0 0.75rem;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  margin: 0.9rem 0 0.75rem;
+  padding: 0.22rem;
+  background: var(--sys-bg-deep);
+  border-radius: 999px;
+  max-width: 100%;
 }
 
 .bank-tabs button {
-  padding: 0.35rem 0.15rem;
-  border-radius: 6px;
-  border: 1px solid #3d4654;
-  background: #0d1117;
-  color: #c4cad4;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--sys-muted);
   font-size: 0.78rem;
   cursor: pointer;
 }
 
 .bank-tabs button[aria-selected='true'] {
-  background: #1f3a5f;
-  border-color: #3b82f6;
-  color: #fff;
+  background: var(--sys-text);
+  border-color: transparent;
+  color: var(--sys-accent-ink);
+  font-weight: 600;
 }
 
 .bank-rule,
@@ -81,13 +99,13 @@
 
 .bank-rule {
   margin: 0;
-  color: #c4cad4;
+  color: var(--sys-text);
 }
 
 .bank-breakdown {
   margin: 0.55rem 0 0;
   padding-left: 1.1rem;
-  color: #c4cad4;
+  color: var(--sys-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -101,10 +119,10 @@
 }
 
 .bank-card {
-  border: 1px solid #30363d;
-  border-radius: 6px;
-  padding: 0.65rem;
-  background: #0d1117;
+  border: 1px solid var(--sys-border);
+  border-radius: 14px;
+  padding: 0.75rem;
+  background: var(--sys-bg-deep);
 }
 
 .bank-card strong {
@@ -114,26 +132,26 @@
 .bank-card p {
   margin: 0.3rem 0 0;
   font-size: 0.8rem;
-  color: #c4cad4;
+  color: var(--sys-text);
   font-variant-numeric: tabular-nums;
 }
 
 .bank-code {
   font-size: 0.72rem;
-  color: #8b949e;
+  color: var(--sys-muted);
   font-weight: 500;
 }
 
 .quote-rise {
-  color: #ff7b72 !important;
+  color: var(--sys-rise) !important;
 }
 
 .quote-fall {
-  color: #3fb950 !important;
+  color: var(--sys-fall) !important;
 }
 
 .quote-flat {
-  color: #8b949e !important;
+  color: var(--sys-muted) !important;
 }
 
 .stock-quote-row {
@@ -172,7 +190,7 @@
 .bank-notice {
   margin: 0.55rem 0 0;
   font-size: 0.78rem;
-  color: #e3b341;
+  color: var(--sys-text);
 }
 
 @media (max-width: 420px) {
@@ -181,6 +199,8 @@
   }
 
   .bank-tabs {
+    display: grid;
     grid-template-columns: 1fr 1fr;
+    border-radius: 16px;
   }
 }

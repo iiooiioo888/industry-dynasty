@@ -1,5 +1,6 @@
 import {
   FACTORY_TYPES,
+  readCommerce,
   readResearch,
   MACHINE_GRADES,
   RECIPE_LIST,
@@ -232,7 +233,7 @@ export function ParcelPlanCard({
               onCancelBuild={onCancelBuild}
             />
           ) : null}
-          {factoryReady && selected && site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].kind === 'works' ? (
+          {factoryReady && selected && site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].role === 'production' ? (
             <FactorySchedule
               state={state}
               parcel={selected}
@@ -417,7 +418,7 @@ function FactorySchedule({
   }
 
   const crafted = state.craftedTotals[state.localPlayerId];
-  const options = RECIPE_LIST.filter((recipe) => {
+  const ranked = RECIPE_LIST.filter((recipe) => {
     if (!(recipe.buildings as readonly string[]).includes(factoryTypeId)) {
       return false;
     }
@@ -429,7 +430,7 @@ function FactorySchedule({
       resourceKind: parcel.resource.kind,
       factoryTypeId,
       crafted,
-      unlockedResearch: readResearch(state).unlocked,
+      unlockedResearch: [...readCommerce(state).unlocked, ...readResearch(state).unlocked],
     });
   })
     .map((recipe) => {
@@ -445,8 +446,14 @@ function FactorySchedule({
         mounted,
       };
     })
-    .sort((a, b) => b.profit - a.profit || a.recipe.id.localeCompare(b.recipe.id))
-    .slice(0, MAX_RECIPES);
+    .sort((a, b) => b.profit - a.profit || a.recipe.id.localeCompare(b.recipe.id));
+  const options = [
+    ...ranked.filter((option) => option.recipe.stage === 'extract'),
+    ...ranked
+      .filter((option) => option.recipe.stage !== 'extract' && !option.recipe.researchId)
+      .slice(0, MAX_RECIPES),
+    ...ranked.filter((option) => option.recipe.researchId),
+  ];
   const profitByGrade = Object.fromEntries(
     (['anvil-bench', 'balance-press', 'neighbor-kiln'] as const).map((grade) => [
       grade,

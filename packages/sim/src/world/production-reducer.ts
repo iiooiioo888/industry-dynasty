@@ -2,6 +2,9 @@ import { getSiteLogisticsView } from '../buildings/adjacency.js';
 import { isProductiveFactory } from '../buildings/catalog.js';
 import { extraProductionTicks, foremanSkillAt } from '../company/staff.js';
 import { readResearch } from '../company/research.js';
+import { operatorThroughputFactor, readCommerce } from '../commerce/logic.js';
+import { qualityCycleStretch } from '../commerce/quality.js';
+import { readStaffSkill } from '../commerce/staff.js';
 import { SIM_MS_PER_TICK } from './clock.js';
 import type { CompleteSite } from '../buildings/site.js';
 import { getSiteForParcel } from '../buildings/build-logic.js';
@@ -61,7 +64,7 @@ export function applyStartProduction(
       resourceKind: parcel.resource.kind,
       factoryTypeId: site.factoryTypeId,
       crafted: state.craftedTotals[player.id],
-      unlockedResearch: readResearch(state).unlocked,
+      unlockedResearch: [...readCommerce(state).unlocked, ...readResearch(state).unlocked],
     })
   ) {
     return state;
@@ -76,8 +79,18 @@ export function applyStartProduction(
   if (player.cash < due) {
     return state;
   }
+  const drafted = createProductionLine(
+    recipe,
+    parcel,
+    logistics.factor,
+    state.clock.simMs,
+    mounted,
+  );
+  const researchId = 'researchId' in recipe ? recipe.researchId : undefined;
+  const qualityStretch = researchId ? qualityCycleStretch(readCommerce(state).qualityBand) : 1;
   const line = {
-    ...createProductionLine(recipe, parcel, logistics.factor, state.clock.simMs, mounted),
+    ...drafted,
+    cycleTicks: Math.max(drafted.cycleTicks, Math.ceil(drafted.cycleTicks * qualityStretch)),
     machinePaid: grade ? machineCreditAfter(previousPaid, grade.installCost) : 0,
   };
 
@@ -212,6 +225,15 @@ export function applyProductionTick(state: WorldState): WorldState {
   let map = state.map;
   let siteBins = state.siteBins;
   let siteBinsChanged = false;
+  const runningLines = Object.values(productionLines).filter(
+    (line) => line.status !== 'stopped',
+  ).length;
+  const staff = readCommerce(state).staff;
+  const staffFactor = operatorThroughputFactor(
+    staff.operators,
+    runningLines,
+    readStaffSkill(staff).operator,
+  );
 
   for (const [key, line] of Object.entries(productionLines)) {
     if (line.status === 'stopped') {
@@ -230,7 +252,9 @@ export function applyProductionTick(state: WorldState): WorldState {
     // 料倉有貨時才先吃料倉；空倉走原本的公司庫路徑。
     let bin = siteBins?.[key];
     const stock = inventories[ownerId] ?? {};
-    const result = stepOwnedLine(line, recipe, stock, parcel, bin);
+    const paced =
+      staffFactor === 1 ? line : { ...line, throughputFactor: line.throughputFactor * staffFactor };
+    const result = stepOwnedLine(paced, recipe, stock, parcel, bin);
     const stalled = result.line.status === 'waiting_inputs';
     const stallTicks = stalled
       ? line.status === 'waiting_inputs'
@@ -249,7 +273,12 @@ export function applyProductionTick(state: WorldState): WorldState {
         [ownerId]: addItem(craftedTotals[ownerId] ?? {}, recipe.outputItemId, result.granted),
       };
     }
-    let currentLine = { ...result.line, progressAnchorMs, stallTicks };
+    let currentLine = {
+      ...result.line,
+      throughputFactor: line.throughputFactor,
+      progressAnchorMs,
+      stallTicks,
+    };
     let currentParcel = result.parcel;
     const extra = stalled
       ? 0
@@ -275,6 +304,7 @@ export function applyProductionTick(state: WorldState): WorldState {
       }
       currentLine = {
         ...again.line,
+        throughputFactor: line.throughputFactor,
         progressAnchorMs: state.clock.simMs,
         stallTicks: again.line.status === 'waiting_inputs' ? again.line.stallTicks : 0,
       };

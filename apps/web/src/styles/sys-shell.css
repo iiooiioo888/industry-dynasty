@@ -1,30 +1,30 @@
 :root {
-  --sys-bg: #10151c;
-  --sys-bg-deep: #070a0e;
-  --sys-surface: #161d27;
-  --sys-surface-2: #1d2733;
-  --sys-border: rgba(214, 196, 160, 0.16);
-  --sys-text: #f3efe6;
-  --sys-muted: #9aa3b2;
-  --sys-accent: #8fd0ff;
-  --sys-warn: #e7c36a;
-  --sys-good: #8ee0a8;
-  --sys-titlebar: #121820;
+  --sys-bg: #0e1014;
+  --sys-bg-deep: #090a0d;
+  --sys-surface: #16181e;
+  --sys-surface-2: #1e2128;
+  --sys-border: #2c3038;
+  --sys-text: #f3f4f6;
+  --sys-muted: #9aa0ab;
+  --sys-accent: #f3f4f6;
+  --sys-accent-ink: #111214;
+  --sys-warn: #f07178;
+  --sys-rise: #ff7b72;
+  --sys-fall: #3dd68c;
+  --sys-titlebar: rgba(14, 16, 20, 0.88);
   --sys-font: 'Noto Sans TC', 'Segoe UI', system-ui, sans-serif;
+  --sys-display: 'Noto Sans TC', 'Segoe UI', system-ui, sans-serif;
   --sys-mono: ui-monospace, 'Cascadia Code', monospace;
-  --sys-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
 }
 
 .sys-panel {
-  background:
-    linear-gradient(180deg, rgba(255, 244, 220, 0.045), transparent 2.2rem),
-    var(--sys-surface);
+  background: var(--sys-surface);
   border: 1px solid var(--sys-border);
-  border-radius: 12px;
-  padding: 0.7rem 0.75rem 0.75rem;
+  border-radius: 16px;
+  padding: 0.95rem 1.05rem;
   min-width: 0;
   max-width: 100%;
-  box-shadow: var(--sys-shadow);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .sys-panel-head {
@@ -41,21 +41,15 @@
 .sys-panel-head h2 {
   margin: 0;
   min-width: 0;
-  font-size: 0.78rem;
+  font-family: var(--sys-display);
+  font-size: 1rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   line-height: 1.35;
 }
 
 .sys-panel-tag {
-  font-family: var(--sys-mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.08em;
-  padding: 0.12rem 0.38rem;
-  background: rgba(143, 208, 255, 0.08);
-  border: 1px solid rgba(143, 208, 255, 0.28);
-  border-radius: 999px;
-  color: var(--sys-accent);
+  display: none;
 }
 
 .sys-muted {
@@ -65,28 +59,88 @@
 }
 
 .sys-btn {
-  font-size: 0.72rem;
-  padding: 0.42rem 0.6rem;
-  border-radius: 8px;
-  border: 1px solid rgba(143, 208, 255, 0.45);
-  background: linear-gradient(180deg, #2a4f78 0%, #1a334f 100%);
-  color: var(--sys-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--sys-text);
+  color: var(--sys-accent-ink);
   cursor: pointer;
   line-height: 1.35;
   white-space: normal;
   overflow-wrap: anywhere;
   touch-action: manipulation;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-.sys-btn:hover:not(:disabled) {
-  filter: brightness(1.08);
+.sys-btn:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--sys-accent);
+  outline-offset: 2px;
 }
 
 .sys-btn.secondary {
   border-color: var(--sys-border);
+  background: transparent;
+  color: var(--sys-text);
+  font-weight: 500;
+}
+
+.shell input,
+.shell select,
+.shell textarea {
   background: var(--sys-surface-2);
-  box-shadow: none;
+  color: var(--sys-text);
+  border: 1px solid var(--sys-border);
+  border-radius: 10px;
+  padding: 0.4rem 0.65rem;
+  font: inherit;
+}
+
+.bid-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  margin-top: 0.7rem;
+  font-size: 0.75rem;
+  color: var(--sys-muted);
+}
+
+.bid-field input {
+  width: 10rem;
+}
+
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.panel-actions button,
+.exchange-ticket button,
+.exchange-board button {
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--sys-text);
+  color: var(--sys-accent-ink);
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
+
+.panel-actions button.secondary,
+.exchange-ticket button.secondary,
+.exchange-board button.secondary,
+.panel-actions button:disabled,
+.exchange-board button:disabled {
+  background: transparent;
+  border-color: var(--sys-border);
+  color: var(--sys-text);
+  font-weight: 500;
 }
 
 .sys-btn.block {

@@ -11,6 +11,11 @@ export type ItemId =
   | 'silica'
   | 'basic-part'
   | 'alloy-plate'
+  | 'hand-tool'
+  | 'wire-bundle'
+  | 'pack-module'
+  | 'precision-module'
+  | 'control-unit'
   | 'tool-kit'
   | 'wire-spool'
   | 'sealant-coat';
@@ -130,6 +135,61 @@ const V_ALLOY_PLATE = deriveOutputValue(
   1,
   processingMarginPerCycle(5, 'finish'),
 );
+const V_HAND_TOOL = deriveOutputValue(
+  [
+    { unitValue: V_IRON_INGOT, quantity: 1 },
+    { unitValue: V_BASIC_PART, quantity: 1 },
+  ],
+  1,
+  processingMarginPerCycle(4, 'finish'),
+);
+const V_WIRE_BUNDLE = deriveOutputValue(
+  [{ unitValue: V_COPPER_INGOT, quantity: 1 }],
+  1,
+  processingMarginPerCycle(3, 'finish'),
+);
+const V_PACK_MODULE = deriveOutputValue(
+  [
+    { unitValue: V_SILICA, quantity: 1 },
+    { unitValue: V_RESIN, quantity: 1 },
+  ],
+  1,
+  processingMarginPerCycle(4, 'finish'),
+);
+/**
+ * 三階產品：把合金板（原本的二階成品）再加工成精密模組。
+ *
+ * 合金板因此從「最終商品」變成「中間件」，價值鏈多一段。
+ * 這是後期唯一能再往上跳一階的手段 —— 目前技術樹只有兩階，
+ * 一階加工產值上限約 1.2M、二階約 2.9M，兩者之間沒有其他成長空間。
+ *
+ * **需要研發解鎖**（`researchId: 'consumer-line'`）：沒解鎖不會被排程選到。
+ * 毛利刻意設得比二階高，否則排程永遠不會選它（見下方 120,000 的說明）。
+ */
+/**
+ * 四階產品：把精密模組再組成控制單元。
+ *
+ * 這一階需要「控制模組」研究（3 天）—— 後期關卡的節奏就是靠這件事撐起來的。
+ * 放在 `V_PRECISION_MODULE` 之後，因為它吃精密模組當原料。
+ */
+const V_PRECISION_MODULE = deriveOutputValue(
+  [
+    { unitValue: V_ALLOY_PLATE, quantity: 2 },
+    { unitValue: V_BASIC_PART, quantity: 2 },
+  ],
+  1,
+  // 每週期毛利 120,000／8 刻 = 15,000，高於熔鑄合金板（8,450）與軋製（10,870）
+  120_000,
+);
+const V_CONTROL_UNIT = deriveOutputValue(
+  [
+    { unitValue: V_PRECISION_MODULE, quantity: 2 },
+    { unitValue: V_SILICA, quantity: 2 },
+  ],
+  1,
+  // 每週期毛利 300,000／10 刻 = 30,000，高於精密模組的 15,000
+  300_000,
+);
 const V_TOOL_KIT = deriveOutputValue(
   [
     { unitValue: V_BASIC_PART, quantity: 1 },
@@ -205,6 +265,41 @@ export const ITEMS = {
     unitValue: V_ALLOY_PLATE,
     sellable: true,
   },
+  'hand-tool': {
+    id: 'hand-tool',
+    nameZh: '手工具',
+    tier: 'finished',
+    unitValue: V_HAND_TOOL,
+    sellable: false,
+  },
+  'wire-bundle': {
+    id: 'wire-bundle',
+    nameZh: '導電線束',
+    tier: 'finished',
+    unitValue: V_WIRE_BUNDLE,
+    sellable: false,
+  },
+  'pack-module': {
+    id: 'pack-module',
+    nameZh: '封裝模組',
+    tier: 'finished',
+    unitValue: V_PACK_MODULE,
+    sellable: false,
+  },
+  'precision-module': {
+    id: 'precision-module',
+    nameZh: '精密模組',
+    tier: 'finished',
+    unitValue: V_PRECISION_MODULE,
+    sellable: true,
+  },
+  'control-unit': {
+    id: 'control-unit',
+    nameZh: '控制單元',
+    tier: 'finished',
+    unitValue: V_CONTROL_UNIT,
+    sellable: true,
+  },
   'tool-kit': {
     id: 'tool-kit',
     nameZh: '手持工具組',
@@ -239,6 +334,11 @@ const ITEM_ORDER: readonly ItemId[] = [
   'silica',
   'basic-part',
   'alloy-plate',
+  'hand-tool',
+  'wire-bundle',
+  'pack-module',
+  'precision-module',
+  'control-unit',
   'tool-kit',
   'wire-spool',
   'sealant-coat',

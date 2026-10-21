@@ -9,6 +9,7 @@ export {
   FACTORY_TYPE_LIST,
   STOREFRONT_MIN_DENSITY,
   isProductiveFactory,
+  type BuildingRole,
   type SiteKind,
   type FactoryTypeDef,
   type FactoryTypeId,
@@ -24,3 +25,12 @@ export {
   validateStartBuild,
 } from './build-logic.js';
 export type { CompleteSite, ConstructingSite, ParcelSite, SitePhase } from './site.js';
+export {
+  BUILD_MATERIALS,
+  consumeBuildMaterials,
+  describeBuildMaterials,
+  grantBuildMaterials,
+  hasBuildMaterials,
+  missingBuildMaterials,
+  type BuildMaterial,
+} from './materials.js';

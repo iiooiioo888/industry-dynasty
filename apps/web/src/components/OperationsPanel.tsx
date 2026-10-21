@@ -1,6 +1,5 @@
 import {
   AD_POINT_COST,
-  CONSUMER_ITEM_IDS,
   FACTORY_TYPES,
   ITEMS,
   RESEARCH_PROJECT_LIST,
@@ -21,6 +20,8 @@ import {
 } from '@industry-dynasty/sim';
 import { useState } from 'react';
 import './OperationsPanel.css';
+
+const SHELF_ITEMS = ['tool-kit', 'wire-spool', 'sealant-coat'] as const satisfies readonly ConsumerItemId[];
 
 export interface OperationsPanelProps {
   state: WorldState;
@@ -221,7 +222,7 @@ export function ShelfDesk({
             <strong>
               ({parcel.x},{parcel.y}) {parcel.nearestCityName ?? '城外'}
             </strong>
-            {CONSUMER_ITEM_IDS.map((itemId) => {
+            {SHELF_ITEMS.map((itemId) => {
               const projectOk =
                 (itemId === 'tool-kit' && unlocked.has('civic-tools')) ||
                 (itemId === 'wire-spool' && unlocked.has('civic-wire')) ||

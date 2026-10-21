@@ -33,31 +33,48 @@ describe('完整遊戲迴圈量測', () => {
     }
   });
 
-  it('可通關性護欄：合理的經營策略必須真的能通關', () => {
-    // 這是本專案最重要的一條測試。修正前模擬器的最佳策略淨利是 −24,125（lost），
-    // 遊戲**不可能通關**；任何讓它再次變成不可能的改動都應該在這裡失敗。
-    const results = [1, 2, 4, 8].map((maxParcels) => ({
+  it('可通關性護欄：工業化必須能通關，純開採必須不能', () => {
+    // 這是本專案最重要的一條測試。
+    //
+    // 通關有兩個維度（見 `balance/targets.ts` 與 `sales/scenario.ts`）：
+    // 淨利達標 **且** 累計加工產值達標。純開採的加工產值恆為 0，
+    // 所以無論挖多少礦都不該通關 —— 這是「玩家必須真的經營產業鏈」的保證。
+    const deep = [3, 4, 6, 8].map((maxParcels) => ({
       maxParcels,
-      r: runFullLoop({ maxParcels, startingCash: 100_000 }),
+      r: runFullLoop({ maxParcels, depth: 1, startingCash: 100_000 }),
+    }));
+    const mining = [1, 2, 3, 4, 6, 8].map((maxParcels) => ({
+      maxParcels,
+      r: runFullLoop({ maxParcels, depth: 0, startingCash: 100_000 }),
     }));
 
-    console.log('\n=== 可通關性 ===');
-    for (const { maxParcels, r } of results) {
+    console.log('\n=== 可通關性：一階加工 vs 純開採 ===');
+    for (const { maxParcels, r } of deep) {
       console.log(
-        `  maxParcels=${String(maxParcels).padStart(2)}  淨利=${String(r.netProfit).padStart(8)}` +
-          `  狀態=${r.status}  達標=${r.reachedTarget}`,
+        `  加工 maxParcels=${String(maxParcels).padStart(2)}  淨利=${String(r.netProfit).padStart(8)}` +
+          `  加工產值=${String(r.craftedValue).padStart(7)}  狀態=${r.status}`,
+      );
+    }
+    for (const { maxParcels, r } of mining) {
+      console.log(
+        `  開採 maxParcels=${String(maxParcels).padStart(2)}  淨利=${String(r.netProfit).padStart(8)}` +
+          `  加工產值=${String(r.craftedValue).padStart(7)}  狀態=${r.status}`,
       );
     }
 
-    for (const { maxParcels, r } of results) {
-      expect(r.netProfit, `maxParcels=${maxParcels} 應為獲利`).toBeGreaterThan(0);
-      expect(r.reachedTarget, `maxParcels=${maxParcels} 應達成通關門檻`).toBe(true);
-      expect(r.status, `maxParcels=${maxParcels} 狀態應為 won`).toBe('won');
+    // 護欄一：工業化路線必須真的能通關（3 塊地起）
+    for (const { maxParcels, r } of deep) {
+      expect(r.netProfit, `加工 maxParcels=${maxParcels} 應為獲利`).toBeGreaterThan(0);
+      expect(r.reachedTarget, `加工 maxParcels=${maxParcels} 應達成雙目標`).toBe(true);
+      expect(r.status, `加工 maxParcels=${maxParcels} 狀態應為 won`).toBe('won');
     }
 
-    // 護欄：數量槓桿必須是正向的，不能「多蓋工廠反而更虧」
-    const profits = results.map((x) => x.r.netProfit);
-    expect(Math.max(...profits)).toBeGreaterThan(Math.min(...profits));
+    // 護欄二：純開採不得通關 —— 加工產值必須是 0，且狀態不得為 won
+    for (const { maxParcels, r } of mining) {
+      expect(r.craftedValue, `開採 maxParcels=${maxParcels} 不該有加工產值`).toBe(0);
+      expect(r.status, `開採 maxParcels=${maxParcels} 不該通關`).not.toBe('won');
+      expect(r.reachedTarget, `開採 maxParcels=${maxParcels} 不該達標`).toBe(false);
+    }
   });
 
   it('最大礦脈工坊數量：看能否接近通關門檻', () => {

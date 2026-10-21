@@ -1,0 +1,203 @@
+.rate-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0 0 0.7rem;
+}
+
+.rate-strip > div {
+  background: var(--sys-bg-deep);
+  border-radius: 12px;
+  padding: 0.45rem 0.55rem;
+}
+
+.rate-strip dt {
+  font-size: 0.65rem;
+  color: var(--sys-muted);
+}
+
+.rate-strip dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+}
+
+.exchange-board {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.exchange-board th,
+.exchange-board td {
+  padding: 0.28rem 0.35rem;
+  text-align: right;
+  border-bottom: 1px solid var(--sys-border);
+}
+
+.exchange-board th:first-child,
+.exchange-board td:first-child {
+  text-align: left;
+}
+
+.exchange-board td small {
+  display: block;
+  color: var(--sys-muted);
+  font-size: 0.65rem;
+}
+
+.exchange-board tr.is-on td {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.exchange-board tbody tr {
+  cursor: pointer;
+}
+
+.exchange-ticket {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.7rem;
+  align-items: end;
+  margin-top: 0.75rem;
+}
+
+.exchange-ticket strong {
+  flex: 1 1 100%;
+  font-size: 0.82rem;
+}
+
+.exchange-ticket button + button {
+  margin-left: 0;
+}
+
+.exchange-board button + button {
+  margin-left: 0.3rem;
+}
+
+@media (max-width: 720px) {
+  .rate-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.exchange-ticket label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.7rem;
+  color: var(--sys-muted);
+}
+
+.exchange-ticket input {
+  width: 6rem;
+}
+
+.exchange-books {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin-top: 0.8rem;
+}
+
+.exchange-books h3 {
+  margin: 0 0 0.3rem;
+  font-size: 0.75rem;
+}
+
+.exchange-books ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+}
+
+.exchange-books li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.market-chart {
+  margin: 0.2rem 0 0.55rem;
+}
+
+.market-chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.7rem;
+  margin-bottom: 0.45rem;
+}
+
+.market-chart-head strong {
+  font-size: 1rem;
+}
+
+.market-chart-code {
+  color: var(--sys-muted);
+  font-size: 0.72rem;
+}
+
+.market-chart-head .price {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.35rem;
+  font-weight: 650;
+}
+
+.market-chart-tick {
+  color: var(--sys-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.market-chart-canvas {
+  height: 280px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--sys-bg-deep);
+}
+
+.chart-switch {
+  display: inline-flex;
+  gap: 0.2rem;
+  margin: 0 0 0.7rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: var(--sys-bg-deep);
+}
+
+.chart-switch button {
+  border: none;
+  background: transparent;
+  color: var(--sys-muted);
+  border-radius: 999px;
+  padding: 0.28rem 0.75rem;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.chart-switch button[aria-selected='true'] {
+  background: var(--sys-text);
+  color: var(--sys-accent-ink);
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .market-chart-canvas {
+    height: 220px;
+  }
+}
+
+.quote-rise {
+  color: var(--sys-rise);
+}
+
+.quote-fall {
+  color: var(--sys-fall);
+}

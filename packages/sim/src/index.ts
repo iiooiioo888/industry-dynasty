@@ -2,9 +2,61 @@ export * from './types/index.js';
 export * from './buildings/index.js';
 export * from './production/index.js';
 export * from './sales/index.js';
+export * from './commerce/index.js';
+export * from './npc/index.js';
 export * from './bank/index.js';
-export * from './company/index.js';
+export * from './desk/index.js';
+export {
+  AD_POINT_COST,
+  CITY_ORDER_PAY_RATE,
+  RESEARCH_PROJECT_LIST,
+  RESEARCH_PROJECTS,
+  STAFF_ROSTER,
+  assignStaff,
+  brandOf,
+  buyAdvert,
+  companyScore,
+  dismissStaff,
+  emptyResearch,
+  eventForDay,
+  fillCityOrder,
+  hasCompletedLab,
+  hireStaff,
+  listCityOrders,
+  listShelfPrices,
+  listStaff,
+  quoteStoreItem,
+  readResearch,
+  readRivals,
+  releaseStaffAt,
+  retailQuality,
+  rivalShareForCity,
+  setShelfPrice,
+  shelfUnitPrice,
+  shopkeeperSkillAt,
+  unlockResearch,
+  type CitySupplyOrder,
+  type ConsumerItemId,
+  type HiredStaff,
+  type MarketEvent,
+  type ResearchProgress,
+  type ResearchProject,
+  type ShelfPrice,
+  type StaffCandidate,
+} from './company/index.js';
 export * from './world/index.js';
+export * from './persistence/index.js';
+export * from './guidance/index.js';
+export * from './presentation/index.js';
+export {
+  FIRST_STAGE,
+  STAGES,
+  isFinalStage,
+  nextStage,
+  stageById,
+  stageByIndex,
+} from './balance/stages.js';
+export type { StageDef, StageTargets } from './balance/stages.js';
 export {
   DEFAULT_ROSTER,
   DEFAULT_SIMULATION,

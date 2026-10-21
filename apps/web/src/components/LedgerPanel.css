@@ -1,0 +1,58 @@
+.ledger-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem 0.75rem;
+  margin: 0;
+}
+
+.ledger-grid dt {
+  font-size: 0.68rem;
+  color: var(--sys-muted);
+}
+
+.ledger-grid dd {
+  margin: 0.05rem 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-burn {
+  margin-top: 0.7rem;
+}
+
+.credit-track {
+  height: 4px;
+  margin: 0.55rem 0 0;
+  background: var(--sys-bg-deep);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.credit-track span {
+  display: block;
+  height: 100%;
+  background: var(--sys-accent);
+}
+
+.ledger-cities {
+  width: 100%;
+  margin-top: 0.75rem;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-cities th,
+.ledger-cities td {
+  padding: 0.28rem 0.35rem;
+  text-align: left;
+  border-bottom: 1px solid var(--sys-border);
+}
+
+.ledger-cities th {
+  color: var(--sys-muted);
+  font-weight: 500;
+}
+
+.page-span {
+  grid-column: 1 / -1;
+}

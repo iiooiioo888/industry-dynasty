@@ -61,6 +61,7 @@ export {
 } from './line-economy.js';
 export {
   craftedByTier,
+  craftedValue,
   planProfitPerTick,
   recipeBlockReason,
   recipeOutputLabel,

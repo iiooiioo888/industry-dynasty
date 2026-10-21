@@ -1,0 +1,25 @@
+export {
+  SAVE_VERSION,
+  parseSave,
+  serializeGame,
+  validateStateShape,
+  type SaveFile,
+  type SaveParseResult,
+  type SerializeOptions,
+} from './save.js';
+export {
+  PROGRESS_VERSION,
+  bestScoreFor,
+  completionPercent,
+  emptyProgress,
+  isCampaignComplete,
+  isFirstStage,
+  isStageUnlocked,
+  nextUnclearedStage,
+  parseProgress,
+  recordStageClear,
+  serializeProgress,
+  type CampaignProgress,
+  type StageBest,
+  type ProgressParseResult,
+} from './progress.js';

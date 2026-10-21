@@ -1,43 +1,83 @@
 import {
   DEFAULT_WORLD_CONFIG,
-  companyScore,
+  STAGES,
   enterFloorBlock,
+  marketShareOf,
+  readCommerce,
   ticksUntilDayClose,
   type ConsumerItemId,
   type FactoryTypeId,
+  type ItemId,
   type MachineGradeId,
   type MapLayer,
+  type MarketId,
   type ParcelId,
   type RecipeId,
+  type StaffRole,
 } from '@industry-dynasty/sim';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AuctionAlertBanner } from './components/AuctionAlertBanner';
+import { MarketNewsBanner } from './components/MarketNewsBanner';
+import { NpcPanel } from './components/NpcPanel';
 import { BankPanel } from './components/BankPanel';
 import { DataReportPanel } from './components/DataReportPanel';
+import { ExchangePanel } from './components/ExchangePanel';
 import { GameMap } from './components/GameMap';
 import { InventoryPanel } from './components/InventoryPanel';
+import { LedgerPanel } from './components/LedgerPanel';
 import { MarketPanel } from './components/MarketPanel';
 import { OperationsPanel } from './components/OperationsPanel';
 import { ParcelPlanCard } from './components/ParcelPlanCard';
 import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
+import { TrendPanel } from './components/TrendPanel';
+import { SaveControlsBar } from './components/SaveControls';
+import { StageResultOverlay } from './components/StageResultOverlay';
+import { StageSelect } from './components/StageSelect';
+import { StageBriefing } from './components/StageBriefing';
+import { ProductionStatusPanel } from './components/ProductionStatusPanel';
+import { GuidanceBanner } from './components/GuidanceBanner';
+import { computeStageProgress, currentStage } from './game/stage-progress';
+import { loadProgress, markStageCleared } from './game/campaign-storage';
+import { OpsPanel } from './components/OpsPanel';
 import { ProductionPanel } from './components/ProductionPanel';
+import { LandSaleSection } from './components/LandSaleSection';
 import { SalesPanel } from './components/SalesPanel';
 import { SupplyBoard } from './components/SupplyBoard';
 import { useWorldState } from './game/useWorldState';
 import './App.css';
 
-type RightTab = 'ops' | 'manage' | 'finance';
+const PAGES = [
+  ['map', '地圖'],
+  ['produce', '生產'],
+  ['market', '市場'],
+  ['sales', '銷售'],
+  ['people', '人物'],
+  ['ops', '經營'],
+  ['bank', '銀行'],
+  ['exchange', '金融'],
+  ['books', '帳冊'],
+] as const;
+
+type PageId = (typeof PAGES)[number][0];
 
 export function App() {
-  const { state, dispatch } = useWorldState();
+  const { state, dispatch, saves, startStage } = useWorldState();
   const [selectedParcelId, setSelectedParcelId] = useState<ParcelId | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
-  const [rightTab, setRightTab] = useState<RightTab>('ops');
+  const [page, setPage] = useState<PageId>('map');
   const [mapView, setMapView] = useState<MapLayer>('world');
   const clockLabel = state.clock.paused ? '暫停' : `${state.clock.speed}×`;
-  const event = state.todayEvent;
+  const sharePct = Math.round(marketShareOf(readCommerce(state)) * 100);
+  const cash = state.players[state.localPlayerId]?.cash ?? 0;
+  const stage = currentStage(state);
+  const stageProgress = useMemo(() => computeStageProgress(state), [state]);
+  const [campaign, setCampaign] = useState(() => loadProgress());
+  const [stageSelectOpen, setStageSelectOpen] = useState(false);
+  const [dismissedBriefing, setDismissedBriefing] = useState<string | null>(null);
+  const briefingKey = stage ? `${stage.id}:${state.gameDay}` : null;
+  const briefingOpen = stage !== null && state.gameDay === 0 && dismissedBriefing !== briefingKey;
   const floorBlock = selectedParcelId ? enterFloorBlock(state, selectedParcelId) : '先點一棟完工的建物';
 
   useEffect(() => {
@@ -45,6 +85,29 @@ export function App() {
       setMapView('world');
     }
   }, [mapView, floorBlock]);
+
+  useEffect(() => {
+    if (state.scenario.status !== 'won') {
+      return;
+    }
+    const stageId = state.scenario.config.stageId;
+    if (!stageId) {
+      return;
+    }
+    setCampaign(
+      markStageCleared(stageId, {
+        netProfit: Math.round(stageProgress.netProfit),
+        craftedValue: Math.round(stageProgress.craftedValue),
+        day: state.gameDay,
+      }),
+    );
+  }, [
+    state.scenario.status,
+    state.scenario.config.stageId,
+    state.gameDay,
+    stageProgress.netProfit,
+    stageProgress.craftedValue,
+  ]);
 
   function togglePin(parcelId: ParcelId) {
     setPinnedIds((current) => {
@@ -58,203 +121,241 @@ export function App() {
   return (
     <div className="shell">
       <header className="shell-titlebar">
-        <span className="brand">
-          <span className="brand-mark" aria-hidden="true" />
-          產業霸權
-        </span>
+        <span className="brand">產業霸權</span>
+        {stage && (
+          <span className="stage-chip">
+            {stage.nameZh}｜{stage.eraLabel}
+          </span>
+        )}
         <span className="meta" data-clock-readout="true">
-          <span className="meta-chip">{state.gameDay} 天</span>
-          <span className="meta-chip">{clockLabel}</span>
-          <span className="meta-chip">日結 {ticksUntilDayClose(state.clock.simMs)}</span>
-          <span className="meta-chip">{companyScore(state).toLocaleString()}</span>
+          <span>第 {state.gameDay} 天</span>
+          <span>{clockLabel}</span>
+          <span>日結 {ticksUntilDayClose(state.clock.simMs)}</span>
+          <span>市佔 {sharePct}%</span>
+          <span>${cash.toLocaleString()}</span>
         </span>
-        <button type="button" className="report-launch" onClick={() => setReportOpen(true)}>
-          數據報表
-        </button>
-        {event && event.kind !== 'quiet' ? <p className="day-event">{event.titleZh}</p> : null}
       </header>
+      <nav className="shell-nav" aria-label="頁面">
+        {PAGES.map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            className={page === id ? 'is-on' : undefined}
+            aria-current={page === id ? 'page' : undefined}
+            onClick={() => setPage(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+      <div className="shell-save">
+        <SaveControlsBar
+          saves={saves}
+          onOpenStages={() => setStageSelectOpen(true)}
+          clearedStages={campaign.clearedStageIds.length}
+          totalStages={STAGES.length}
+        />
+      </div>
+      <GuidanceBanner state={state} />
       <AuctionAlertBanner state={state} selectedParcelId={selectedParcelId} />
-      <div className="shell-body">
-        <aside className="shell-col shell-col-left">
-          <PnLPanel state={state} />
-          <PlayerOverview state={state} />
-          <InventoryPanel state={state} />
-        </aside>
-        <main className="shell-col shell-col-center">
-          <GameMap
-            state={state}
-            selectedParcelId={selectedParcelId}
-            mapView={mapView}
-            onShowWorld={() => setMapView('world')}
-            onShowFloor={() => {
-              if (selectedParcelId && enterFloorBlock(state, selectedParcelId) === null) {
-                setMapView('floor');
+      <MarketNewsBanner state={state} />
+      {page === 'map' ? (
+        <div className="shell-body">
+          <main className="shell-col shell-col-center">
+            <GameMap
+              state={state}
+              selectedParcelId={selectedParcelId}
+              mapView={mapView}
+              onShowWorld={() => setMapView('world')}
+              onShowFloor={() => {
+                if (selectedParcelId && enterFloorBlock(state, selectedParcelId) === null) {
+                  setMapView('floor');
+                }
+              }}
+              floorCommands={{
+                onLeave: () => setMapView('world'),
+                onStartProduction: (recipeId, machineGradeId) => {
+                  if (selectedParcelId) {
+                    dispatch({
+                      type: 'START_PRODUCTION',
+                      parcelId: selectedParcelId,
+                      recipeId,
+                      machineGradeId,
+                    });
+                  }
+                },
+                onInstallMachine: (machineGradeId) => {
+                  if (selectedParcelId) {
+                    dispatch({ type: 'INSTALL_MACHINE', parcelId: selectedParcelId, machineGradeId });
+                  }
+                },
+                onStopProduction: () => {
+                  if (selectedParcelId) {
+                    dispatch({ type: 'STOP_PRODUCTION', parcelId: selectedParcelId });
+                  }
+                },
+                onHire: (candidateId) => dispatch({ type: 'HIRE_STAFF', candidateId }),
+                onDismiss: (staffId) => dispatch({ type: 'DISMISS_STAFF', staffId }),
+                onAssign: (staffId, parcelId) => dispatch({ type: 'ASSIGN_STAFF', staffId, parcelId }),
+                onUnlock: (projectId) => dispatch({ type: 'UNLOCK_RESEARCH', projectId }),
+                onSetShelfPrice: (itemId, unitPrice) => {
+                  if (selectedParcelId) {
+                    dispatch({ type: 'SET_SHELF_PRICE', parcelId: selectedParcelId, itemId, unitPrice });
+                  }
+                },
+                onBuyAd: (spend) => dispatch({ type: 'BUY_ADVERT', spend }),
+                onSellToPort: (offerId, quantity) => {
+                  if (selectedParcelId) {
+                    dispatch({
+                      type: 'SELL_TO_NPC',
+                      offerId,
+                      quantity,
+                      shipFromParcelId: selectedParcelId,
+                    });
+                  }
+                },
+                onFillOrder: (orderId, quantity) => {
+                  if (selectedParcelId) {
+                    dispatch({
+                      type: 'FILL_CITY_ORDER',
+                      orderId,
+                      quantity,
+                      shipFromParcelId: selectedParcelId,
+                    });
+                  }
+                },
+                onDispatchSupply: (itemId, quantity, fromParcelId) => {
+                  if (selectedParcelId) {
+                    dispatch({
+                      type: 'DISPATCH_SUPPLY',
+                      toParcelId: selectedParcelId,
+                      itemId,
+                      quantity,
+                      fromParcelId,
+                    });
+                  }
+                },
+              }}
+              onSelectParcel={setSelectedParcelId}
+              onTogglePause={() => dispatch({ type: 'SET_CLOCK', paused: !state.clock.paused })}
+              onSetSpeed={(speed) => dispatch({ type: 'SET_CLOCK', paused: false, speed })}
+            />
+            <ParcelPlanCard
+              state={state}
+              selectedParcelId={selectedParcelId}
+              pinnedIds={pinnedIds}
+              onTogglePin={togglePin}
+              onBid={(parcelId, amount) => dispatch({ type: 'BID', parcelId, amount })}
+              onSettle={(parcelId) => dispatch({ type: 'SETTLE_AUCTION', parcelId })}
+              onStartBuild={(parcelId, factoryTypeId: FactoryTypeId) =>
+                dispatch({ type: 'START_BUILD', parcelId, factoryTypeId })
               }
-            }}
-            floorCommands={{
-              onLeave: () => setMapView('world'),
-              onStartProduction: (recipeId, machineGradeId) => {
-                if (selectedParcelId) {
-                  dispatch({ type: 'START_PRODUCTION', parcelId: selectedParcelId, recipeId, machineGradeId });
-                }
-              },
-              onInstallMachine: (machineGradeId) => {
-                if (selectedParcelId) {
-                  dispatch({ type: 'INSTALL_MACHINE', parcelId: selectedParcelId, machineGradeId });
-                }
-              },
-              onStopProduction: () => {
-                if (selectedParcelId) {
-                  dispatch({ type: 'STOP_PRODUCTION', parcelId: selectedParcelId });
-                }
-              },
-              onHire: (candidateId) => dispatch({ type: 'HIRE_STAFF', candidateId }),
-              onDismiss: (staffId) => dispatch({ type: 'DISMISS_STAFF', staffId }),
-              onAssign: (staffId, parcelId) => dispatch({ type: 'ASSIGN_STAFF', staffId, parcelId }),
-              onUnlock: (projectId) => dispatch({ type: 'UNLOCK_RESEARCH', projectId }),
-              onSetShelfPrice: (itemId, unitPrice) => {
-                if (selectedParcelId) {
-                  dispatch({ type: 'SET_SHELF_PRICE', parcelId: selectedParcelId, itemId, unitPrice });
-                }
-              },
-              onBuyAd: (spend) => dispatch({ type: 'BUY_ADVERT', spend }),
-              onSellToPort: (offerId, quantity) => {
-                if (selectedParcelId) {
-                  dispatch({
-                    type: 'SELL_TO_NPC',
-                    offerId,
-                    quantity,
-                    shipFromParcelId: selectedParcelId,
-                  });
-                }
-              },
-              onFillOrder: (orderId, quantity) => {
-                if (selectedParcelId) {
-                  dispatch({
-                    type: 'FILL_CITY_ORDER',
-                    orderId,
-                    quantity,
-                    shipFromParcelId: selectedParcelId,
-                  });
-                }
-              },
-              onDispatchSupply: (itemId, quantity, fromParcelId) => {
-                if (selectedParcelId) {
-                  dispatch({
-                    type: 'DISPATCH_SUPPLY',
-                    toParcelId: selectedParcelId,
-                    itemId,
-                    quantity,
-                    fromParcelId,
-                  });
-                }
-              },
-            }}
-            onSelectParcel={setSelectedParcelId}
-            onTogglePause={() => dispatch({ type: 'SET_CLOCK', paused: !state.clock.paused })}
-            onSetSpeed={(speed) => dispatch({ type: 'SET_CLOCK', paused: false, speed })}
-          />
-          <ParcelPlanCard
-            state={state}
-            selectedParcelId={selectedParcelId}
-            pinnedIds={pinnedIds}
-            onTogglePin={togglePin}
-            onBid={(parcelId, amount) => dispatch({ type: 'BID', parcelId, amount })}
-            onSettle={(parcelId) => dispatch({ type: 'SETTLE_AUCTION', parcelId })}
-            onStartBuild={(parcelId, factoryTypeId: FactoryTypeId) =>
-              dispatch({ type: 'START_BUILD', parcelId, factoryTypeId })
-            }
-            onCancelBuild={(parcelId) => dispatch({ type: 'CANCEL_BUILD', parcelId })}
-            onStartProduction={(parcelId, recipeId: RecipeId, machineGradeId?: MachineGradeId) =>
-              dispatch({ type: 'START_PRODUCTION', parcelId, recipeId, machineGradeId })
-            }
-            onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
-              dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
-            }
-            onStopProduction={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
-            onSetShelfPrice={(parcelId, itemId: ConsumerItemId, unitPrice) =>
-              dispatch({ type: 'SET_SHELF_PRICE', parcelId, itemId, unitPrice })
-            }
-            onEnterFloor={() => setMapView('floor')}
-          />
-        </main>
-        <aside className="shell-col shell-col-right">
-          <div className="right-tabs" role="tablist" aria-label="右側面板">
-            {(
-              [
-                ['ops', '產銷'],
-                ['manage', '經營'],
-                ['finance', '資金'],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={rightTab === id}
-                onClick={() => setRightTab(id)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {rightTab === 'ops' ? (
+              onCancelBuild={(parcelId) => dispatch({ type: 'CANCEL_BUILD', parcelId })}
+              onStartProduction={(parcelId, recipeId: RecipeId, machineGradeId?: MachineGradeId) =>
+                dispatch({ type: 'START_PRODUCTION', parcelId, recipeId, machineGradeId })
+              }
+              onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
+                dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
+              }
+              onStopProduction={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
+              onSetShelfPrice={(parcelId, itemId: ConsumerItemId, unitPrice) =>
+                dispatch({ type: 'SET_SHELF_PRICE', parcelId, itemId, unitPrice })
+              }
+              onEnterFloor={() => setMapView('floor')}
+            />
+          </main>
+        </div>
+      ) : (
+        <div className="page-sheet">
+          {page === 'produce' ? (
+            <SupplyBoard
+              state={state}
+              selectedParcelId={selectedParcelId}
+              onSelect={setSelectedParcelId}
+              onRestock={(parcelId) => dispatch({ type: 'RESTOCK_SITE', parcelId })}
+            />
+          ) : null}
+          {page === 'produce' ? (
+            <ProductionPanel
+              state={state}
+              selectedParcelId={selectedParcelId}
+              onStop={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
+              onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
+                dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
+              }
+              onAdvanceProduction={() => dispatch({ type: 'ADVANCE_PRODUCTION_TICK' })}
+              onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
+            />
+          ) : null}
+          {page === 'produce' ? (
+            <LandSaleSection
+              state={state}
+              onSellLand={(parcelId) => dispatch({ type: 'SELL_LAND', parcelId })}
+            />
+          ) : null}
+          {page === 'market' ? (
+            <MarketPanel
+              state={state}
+              selectedParcelId={selectedParcelId}
+              onFillOrder={(orderId, quantity, parcelId) =>
+                dispatch({ type: 'FILL_CITY_ORDER', orderId, quantity, shipFromParcelId: parcelId })
+              }
+            />
+          ) : null}
+          {page === 'sales' ? (
+            <SalesPanel
+              state={state}
+              selectedParcelId={selectedParcelId}
+              onSell={(offerId, quantity, shipFromParcelId) =>
+                dispatch({ type: 'SELL_TO_NPC', offerId, quantity, shipFromParcelId })
+              }
+              onSetShelf={(parcelId, itemId: ItemId, unitPrice, quantity) =>
+                dispatch({ type: 'SET_SHELF', parcelId, itemId, unitPrice, quantity })
+              }
+              onAcceptContract={(contractId, shipFromParcelId) =>
+                dispatch({ type: 'ACCEPT_CONTRACT', contractId, shipFromParcelId })
+              }
+              onBidContract={(contractId, unitPrice) =>
+                dispatch({ type: 'BID_CONTRACT', contractId, unitPrice })
+              }
+            />
+          ) : null}
+          {page === 'people' ? (
+            <NpcPanel
+              state={state}
+              onAccept={(dealId) => dispatch({ type: 'ACCEPT_NPC_DEAL', dealId })}
+            />
+          ) : null}
+          {page === 'ops' ? (
             <>
-              <SupplyBoard
+              <OpsPanel
                 state={state}
-                selectedParcelId={selectedParcelId}
-                onSelect={setSelectedParcelId}
-                onRestock={(parcelId) => dispatch({ type: 'RESTOCK_SITE', parcelId })}
-              />
-              <ProductionPanel
-                state={state}
-                selectedParcelId={selectedParcelId}
-                onStop={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
-                onInstallMachine={(parcelId, machineGradeId: MachineGradeId) =>
-                  dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
+                onHire={(role: StaffRole, count) => dispatch({ type: 'HIRE_STAFF', role, count })}
+                onFire={(role: StaffRole, count) => dispatch({ type: 'FIRE_STAFF', role, count })}
+                onResearch={(parcelId, researchId) =>
+                  dispatch({ type: 'START_RESEARCH', parcelId, researchId })
                 }
-                onAdvanceProduction={() => dispatch({ type: 'ADVANCE_PRODUCTION_TICK' })}
-                onDemolish={(parcelId) => dispatch({ type: 'DEMOLISH', parcelId })}
+                onCampaign={(cityId) => dispatch({ type: 'BUY_CAMPAIGN', cityId })}
               />
-              <MarketPanel
+              <OperationsPanel
                 state={state}
-                selectedParcelId={selectedParcelId}
-                onFillOrder={(orderId, quantity, parcelId) =>
-                  dispatch({ type: 'FILL_CITY_ORDER', orderId, quantity, shipFromParcelId: parcelId })
+                onHire={(candidateId) => dispatch({ type: 'HIRE_STAFF', candidateId })}
+                onDismiss={(staffId) => dispatch({ type: 'DISMISS_STAFF', staffId })}
+                onAssign={(staffId, parcelId) => dispatch({ type: 'ASSIGN_STAFF', staffId, parcelId })}
+                onUnlock={(projectId) => dispatch({ type: 'UNLOCK_RESEARCH', projectId })}
+                onSetPrice={(parcelId, itemId, unitPrice) =>
+                  dispatch({ type: 'SET_SHELF_PRICE', parcelId, itemId, unitPrice })
                 }
-              />
-              <SalesPanel
-                state={state}
-                selectedParcelId={selectedParcelId}
-                onSell={(offerId, quantity, shipFromParcelId) =>
-                  dispatch({ type: 'SELL_TO_NPC', offerId, quantity, shipFromParcelId })
-                }
+                onBuyAd={(spend) => dispatch({ type: 'BUY_ADVERT', spend })}
               />
             </>
           ) : null}
-          {rightTab === 'manage' ? (
-            <OperationsPanel
-              state={state}
-              onHire={(candidateId) => dispatch({ type: 'HIRE_STAFF', candidateId })}
-              onDismiss={(staffId) => dispatch({ type: 'DISMISS_STAFF', staffId })}
-              onAssign={(staffId, parcelId) =>
-                dispatch({ type: 'ASSIGN_STAFF', staffId, parcelId })
-              }
-              onUnlock={(projectId) => dispatch({ type: 'UNLOCK_RESEARCH', projectId })}
-              onSetPrice={(parcelId, itemId, unitPrice) =>
-                dispatch({ type: 'SET_SHELF_PRICE', parcelId, itemId, unitPrice })
-              }
-              onBuyAd={(spend) => dispatch({ type: 'BUY_ADVERT', spend })}
-            />
-          ) : null}
-          {rightTab === 'finance' ? (
+          {page === 'bank' ? (
             <BankPanel
               state={state}
               onOpenSavings={(amount) => dispatch({ type: 'OPEN_SAVINGS', amount })}
               onWithdrawSavings={() => dispatch({ type: 'WITHDRAW_SAVINGS' })}
-              onDrawLoan={(productId, amount) =>
-                dispatch({ type: 'DRAW_LOAN', productId, amount })
-              }
+              onDrawLoan={(productId, amount) => dispatch({ type: 'DRAW_LOAN', productId, amount })}
               onRepayLoan={(loanId, amount) => dispatch({ type: 'REPAY_LOAN', loanId, amount })}
               onBuyStock={(symbol, shares) => dispatch({ type: 'BUY_STOCK', symbol, shares })}
               onSellStock={(symbol, shares) => dispatch({ type: 'SELL_STOCK', symbol, shares })}
@@ -269,8 +370,32 @@ export function App() {
               }
             />
           ) : null}
-        </aside>
-      </div>
+          {page === 'exchange' ? (
+            <ExchangePanel
+              state={state}
+              onPlace={(marketId: MarketId, side, limitPrice, quantity) =>
+                dispatch({ type: 'PLACE_LIMIT', marketId, side, limitPrice, quantity })
+              }
+              onCancel={(orderId) => dispatch({ type: 'CANCEL_LIMIT', orderId })}
+              onBuyBond={(bondId, units) => dispatch({ type: 'BUY_BOND', bondId, units })}
+              onSellBond={(bondId, units) => dispatch({ type: 'SELL_BOND', bondId, units })}
+            />
+          ) : null}
+          {page === 'books' ? (
+            <>
+              <LedgerPanel state={state} />
+              <PnLPanel state={state} />
+              <PlayerOverview state={state} />
+              <TrendPanel state={state} />
+              <ProductionStatusPanel state={state} />
+              <InventoryPanel state={state} />
+              <button type="button" className="report-launch" onClick={() => setReportOpen(true)}>
+                數據報表
+              </button>
+            </>
+          ) : null}
+        </div>
+      )}
       {reportOpen ? (
         <DataReportPanel
           onClose={() => setReportOpen(false)}
@@ -279,6 +404,27 @@ export function App() {
           startingCash={DEFAULT_WORLD_CONFIG.startingCash}
         />
       ) : null}
+      <StageResultOverlay
+        state={state}
+        scenario={state.scenario}
+        progress={stageProgress}
+        onNextStage={(next) => startStage(next.id)}
+        onReplay={() => startStage(state.scenario.config.stageId ?? 'stage-01')}
+      />
+      {stageSelectOpen && (
+        <StageSelect
+          progress={campaign}
+          currentStageId={state.scenario.config.stageId ?? null}
+          onPick={(picked) => {
+            setStageSelectOpen(false);
+            startStage(picked.id);
+          }}
+          onClose={() => setStageSelectOpen(false)}
+        />
+      )}
+      {briefingOpen && stage && (
+        <StageBriefing stage={stage} onStart={() => setDismissedBriefing(briefingKey)} />
+      )}
     </div>
   );
 }

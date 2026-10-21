@@ -45,7 +45,7 @@ export {
 } from './shipments.js';
 export type { Shipment } from '../sales/shipment.js';
 export { applyBidToLot, minNextBid, settleLot, validateBid } from './auction-logic.js';
-export { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
+export { DEFAULT_WORLD_CONFIG, stageWorldConfig, type WorldConfig } from './config.js';
 export { createInitialWorld } from './create-world.js';
 export {
   DEMAND_BASE_UNIT_PRICE,
@@ -83,7 +83,12 @@ export {
   type WorldState,
 } from './state.js';
 export { processParcelTax } from './tax-logic.js';
-export { MAINTENANCE_PER_FACTORY, applyAdvanceDay, applySellToNpc } from './sales-reducer.js';
+export {
+  MAINTENANCE_PER_FACTORY,
+  applyAcceptContract,
+  applyAdvanceDay,
+  applySellToNpc,
+} from './sales-reducer.js';
 export { COMMODITY_INTAKE, applyWithdrawCommodity, validateWithdrawCommodity } from '../supply/intake.js';
 export {
   dispatchSupply,
@@ -113,3 +118,13 @@ export {
   type ParcelResource,
   type ParcelResourceKind,
 } from './parcel-resources.js';
+export {
+  MAX_HISTORY_DAYS,
+  appendSnapshot,
+  makeSnapshot,
+  readHistory,
+  recentHistory,
+  seriesDelta,
+  type DaySnapshot,
+  type SnapshotInput,
+} from './history.js';

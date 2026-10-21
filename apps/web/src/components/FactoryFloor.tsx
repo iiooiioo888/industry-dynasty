@@ -1,5 +1,4 @@
 import {
-  CONSUMER_ITEM_IDS,
   FACTORY_TYPES,
   ITEMS,
   MACHINE_GRADES,
@@ -20,6 +19,8 @@ import {
 } from '@industry-dynasty/sim';
 import { useState } from 'react';
 import { FloorDesk, type FloorDeskProps } from './FloorDesk';
+
+const SHELF_ITEMS = ['tool-kit', 'wire-spool', 'sealant-coat'] as const;
 
 export interface FactoryFloorProps {
   state: WorldState;
@@ -96,7 +97,7 @@ function stationCopy(
       };
     }
     case 'shelf': {
-      const prices = CONSUMER_ITEM_IDS.map(
+      const prices = SHELF_ITEMS.map(
         (itemId) => `${ITEMS[itemId].nameZh} $${shelfUnitPrice(state, parcelId.value, itemId)}`,
       );
       return { short: '貨架', detail: prices.join(' · ') };

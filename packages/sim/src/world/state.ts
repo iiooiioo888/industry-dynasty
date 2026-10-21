@@ -1,3 +1,6 @@
+import type { CommerceState } from '../commerce/types.js';
+import type { DaySnapshot } from './history.js';
+import type { NpcDeal } from '../npc/roster.js';
 import type { PlayerBank } from '../bank/types.js';
 import type { MarketEvent } from '../company/events.js';
 import type { ResearchProgress } from '../company/research.js';
@@ -5,6 +8,7 @@ import type { ShelfPrice } from '../company/retail.js';
 import type { RivalBook } from '../company/rivals.js';
 import type { HiredStaff } from '../company/staff.js';
 import type { SimClock } from './clock.js';
+import { parcelIndex, parcelsOwnedBy } from './parcel-index.js';
 import type { ParcelSite } from '../buildings/site.js';
 import type { NpcBuyOffer } from '../sales/market.js';
 import type { PnLSummary } from '../sales/pnl.js';
@@ -47,7 +51,18 @@ export interface WorldState {
   readonly clock: SimClock;
   /** 在途出貨。缺省視為沒有，舊狀態仍可開局。到貨才入帳。 */
   readonly shipments?: readonly Shipment[];
-  /** 缺省視為沒人。日結才扣薪。 */
+  /** 門市、合約、人力、研發、廣告與對手。舊存檔缺這欄時由讀取端補空帳。 */
+  readonly commerce?: CommerceState;
+  /** 今日 NPC 開價。換日整批換新。 */
+  readonly npcDeals?: readonly NpcDeal[];
+  /**
+   * 每日快照（現金／淨利／營收／市佔）。
+   *
+   * `pnl` 是累計值，看不出哪一天開始賺 —— 資料面板需要時間序列。
+   * 舊存檔沒有這個欄位，視為空陣列（見 `world/history.ts`）。
+   */
+  readonly history?: readonly DaySnapshot[];
+  /** 具名員工。缺省視為沒人。日結才扣薪，與人數制員工分開記帳。 */
   readonly staff?: readonly HiredStaff[];
   readonly research?: ResearchProgress;
   readonly shelfPrices?: readonly ShelfPrice[];
@@ -63,7 +78,8 @@ export interface WorldState {
 }
 
 export function findParcel(state: WorldState, parcelId: ParcelId): Parcel | undefined {
-  return state.map.parcels.find((p) => p.id.value === parcelId.value);
+  const { width, height } = state.map.size;
+  return parcelIndex(state.map.parcels, width, height).byIdValue(parcelId.value);
 }
 
 export function findOpenLotForParcel(
@@ -76,7 +92,7 @@ export function findOpenLotForParcel(
 }
 
 export function getPlayerHoldings(state: WorldState, playerId: string): readonly Parcel[] {
-  return state.map.parcels.filter((p) => p.ownerId === playerId);
+  return parcelsOwnedBy(state.map.parcels, playerId);
 }
 
 export function getSite(state: WorldState, parcelId: ParcelId): ParcelSite | undefined {

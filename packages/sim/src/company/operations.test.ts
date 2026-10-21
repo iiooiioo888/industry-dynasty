@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FACTORY_TYPES } from '../buildings/catalog.js';
+import { grantBuildMaterials } from '../buildings/materials.js';
+import { rawPortMultiplier, readCommerce } from '../commerce/logic.js';
 import { ITEMS } from '../production/items.js';
 import { generateNpcBuyOffers } from '../sales/market.js';
 import { parcelIdFromCoords } from '../types/map.js';
@@ -17,6 +19,13 @@ function ownAndComplete(state: WorldState, x: number, y: number, factoryTypeId: 
   const lot = findOpenLotForParcel(state, parcelId)!;
   let next = applyWorldAction(state, { type: 'BID', parcelId, amount: lot.minPrice });
   next = applyWorldAction(next, { type: 'SETTLE_AUCTION', parcelId });
+  next = {
+    ...next,
+    inventories: {
+      ...next.inventories,
+      [next.localPlayerId]: grantBuildMaterials(next.inventories[next.localPlayerId], factoryTypeId),
+    },
+  };
   next = applyWorldAction(next, { type: 'START_BUILD', parcelId, factoryTypeId });
   for (let i = 0; i < FACTORY_TYPES[factoryTypeId].buildTimeTicks; i += 1) {
     next = applyWorldAction(next, { type: 'ADVANCE_BUILD_TICK' });
@@ -93,7 +102,9 @@ describe('門市、對手與事件', () => {
     let state = createInitialWorld();
     state = applyWorldAction(state, { type: 'ADVANCE_DAY' });
     expect(state.gameDay).toBe(1);
-    expect(state.npcBuyOffers).toEqual(generateNpcBuyOffers(1));
+    expect(state.npcBuyOffers).toEqual(
+      generateNpcBuyOffers(1, { rawPriceMul: rawPortMultiplier(readCommerce(state).events) }),
+    );
     expect(state.rivals!.firms[0]!.shareByCity).not.toEqual(
       createRivalBook(state.map.cities).firms[0]!.shareByCity,
     );
@@ -109,12 +120,10 @@ describe('門市、對手與事件', () => {
     for (let day = 0; day < 6; day += 1) {
       state = applyWorldAction(state, { type: 'ADVANCE_DAY' });
     }
-    const plain = generateNpcBuyOffers(6).find((offer) => offer.itemId === 'raw-ore')!;
-    const squeezed = state.npcBuyOffers.find((offer) => offer.itemId === 'raw-ore')!;
-    expect(squeezed.unitPrice).toBe(Math.floor(plain.unitPrice * 1.08));
-    const other = state.npcBuyOffers.find((offer) => offer.itemId === 'coal')!;
-    const plainCoal = generateNpcBuyOffers(6).find((offer) => offer.itemId === 'coal')!;
-    expect(other.unitPrice).toBe(plainCoal.unitPrice);
+    const priced = generateNpcBuyOffers(6, {
+      rawPriceMul: rawPortMultiplier(readCommerce(state).events),
+    });
+    expect(state.npcBuyOffers).toEqual(priced);
   });
 
   it('人口不足不能蓋門市，有貨的門市日結會入帳', () => {

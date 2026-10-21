@@ -1,15 +1,34 @@
-import { applyOperatingClose } from '../company/day.js';
+import { FACTORY_TYPES } from '../buildings/catalog.js';
+import { buildNpcDeals } from '../npc/deals.js';
+import { expandNpcBlocks } from '../npc/expand.js';
+import {
+  applyCommerceDay,
+  freightMultiplier,
+  marketShareOf,
+  rawPortMultiplier,
+  readCommerce,
+} from '../commerce/logic.js';
+import { getItemQty, removeItem } from '../production/items.js';
 import {
   addPnL,
   emptyPnL,
   evaluateScenario,
   executeSellToNpc,
   findOfferById,
+  generateNpcBuyOffers,
 } from '../sales/index.js';
+import { TRANSPORT_RATE_PER_TILE } from '../sales/sell-logic.js';
 import { HOLDING } from '../balance/targets.js';
+import { findBid, resolveBid, upsertBid } from '../commerce/bidding.js';
+import { debtOf, getPlayerBank } from '../bank/logic.js';
+import { craftedValue } from '../production/chain.js';
 import { MACHINE_GRADES } from '../production/machines.js';
+import { dailyWage } from '../company/staff.js';
+import { advanceRivals, readRivals } from '../company/rivals.js';
+import { appendSnapshot, makeSnapshot } from './history.js';
 import type { ParcelId } from '../types/map.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
+import { findPath } from './pathfinding.js';
 import { createShipment, listShipments } from './shipments.js';
 import { findParcel, type Player, type WorldState } from './state.js';
 import { applyTaxTickWithPnl } from './day-reducer.js';
@@ -45,6 +64,13 @@ export function applySellToNpc(
     return state;
   }
 
+  const freight = freightMultiplier(readCommerce(state).events);
+  const transportCost = Math.round(result.transportCost * freight);
+  const netCash = result.grossRevenue - transportCost;
+  if (netCash <= 0) {
+    return state;
+  }
+
   const shipment = createShipment({
     state,
     ownerId: player.id,
@@ -53,8 +79,8 @@ export function applySellToNpc(
     quantity,
     parcel,
     grossRevenue: result.grossRevenue,
-    transportCost: result.transportCost,
-    netCash: result.netCash,
+    transportCost,
+    netCash,
   });
 
   return {
@@ -64,17 +90,143 @@ export function applySellToNpc(
   };
 }
 
+export function applyAcceptContract(
+  state: WorldState,
+  contractId: string,
+  shipFromParcelId: ParcelId,
+): WorldState {
+  const player = state.players[state.localPlayerId];
+  const commerce = readCommerce(state);
+  const contract = commerce.contracts.find((entry) => entry.id === contractId);
+  const parcel = findParcel(state, shipFromParcelId);
+  if (
+    !player ||
+    !contract ||
+    contract.status !== 'open' ||
+    !parcel ||
+    parcel.ownerId !== player.id
+  ) {
+    return state;
+  }
+  const city = state.map.cities.find((entry) => entry.id === contract.cityId);
+  if (!city) {
+    return state;
+  }
+  // 合約要競標（見 `commerce/bidding.ts`）：玩家必須出價、且壓過對手才接得到。
+  // 舊存檔的合約沒有 `rivalUnitPrice`，視為面價 → 等於沒有競爭，行為不變。
+  const bid = findBid(commerce.contractBids, contract.id);
+  if (!bid) {
+    return state;
+  }
+  const outcome = resolveBid({
+    bidUnitPrice: bid.unitPrice,
+    rivalUnitPrice: contract.rivalUnitPrice ?? contract.unitPrice,
+    faceUnitPrice: contract.unitPrice,
+  });
+  if (!outcome.won) {
+    return state;
+  }
+  const stock = state.inventories[player.id] ?? {};
+  if (getItemQty(stock, contract.itemId) < contract.quantity) {
+    return state;
+  }
+  const removed = removeItem(stock, contract.itemId, contract.quantity);
+  if (!removed) {
+    return state;
+  }
+  const path = findPath(state.map, { x: parcel.x, y: parcel.y }, { x: city.x, y: city.y });
+  const travel = Math.max(1, path.length - 1);
+  const freight = freightMultiplier(commerce.events);
+  const transportCost = Math.round(travel * TRANSPORT_RATE_PER_TILE * freight);
+  // 成交價用玩家自己的出價 —— 出越低越標得到，但賺越少
+  const grossRevenue = bid.unitPrice * contract.quantity;
+  const netCash = grossRevenue - transportCost;
+  if (netCash <= 0) {
+    return state;
+  }
+  const shipment = createShipment({
+    state,
+    ownerId: player.id,
+    offerId: contract.id,
+    itemId: contract.itemId,
+    quantity: contract.quantity,
+    parcel,
+    grossRevenue,
+    transportCost,
+    netCash,
+    to: { x: city.x, y: city.y },
+    contractId: contract.id,
+  });
+  return {
+    ...state,
+    inventories: { ...state.inventories, [player.id]: removed },
+    shipments: [...listShipments(state), shipment],
+    commerce: {
+      ...commerce,
+      contracts: commerce.contracts.map((entry) =>
+        entry.id === contract.id
+          ? { ...entry, status: 'shipping' as const, shipFromParcelId: parcel.id.value }
+          : entry,
+      ),
+    },
+  };
+}
+
+/**
+ * 對合約出價（見 `commerce/bidding.ts`）。
+ *
+ * 只記錄出價，不立刻成交 —— 接單（`ACCEPT_CONTRACT`）時才判定是否壓過對手。
+ * 出價只要是個正整數就受理；能不能標到由 `resolveBid` 決定。
+ * （不把上限鎖在面價：對手報價本身會在面價 ±8% 內浮動。）
+ */
+export function applyBidContract(
+  state: WorldState,
+  contractId: string,
+  unitPrice: number,
+): WorldState {
+  const commerce = readCommerce(state);
+  const contract = commerce.contracts.find((entry) => entry.id === contractId);
+  if (!contract || contract.status !== 'open') {
+    return state;
+  }
+  if (!Number.isFinite(unitPrice) || unitPrice < 1) {
+    return state;
+  }
+  return {
+    ...state,
+    commerce: {
+      ...commerce,
+      contractBids: upsertBid(commerce.contractBids, {
+        contractId,
+        unitPrice: Math.round(unitPrice),
+        day: state.gameDay,
+      }),
+    },
+  };
+}
+
 export function applyAdvanceDay(
   state: WorldState,
   config: WorldConfig = DEFAULT_WORLD_CONFIG,
 ): WorldState {
-  const next = applyTaxTickWithPnl(state, config);
-
-  const playerId = next.localPlayerId;
+  const taxed = applyTaxTickWithPnl(state, config);
+  const playerId = taxed.localPlayerId;
+  const closingDay = taxed.gameDay + 1;
+  const commerceDay = applyCommerceDay(taxed, closingDay);
+  const next = commerceDay.state;
   const player = next.players[playerId];
-  let pnl = next.pnl[playerId] ?? emptyPnL();
+  let pnl = addPnL(next.pnl[playerId] ?? emptyPnL(), {
+    revenue: commerceDay.retailRevenue,
+    wages: commerceDay.wages,
+    maintenance: commerceDay.upkeep + commerceDay.penalties,
+  });
 
-  const factoryCount = Object.values(next.sites).filter((s) => s.phase === 'complete').length;
+  const factoryCount = Object.values(next.sites).filter(
+    (site) =>
+      site.phase === 'complete' &&
+      site.ownerId === playerId &&
+      FACTORY_TYPES[site.factoryTypeId].role === 'production',
+  ).length;
   const machineUpkeep = Object.values(next.productionLines).reduce((sum, line) => {
     if (!line.machineGradeId) {
       return sum;
@@ -85,28 +237,53 @@ export function applyAdvanceDay(
   let cash = player.cash;
   const paidMaintenance = Math.min(maintenance, cash);
   cash -= paidMaintenance;
-  pnl = addPnL(pnl, { maintenance: paidMaintenance });
+  const namedWage = dailyWage(next);
+  const paidNamedWage = Math.min(namedWage, cash);
+  cash -= paidNamedWage;
+  pnl = addPnL(pnl, { maintenance: paidMaintenance + paidNamedWage });
 
-  const gameDay = next.gameDay + 1;
+  const gameDay = closingDay;
   const nextPlayer: Player = { ...player, cash };
   pnl = aggregateProductionIdleLoss(next, playerId, pnl);
+  const book = readCommerce(next);
 
-  const closed = applyOperatingClose({
+  // 三條勝利路線一起評估：工業化（淨利＋加工產值）、商業（營收＋需求佔比）、
+  // 還款（淨利＋累計清償＋零負債）。見 `sales/scenario.ts`。
+  const bankBook = getPlayerBank(next, playerId);
+  const debt = debtOf(bankBook);
+  const scenario = evaluateScenario(next.scenario, gameDay, pnl, {
+    craftedValue: craftedValue(next.craftedTotals[playerId]),
+    commerce: {
+      share: marketShareOf(book),
+      consumerRevenue: book.consumerRevenue,
+    },
+    debtRepaid: bankBook.lifetimeRepaid ?? 0,
+    outstandingDebt: debt.principal + debt.arrears,
+  });
+
+  // 每日快照：資料面板的趨勢圖靠這條序列（見 `world/history.ts`）
+  const history = appendSnapshot(
+    next.history,
+    makeSnapshot({
+      day: gameDay,
+      cash: nextPlayer.cash,
+      pnl,
+      consumerRevenue: book.consumerRevenue,
+      share: marketShareOf(book),
+    }),
+  );
+
+  return expandNpcBlocks({
     ...next,
     gameDay,
     players: { ...next.players, [playerId]: nextPlayer },
     pnl: { ...next.pnl, [playerId]: pnl },
-  });
-  const scenario = evaluateScenario(
-    closed.scenario,
-    gameDay,
-    closed.pnl[playerId] ?? pnl,
-  );
-
-  return {
-    ...closed,
+    npcBuyOffers: generateNpcBuyOffers(gameDay, { rawPriceMul: rawPortMultiplier(book.events) }),
+    npcDeals: buildNpcDeals(next.map.cities, gameDay),
+    rivals: advanceRivals(readRivals(next.rivals, next.map.cities), gameDay),
     scenario,
-  };
+    history,
+  });
 }
 
 function aggregateProductionIdleLoss(

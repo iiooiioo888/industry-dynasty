@@ -1,5 +1,8 @@
 import {
+  FACTORY_TYPES,
   MARKET_HUB,
+  npcAtCity,
+  npcById,
   PARCEL_RESOURCE_DEFS,
   enterFloorBlock,
   listCityOrders,
@@ -89,6 +92,8 @@ function cellClass(
   if (parcel.role === 'land') {
     if (parcel.state === 'building') {
       classes.push('under-construction');
+    } else if (parcel.state === 'building-ready' && !isLocalOwner && parcel.ownerId) {
+      classes.push('npc-block');
     } else if (parcel.state === 'building-ready') {
       classes.push('building-ready');
     } else if (isLocalOwner) {
@@ -246,6 +251,13 @@ export function GameMap({
               const hasOpenAuction = lot !== undefined && !parcel.ownerId && parcel.role === 'land';
               const hasBids = lot?.highBidderId != null;
               const isMarket = parcel.x === MARKET_HUB.x && parcel.y === MARKET_HUB.y;
+              const site = state.sites[parcel.id.value];
+              const siteClass =
+                site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].role === 'retail'
+                  ? ' site-store'
+                  : site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].role === 'research'
+                    ? ' site-lab'
+                    : '';
               const road = roadPresentationAt(state.map.parcels, parcel, state.map.size);
               const art = cellFeatureArt(featureArt, parcel.x, parcel.y);
               const city = state.map.cities.find((hub) => hub.x === parcel.x && hub.y === parcel.y);
@@ -280,7 +292,7 @@ export function GameMap({
                 <button
                   key={parcel.id.value}
                   type="button"
-                  className={`${cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids, road?.joint ?? null)}${isMarket ? ' market-hub' : ''}${floorReady ? ' floor-ready' : ''}`}
+                  className={`${cellClass(parcel, selected, isLocalOwner, hasOpenAuction, hasBids, road?.joint ?? null)}${isMarket ? ' market-hub' : ''}${siteClass}${floorReady ? ' floor-ready' : ''}`}
                   data-floor-ready={floorReady ? 'true' : undefined}
                   style={
                     showDensity
@@ -298,7 +310,15 @@ export function GameMap({
                   aria-label={floorReady ? `${ariaLabel(state, parcel)}，可進入廠房` : ariaLabel(state, parcel)}
                 >
                   <MapCellFeatureArt art={art} road={road} />
-                  {city ? <span className="city-label">{city.name}</span> : null}
+                  {parcel.ownerId && npcById(parcel.ownerId) ? (
+                    <span className="npc-block-tag">{npcById(parcel.ownerId)?.nameZh}</span>
+                  ) : null}
+                  {city ? (
+                    <span className="city-label">
+                      {city.name}
+                      {npcAtCity(city.id) ? <i>{npcAtCity(city.id)?.nameZh}</i> : null}
+                    </span>
+                  ) : null}
                   {hasOpenAuction && (
                     <span className="map-cell-auction-tag" aria-hidden="true">
                       拍
@@ -453,6 +473,63 @@ export function GameMap({
           <i className="swatch supply" /> 送料
         </span>
         <span>房 可進入</span>
+        <span>
+          <i className="swatch building-ready" /> 工廠運營
+        </span>
+        <span>
+          <i className="swatch npc-block" /> 對手版圖
+        </span>
+        <span>
+          <i className="swatch site-store" /> 門市
+        </span>
+        <span>
+          <i className="swatch site-lab" /> 研發室
+        </span>
+        <span>
+          <i className="swatch worker-travel" /> 工人趕路
+        </span>
+        <span>
+          <i className="swatch worker-work" /> 工人作業
+        </span>
+        <span>
+          <i className="swatch worker-idle" /> 工人閒置
+        </span>
+        <span>
+          <img
+            className="swatch art-icon"
+            src={ASSET_SLOTS.map.road}
+            alt=""
+            data-art-slot={MAP_ART_SLOT.road}
+          />
+          道路圖層
+        </span>
+        <span>
+          <img
+            className="swatch art-icon"
+            src={ASSET_SLOTS.map.cityHub}
+            alt=""
+            data-art-slot={MAP_ART_SLOT.cityHub}
+          />
+          城市據點圖層
+        </span>
+        <span>
+          <img
+            className="swatch art-icon"
+            src={ASSET_SLOTS.map.popDense}
+            alt=""
+            data-art-slot={MAP_ART_SLOT.popDense}
+          />
+          人口密集圖層
+        </span>
+        <span>
+          <img
+            className="swatch art-icon"
+            src={ASSET_SLOTS.map.cityBuilding}
+            alt=""
+            data-art-slot={MAP_ART_SLOT.cityBuilding}
+          />
+          城市建築圖層
+        </span>
       </div>
       )}
       {narrow && !onFloor ? (

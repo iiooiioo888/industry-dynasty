@@ -2,16 +2,39 @@
   margin: 0 0 0.45rem;
 }
 
+.sales-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.45rem;
+}
+
+.sales-tab {
+  flex: 1;
+  font: inherit;
+  font-size: 0.72rem;
+  color: var(--sys-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.28rem 0.15rem;
+}
+
+.sales-tab.is-on {
+  color: var(--sys-accent-ink);
+  background: var(--sys-text);
+  font-weight: 600;
+}
+
 .market-hub-cue {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
   padding: 0.35rem 0.45rem;
-  border: 1px solid #c9a961;
-  border-radius: 4px;
-  background: linear-gradient(90deg, rgba(20, 16, 10, 0.2), rgba(20, 16, 10, 0.55)), #12151a;
-  color: #c9a961;
+  border: 1px solid var(--sys-border);
+  border-radius: 12px;
+  background: var(--sys-bg-deep);
+  color: var(--sys-text);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -20,14 +43,14 @@
   width: 48px;
   height: 48px;
   object-fit: cover;
-  border-radius: 3px;
+  border-radius: 10px;
   background: #0c0e12;
 }
 
 .market-hub-cue small {
   display: block;
   margin-top: 0.1rem;
-  color: #e8d7a8;
+  color: var(--sys-muted);
   font-weight: 600;
   font-size: 0.68rem;
 }
@@ -71,7 +94,7 @@
   background: var(--sys-bg-deep);
   border: 1px solid var(--sys-border);
   color: var(--sys-text);
-  border-radius: 3px;
+  border-radius: 10px;
 }
 
 .sales-quote {
@@ -115,11 +138,38 @@
   color: #ffb4b4;
   background: #2a1515;
   border: 1px solid #6a3030;
-  border-radius: 3px;
+  border-radius: 10px;
 }
 
 .shipment-list {
   margin: 0.4rem 0;
   padding-left: 1.1rem;
   font-size: 0.75rem;
+}
+
+.contract-bid-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.contract-bid-row input {
+  width: 5.5rem;
+  border: 1px solid var(--sys-border);
+  border-radius: 4px;
+  background: var(--sys-bg);
+  color: inherit;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.contract-advice {
+  font-size: 0.66rem;
+  color: var(--sys-warn);
+}
+
+.contract-advice.is-good {
+  color: var(--sys-accent);
 }

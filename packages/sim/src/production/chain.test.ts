@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FACTORY_TYPES } from '../buildings/catalog.js';
+import { grantBuildMaterials } from '../buildings/materials.js';
 import { generateNpcBuyOffers } from '../sales/market.js';
 import { parcelIdFromCoords } from '../types/map.js';
 import { applyWorldAction } from '../world/reducer.js';
@@ -22,6 +23,18 @@ function ownAndComplete(
   const lot = findOpenLotForParcel(state, parcelId)!;
   let next = applyWorldAction(state, { type: 'BID', parcelId, amount: lot.minPrice });
   next = applyWorldAction(next, { type: 'SETTLE_AUCTION', parcelId });
+  // 建廠要吃材料（`buildings/materials.ts`）；這個 helper 專心測技術鏈，
+  // 所以直接把材料補齊。
+  next = {
+    ...next,
+    inventories: {
+      ...next.inventories,
+      [next.localPlayerId]: grantBuildMaterials(
+        next.inventories[next.localPlayerId],
+        factoryTypeId,
+      ),
+    },
+  };
   next = applyWorldAction(next, { type: 'START_BUILD', parcelId, factoryTypeId });
   for (let i = 0; i < FACTORY_TYPES[factoryTypeId].buildTimeTicks; i++) {
     next = applyWorldAction(next, { type: 'ADVANCE_BUILD_TICK' });

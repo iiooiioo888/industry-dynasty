@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 完整遊戲迴圈模擬器 · full-loop simulator
  *
  * 與 `reports/simulate.ts` 的差別：那個檔案用的是**簡化的營運收入模型**
@@ -14,8 +14,14 @@
  * 正式遊玩的規劃日是 48 刻，見 `balance/targets.ts` 的假設說明。
  */
 import { FACTORY_TYPES, type FactoryTypeId } from '../buildings/catalog.js';
+import { BUILD_MATERIALS, hasBuildMaterials } from '../buildings/materials.js';
 import { RECIPES, type RecipeId } from '../production/recipes.js';
-import { applyProductionPlans, planProductionSlots } from '../production/planning.js';
+import {
+  applyProductionPlans,
+  isRecipeUnlocked,
+  planProductionSlots,
+} from '../production/planning.js';
+import { techStage } from '../production/chain.js';
 import { getItemQty, ITEMS } from '../production/items.js';
 import { netProfit } from '../sales/pnl.js';
 import { addPnL, emptyPnL } from '../sales/pnl.js';
@@ -26,7 +32,9 @@ import { applyWorldAction } from '../world/reducer.js';
 import { createInitialWorld } from '../world/create-world.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from '../world/config.js';
 import { getPlayerHoldings, type WorldState } from '../world/state.js';
-import { DEFAULT_SCENARIO } from '../sales/scenario.js';
+import { craftedValue } from '../production/chain.js';
+import { scenarioProgress } from '../sales/scenario.js';
+import { DEFAULT_SCENARIO, createScenarioState } from '../sales/scenario.js';
 import { recognizeDispatchedShipments } from './settle-shipments.js';
 
 export interface FullLoopOptions {
@@ -61,6 +69,13 @@ export interface FullLoopOptions {
   readonly extractorCount?: number;
   /** 除錯／量測用：每天排完生產後呼叫一次。 */
   readonly inspect?: (day: number, state: WorldState) => void;
+  /**
+   * 量測用：預設已解鎖的研究。
+   *
+   * 量測迴圈不會去蓋實驗室跑研究，所以「研究解鎖後的配方」在量測裡永遠
+   * 不可用。要評估三階這類研究解鎖內容，得能直接把解鎖狀態塞進去。
+   */
+  readonly unlockedResearch?: readonly string[];
 }
 
 export interface FullLoopDay {
@@ -81,6 +96,10 @@ export interface FullLoopResult {
   readonly ownedParcels: number;
   readonly completeFactories: number;
   readonly scenarioTarget: number;
+  /** 累計加工產值（工業化維度） */
+  readonly craftedValue: number;
+  /** 加工產值門檻 */
+  readonly craftedTarget: number;
   readonly maxDays: number;
   /** 是否達成通關門檻（不論天數是否用完）。 */
   readonly reachedTarget: boolean;
@@ -175,9 +194,37 @@ function nextVeinToBuy(kinds: readonly string[], owned: Map<string, number>): st
   return kinds[0] ?? null;
 }
 
+/**
+ * 只把 `role === 'production'` 的建築算成工廠。
+ *
+ * `main` 加入門市（`storefront`）與實驗室（`lab`）之後，它們同樣存在於
+ * `state.sites` 裡。若把它們算成工廠，這個量測迴圈的「工廠數」與
+ * 礦場／加工廠的名額配置就會被灌水 —— 實測 6 塊地時真正的工坊只有 2 座，
+ * 卻都被當成礦場，於是沒有任何工廠能做加工，加工產值恆為 0。
+ */
+function isProductionSite(factoryTypeId: FactoryTypeId): boolean {
+  return FACTORY_TYPES[factoryTypeId].role === 'production';
+}
+
 function countCompleteFactories(state: WorldState, playerId: string): number {
-  return Object.values(state.sites).filter((s) => s.phase === 'complete' && s.ownerId === playerId)
-    .length;
+  return Object.entries(state.sites).filter(
+    ([, site]) =>
+      site.phase === 'complete' &&
+      site.ownerId === playerId &&
+      isProductionSite(site.factoryTypeId),
+  ).length;
+}
+
+/** 完工且屬於該玩家的生產建築 parcel key。 */
+function productionSiteKeys(state: WorldState, playerId: string): string[] {
+  return Object.entries(state.sites)
+    .filter(
+      ([, site]) =>
+        site.phase === 'complete' &&
+        site.ownerId === playerId &&
+        isProductionSite(site.factoryTypeId),
+    )
+    .map(([key]) => key);
 }
 
 /** 選一塊可買、且有指定礦脈的地。 */
@@ -222,7 +269,7 @@ function reserveQtyFor(
     return 0;
   }
   const sites = Object.values(state.sites).filter(
-    (s) => s.phase === 'complete' && s.ownerId === playerId,
+    (s) => s.phase === 'complete' && s.ownerId === playerId && isProductionSite(s.factoryTypeId),
   );
   // 開採廠以外的工廠才會加工
   const processors = Math.max(0, sites.length - Math.max(1, extractorCount));
@@ -230,16 +277,67 @@ function reserveQtyFor(
     return 0;
   }
   let need = 0;
+  // 保留**現在真的在跑的產線**所需原料。
+  //
+  // 這裡走過四種寫法，每一種踩到不同的坑，值得記下來：
+  // 1. 掃描全部配方 → 新增一筆被鎖住的配方就讓營收從 157,022 掉到 50,742
+  //    （無關的資料改變了量測）。
+  // 2. 加上「可販售＋已解鎖＋技術階段到」過濾 → 被鎖住的不再影響，
+  //    但解鎖後仍會為「永遠排不到」的配方囤料，營收一樣崩掉。
+  // 3. 只看實際排程結果 → 雞生蛋：配方要等庫存才排得到，
+  //    庫存又要先保留才累積得起來。
+  // 4. 只看正在跑的產線 → 一開始沒有任何產線，原料被賣光，鏈條起不來。
+  //
+  // 最後採用的規則：**保留原料與中間件，不保留成品**。
+  // 原料與中間件是所有加工的共同起點，不保留就永遠開不了工；
+  // 成品（合金板、精密模組…）不保留，因為「該不該拿成品再加工」是策略問題，
+  // 不該由量測工具替玩家決定 —— 先前正是在這裡把營收扣掉了 106,000。
+  const listed = ITEMS[itemId as keyof typeof ITEMS];
+  if (!listed || listed.tier === 'finished') {
+    return buildMaterialReserve(state, playerId, itemId, depth);
+  }
+  const unlocked = state.commerce?.unlocked ?? [];
+  const crafted = state.craftedTotals[playerId];
   for (const recipe of Object.values(RECIPES)) {
     if (recipe.inputs.length === 0 || ('researchId' in recipe && recipe.researchId)) continue;
     if (!(recipe.stage === 'process' ? depth >= 1 : depth >= 2)) continue;
+    if (!ITEMS[recipe.outputItemId].sellable) continue;
+    if (!isRecipeUnlocked(recipe, unlocked)) continue;
+    if (techStage(crafted) < recipe.minTechStage) continue;
     const input = recipe.inputs.find((i) => i.itemId === itemId);
     if (input) {
       need = Math.max(need, input.quantity);
     }
   }
   // 每座加工廠保留「每輪需求 × 3 輪」的緩衝
-  return need * processors * 3;
+  const feedReserve = need * processors * 3;
+  return feedReserve + buildMaterialReserve(state, playerId, itemId, depth);
+}
+
+/**
+ * 為「還沒蓋的下一座建築」保留材料，避免把零件賣光導致永遠蓋不了。
+ *
+ * 建廠要吃材料（`buildings/materials.ts`）；這個量測迴圈每天把可賣的東西
+ * 全部賣掉，若不保留，二階加工就會卡在「有錢但沒有零件」而永遠蓋不出組裝廠
+ * （實測 8 塊地二階直接虧損）。
+ */
+function buildMaterialReserve(
+  state: WorldState,
+  playerId: string,
+  itemId: string,
+  depth: 0 | 1 | 2,
+): number {
+  if (depth < 2) {
+    return 0;
+  }
+  const ownsAssembly = Object.values(state.sites).some(
+    (site) => site.ownerId === playerId && site.factoryTypeId === 'assembly-plant',
+  );
+  if (ownsAssembly) {
+    return 0;
+  }
+  const material = BUILD_MATERIALS['assembly-plant'].find((entry) => entry.itemId === itemId);
+  return material ? material.quantity : 0;
 }
 
 /** 把庫存裡所有可販售品項賣給當日報價最佳的 NPC，回傳新狀態。 */
@@ -310,34 +408,24 @@ export function startProductionEverywhere(
   extractorCount = 2,
 ): WorldState {
   const playerId = state.localPlayerId;
-  const factoryKeys = Object.entries(state.sites)
-    .filter(([, site]) => site.phase === 'complete' && site.ownerId === playerId)
-    .map(([key]) => key);
+  const factoryKeys = productionSiteKeys(state, playerId);
 
   // 配方選擇集中在 `production/planning.ts`，與機器人模擬共用同一套規則，
   // 兩邊才不會各自漂移（先前機器人不會加工就是因為規則只存在這裡）。
   const plans = planProductionSlots(state, playerId, factoryKeys, depth, extractorCount);
-  const planMap = new Map<RecipeId, string[]>();
-  for (const [index, key] of [...factoryKeys].sort().entries()) {
-    const plan = plans[index];
-    if (!plan) {
+  const planMap = new Map<string, RecipeId>();
+  for (const plan of plans) {
+    const site = state.sites[plan.parcelKey];
+    if (!site) {
       continue;
     }
-    if (
-      !(RECIPES[plan.recipeId].buildings as readonly string[]).includes(
-        state.sites[key]!.factoryTypeId,
-      )
-    ) {
+    if (!(RECIPES[plan.recipeId].buildings as readonly string[]).includes(site.factoryTypeId)) {
       continue;
     }
-    planMap.set(plan.recipeId, [...(planMap.get(plan.recipeId) ?? []), key]);
+    planMap.set(plan.parcelKey, plan.recipeId);
   }
 
-  let next = state;
-  for (const [recipeId, keys] of planMap) {
-    const map = new Map(keys.map((k) => [k, recipeId]));
-    next = applyProductionPlans(next, map);
-  }
+  const next = applyProductionPlans(state, planMap);
   void fallbackRecipe;
   return next;
 }
@@ -382,6 +470,19 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
   const extractorCount = options.extractorCount ?? 2;
 
   let state = createInitialWorld(config);
+  // 報表量的是**經濟本身**，不是關卡進度 —— 所以用舊的單局目標（DEFAULT_SCENARIO），
+  // 而不是 createInitialWorld 依 stageId 帶進來的關卡目標。
+  // 第 20 回合把關卡目標重新校準到百萬級之後，若沿用關卡目標，
+  // 所有歷史報表的門檻都會一次失效。
+  state = { ...state, scenario: createScenarioState(DEFAULT_SCENARIO) };
+  // 量測迴圈不蓋實驗室、不跑研究，所以「研究解鎖後才可用的配方」在量測裡
+  // 永遠不會出現。要評估這類內容，得能直接把解鎖狀態塞進來。
+  if (options.unlockedResearch && options.unlockedResearch.length > 0 && state.commerce) {
+    state = {
+      ...state,
+      commerce: { ...state.commerce, unlocked: [...options.unlockedResearch] },
+    };
+  }
   const days: FullLoopDay[] = [];
   const resourceKinds = pickResourceKinds(state, options.recipeId, depth);
 
@@ -412,7 +513,7 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
           (l) => l.parcelId.value === target.value && l.status === 'open',
         );
         const nextType = factoryTypeForChainSlot(
-          Object.keys(state.sites).length,
+          countCompleteFactories(state, state.localPlayerId),
           depth,
           extractorCount,
           maxParcels,
@@ -436,15 +537,23 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
         continue;
       }
       const slotType = factoryTypeForChainSlot(
-        Object.keys(state.sites).length,
+        countCompleteFactories(state, state.localPlayerId),
         depth,
         extractorCount,
         maxParcels,
         factoryTypeId,
       );
-      const slotCost = FACTORY_TYPES[slotType].buildCost;
+      // 建廠要吃材料（見 `buildings/materials.ts`）。材料不足時**先不蓋**，
+      // 保留那個位置給真正需要的廠型 —— 這裡不能「退回蓋工坊」：
+      // 每個空地都算出「該蓋組裝廠」、都缺料、於是連工坊都蓋不出來，
+      // 或是最後一格被工坊佔走，二階加工就永遠起不來（兩者都實測過）。
+      // 材料由 `buildMaterialReserve` 在賣出前先囤起來。
       const cash = state.players[state.localPlayerId]?.cash ?? 0;
-      if (cash < slotCost) {
+      const stock = state.inventories[state.localPlayerId];
+      if (cash < FACTORY_TYPES[slotType].buildCost) {
+        continue;
+      }
+      if (!hasBuildMaterials(stock, slotType)) {
         continue;
       }
       state = applyWorldAction(state, {
@@ -486,14 +595,19 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
 
     record();
 
-    if (state.scenario.status !== 'playing') {
-      break;
-    }
+    // 注意：這裡**不因為 `scenario.status` 變成 lost 就提早結束**。
+    //
+    // 這個 harness 是量測工具，目的是「跑滿指定天數看能賺多少」。
+    // 第 20 回合把關卡天數從 25 縮到 12 之後，這裡若照狀態中斷，
+    // 所有報表的數字會跟著變，讓「平衡有沒有變」變得無法比較。
+    // 要不要看通關與否，由呼叫端自己判斷 `status`。
   }
 
   const playerId = state.localPlayerId;
   const pnl = state.pnl[playerId] ?? emptyPnL();
   const profit = netProfit(pnl);
+  const achievedCraftedValue = craftedValue(state.craftedTotals[playerId]);
+  const progress = scenarioProgress(state.scenario, pnl, { craftedValue: achievedCraftedValue });
 
   return {
     days,
@@ -504,8 +618,10 @@ export function runFullLoop(options: FullLoopOptions = {}): FullLoopResult {
     ownedParcels: getPlayerHoldings(state, playerId).length,
     completeFactories: countCompleteFactories(state, playerId),
     scenarioTarget: DEFAULT_SCENARIO.targetNetProfit,
+    craftedValue: achievedCraftedValue,
+    craftedTarget: DEFAULT_SCENARIO.targetCraftedValue,
     maxDays,
-    reachedTarget: profit >= DEFAULT_SCENARIO.targetNetProfit,
+    reachedTarget: progress.profitMet && progress.craftedMet,
   };
 }
 

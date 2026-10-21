@@ -1,0 +1,58 @@
+.ops-staff,
+.ops-news {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ops-staff li,
+.ops-news li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  font-size: 0.72rem;
+}
+
+.ops-staff span,
+.ops-news span {
+  color: var(--sys-muted);
+}
+
+.ops-actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.ops-block {
+  margin-top: 0.55rem;
+}
+
+.ops-block h3 {
+  margin: 0 0 0.3rem;
+  font-size: 0.75rem;
+}
+
+.ops-panel button {
+  font: inherit;
+  font-size: 0.7rem;
+  color: var(--sys-text);
+  background: var(--sys-surface-2);
+  border: 1px solid var(--sys-border);
+  border-radius: 999px;
+  padding: 0.15rem 0.4rem;
+}
+
+.ops-panel button:disabled {
+  opacity: 0.45;
+}
+
+.ops-research-meta {
+  font-size: 0.66rem;
+  color: var(--sys-muted);
+  flex: 1;
+}
