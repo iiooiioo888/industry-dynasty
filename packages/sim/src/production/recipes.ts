@@ -34,7 +34,10 @@ export type RecipeId =
   | 'make-wire-bundle'
   | 'make-pack-module'
   | 'assemble-precision'
-  | 'assemble-control';
+  | 'assemble-control'
+  | 'pack-tool-kit'
+  | 'pack-wire-spool'
+  | 'pack-sealant';
 
 export interface RecipeDef {
   readonly id: RecipeId;
@@ -356,6 +359,60 @@ export const RECIPES = {
     buildings: ['assembly-plant'],
     researchId: 'control-line',
   },
+  'pack-tool-kit': {
+    id: 'pack-tool-kit',
+    nameZh: '組裝手持工具組',
+    inputs: [
+      { itemId: 'basic-part', quantity: 1 },
+      { itemId: 'iron-ingot', quantity: 1 },
+    ],
+    outputItemId: 'tool-kit',
+    outputQuantity: 1,
+    outputMultiplier: 1,
+    baseCycleTicks: 4,
+    travelTickPerDistance: 1,
+    stage: 'finish',
+    minTechStage: 0,
+    sourceKind: null,
+    reserveCost: 0,
+    buildings: ['workshop', 'assembly-plant'],
+    researchId: 'civic-tools',
+  },
+  'pack-wire-spool': {
+    id: 'pack-wire-spool',
+    nameZh: '捲製導電線捲',
+    inputs: [{ itemId: 'copper-ingot', quantity: 2 }],
+    outputItemId: 'wire-spool',
+    outputQuantity: 1,
+    outputMultiplier: 1,
+    baseCycleTicks: 3,
+    travelTickPerDistance: 1,
+    stage: 'finish',
+    minTechStage: 0,
+    sourceKind: null,
+    reserveCost: 0,
+    buildings: ['workshop', 'assembly-plant'],
+    researchId: 'civic-wire',
+  },
+  'pack-sealant': {
+    id: 'pack-sealant',
+    nameZh: '調配密封塗料',
+    inputs: [
+      { itemId: 'resin', quantity: 2 },
+      { itemId: 'silica', quantity: 1 },
+    ],
+    outputItemId: 'sealant-coat',
+    outputQuantity: 1,
+    outputMultiplier: 1,
+    baseCycleTicks: 3,
+    travelTickPerDistance: 1,
+    stage: 'finish',
+    minTechStage: 0,
+    sourceKind: null,
+    reserveCost: 0,
+    buildings: ['workshop', 'assembly-plant'],
+    researchId: 'civic-seal',
+  },
 } as const satisfies Record<RecipeId, RecipeDef>;
 
 export const RECIPE_LIST: readonly RecipeDef[] = [
@@ -374,6 +431,10 @@ export const RECIPE_LIST: readonly RecipeDef[] = [
   RECIPES['make-wire-bundle'],
   RECIPES['make-pack-module'],
   RECIPES['assemble-precision'],
+  RECIPES['assemble-control'],
+  RECIPES['pack-tool-kit'],
+  RECIPES['pack-wire-spool'],
+  RECIPES['pack-sealant'],
 ];
 
 export const CHAIN_STAGES = [

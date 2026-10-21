@@ -23,6 +23,8 @@ import { findBid, resolveBid, upsertBid } from '../commerce/bidding.js';
 import { debtOf, getPlayerBank } from '../bank/logic.js';
 import { craftedValue } from '../production/chain.js';
 import { MACHINE_GRADES } from '../production/machines.js';
+import { dailyWage } from '../company/staff.js';
+import { advanceRivals, readRivals } from '../company/rivals.js';
 import { appendSnapshot, makeSnapshot } from './history.js';
 import type { ParcelId } from '../types/map.js';
 import { DEFAULT_WORLD_CONFIG, type WorldConfig } from './config.js';
@@ -235,7 +237,10 @@ export function applyAdvanceDay(
   let cash = player.cash;
   const paidMaintenance = Math.min(maintenance, cash);
   cash -= paidMaintenance;
-  pnl = addPnL(pnl, { maintenance: paidMaintenance });
+  const namedWage = dailyWage(next);
+  const paidNamedWage = Math.min(namedWage, cash);
+  cash -= paidNamedWage;
+  pnl = addPnL(pnl, { maintenance: paidMaintenance + paidNamedWage });
 
   const gameDay = closingDay;
   const nextPlayer: Player = { ...player, cash };
@@ -275,6 +280,7 @@ export function applyAdvanceDay(
     pnl: { ...next.pnl, [playerId]: pnl },
     npcBuyOffers: generateNpcBuyOffers(gameDay, { rawPriceMul: rawPortMultiplier(book.events) }),
     npcDeals: buildNpcDeals(next.map.cities, gameDay),
+    rivals: advanceRivals(readRivals(next.rivals, next.map.cities), gameDay),
     scenario,
     history,
   });

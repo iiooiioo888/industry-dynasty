@@ -22,6 +22,8 @@ import {
   validateRepayLoan,
   validateSellCommodity,
   validateSellStock,
+  COMMODITY_INTAKE,
+  validateWithdrawCommodity,
   validateWithdrawSavings,
   type CommodityId,
   type LoanProductId,
@@ -41,6 +43,7 @@ export interface BankPanelProps {
   onSellStock: (symbol: StockSymbol, shares: number) => void;
   onBuyCommodity: (commodityId: CommodityId, lots: number) => void;
   onSellCommodity: (commodityId: CommodityId, lots: number) => void;
+  onWithdrawCommodity: (commodityId: CommodityId, lots: number) => void;
 }
 
 type BankTab = 'overview' | 'loans' | 'stocks' | 'wholesale';
@@ -111,6 +114,7 @@ export function BankPanel({
   onSellStock,
   onBuyCommodity,
   onSellCommodity,
+  onWithdrawCommodity,
 }: BankPanelProps) {
   const [tab, setTab] = useState<BankTab>('overview');
   const [notice, setNotice] = useState<string | null>(null);
@@ -148,7 +152,7 @@ export function BankPanel({
         <span className="sys-panel-tag">BNK</span>
         <h2>銀行</h2>
         <p className="bank-kicker">
-          第 {state.financeTick} 期 · 政策 {formatBps(rates.policyAnnualBps)} · 實質 {formatBps(rates.realAnnualBps)}
+          第 {state.financeTick} 期 · 政策 {formatBps(rates.policyAnnualBps)}
         </p>
       </header>
 
@@ -234,7 +238,6 @@ export function BankPanel({
             定期存款 · {formatBps(DEFAULT_BANK_CONFIG.savingsInterestBps)} ·{' '}
             {DEFAULT_BANK_CONFIG.savingsTermTicks} 期
           </h3>
-          <p className="panel-muted">利率高於閒置現金，鎖定期內提前解約只退本金。</p>
           {snapshot.savingsPrincipal > 0 ? (
             <div className="bank-holding">
               <p>
@@ -311,11 +314,7 @@ export function BankPanel({
               <dd>{money(snapshot.creditAvailable)}</dd>
             </div>
           </dl>
-          {snapshot.creditFrozen ? (
-            <p className="panel-warn">有積欠，新貸款暫停。先償還才會恢復授信。</p>
-          ) : (
-            <p className="panel-muted">貸款利率高於閒置與定期。借來放著會虧，適合趕建廠或買地。</p>
-          )}
+          {snapshot.creditFrozen ? <p className="panel-warn">有積欠，暫停新貸</p> : null}
           <ul className="bank-list">
             {LOAN_PRODUCT_LIST.map((product) => (
               <li key={product.id} className="bank-card">
@@ -534,7 +533,10 @@ export function BankPanel({
 
       {tab === 'wholesale' ? (
         <div role="tabpanel">
-          <p className="panel-muted">以手為單位。賣價比買價低 4%，同一週轉手一定虧損。</p>
+          <p className="panel-muted">
+            以手為單位。賣價比買價低 4%，同一週轉手一定虧損。煤炭與銅可以一手提領成 1
+            單位產線原料，市價高於自己開採。
+          </p>
           <ul className="bank-list">
             {COMMODITY_LIST.map((commodity) => {
               const ask = quoteCommodityAsk(commodity.id, state.financeTick);
@@ -601,6 +603,23 @@ export function BankPanel({
                     >
                       賣出
                     </button>
+                    {COMMODITY_INTAKE[commodity.id] ? (
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => {
+                          const check = validateWithdrawCommodity(state, commodity.id, lots);
+                          if (!check.ok) {
+                            reject(check.reason);
+                            return;
+                          }
+                          onWithdrawCommodity(commodity.id, lots);
+                          setNotice(`提領 ${commodity.nameZh} ${lots} 手進產線庫存`);
+                        }}
+                      >
+                        提領入庫
+                      </button>
+                    ) : null}
                   </div>
                 </li>
               );
@@ -625,7 +644,6 @@ export function BankPanel({
             )}
           </li>
         </ul>
-        <p className="panel-hint">標題列倒數歸零時自動結算，稅、利息與維護只走這一次。</p>
       </div>
       {notice ? <p className="bank-notice">{notice}</p> : null}
     </section>

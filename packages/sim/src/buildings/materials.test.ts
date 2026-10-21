@@ -7,7 +7,7 @@ import {
   hasBuildMaterials,
   missingBuildMaterials,
 } from './materials.js';
-import { FACTORY_TYPES, type FactoryTypeId } from './catalog.js';
+import { FACTORY_TYPES, STOREFRONT_MIN_DENSITY, type FactoryTypeId } from './catalog.js';
 import { getItemQty, ITEMS } from '../production/items.js';
 import { applyWorldAction } from '../world/reducer.js';
 import { createInitialWorld } from '../world/create-world.js';
@@ -83,7 +83,12 @@ describe('建築材料需求', () => {
   it('實際建廠：缺料會被擋下，補齊後才蓋得起來', () => {
     let state = createInitialWorld({ startingCash: 400_000 });
     const parcel = state.map.parcels
-      .filter((p) => p.role === 'land' && p.ownerId === null)
+      .filter(
+        (p) =>
+          p.role === 'land' &&
+          p.ownerId === null &&
+          p.populationDensity >= STOREFRONT_MIN_DENSITY,
+      )
       .find((p) => findOpenLotForParcel(state, p.id) !== undefined)!;
     const lot = findOpenLotForParcel(state, parcel.id)!;
     state = applyWorldAction(state, { type: 'BID', parcelId: parcel.id, amount: lot.minPrice });

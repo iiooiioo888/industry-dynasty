@@ -27,7 +27,7 @@ export function MachineCompare({
 }: MachineCompareProps) {
   return (
     <div className={`machine-compare${compact ? ' is-compact' : ''}`}>
-      <p className="machine-note">{MACHINE_PRODUCT_NOTE}</p>
+      {compact ? null : <p className="machine-note">{MACHINE_PRODUCT_NOTE}</p>}
       <ul className="machine-list">
         {MACHINE_GRADE_LIST.map((grade) => {
           const affordable = cash === undefined || cash >= grade.installCost;
@@ -44,7 +44,7 @@ export function MachineCompare({
                 {grade.maintenancePerDay.toLocaleString('zh-Hant')}/日
                 {profit !== undefined ? ` · 此處每刻 ${formatProfit(profit)}` : ''}
               </span>
-              <span className="machine-advantage">{grade.advantageZh}</span>
+              {compact ? null : <span className="machine-advantage">{grade.advantageZh}</span>}
             </>
           );
           return (

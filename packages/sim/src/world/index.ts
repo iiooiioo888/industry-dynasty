@@ -29,6 +29,15 @@ export {
 } from './workers.js';
 export { quoteParcelPlan, type ParcelPlanQuote } from './parcel-plan.js';
 export {
+  enterFloorBlock,
+  floorPlanFor,
+  stationAt,
+  type FloorPlan,
+  type FloorStation,
+  type FloorStationRole,
+  type MapLayer,
+} from './floor-map.js';
+export {
   listShipmentViews,
   listShipments,
   shipmentTravelTicks,
@@ -80,6 +89,28 @@ export {
   applyAdvanceDay,
   applySellToNpc,
 } from './sales-reducer.js';
+export { COMMODITY_INTAKE, applyWithdrawCommodity, validateWithdrawCommodity } from '../supply/intake.js';
+export {
+  dispatchSupply,
+  downstreamOf,
+  listSiteSupply,
+  listSupplyHauls,
+  listSupplyHaulViews,
+  quoteRestock,
+  quoteSupplyDispatch,
+  releaseSiteBin,
+  restockSite,
+  settleSupplyHauls,
+  siteBin,
+  upstreamOf,
+  type ChainNeighbor,
+  type RestockPart,
+  type SiteInputCover,
+  type SiteSupplyView,
+  type SupplyHaul,
+  type SupplyHaulView,
+  type SupplyStockLine,
+} from '../supply/haul.js';
 export { netProfit, emptyPnL, type PnLSummary } from '../sales/pnl.js';
 export {
   generateParcelResource,

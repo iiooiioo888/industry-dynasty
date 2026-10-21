@@ -7,6 +7,10 @@ export {
 export {
   FACTORY_TYPES,
   FACTORY_TYPE_LIST,
+  STOREFRONT_MIN_DENSITY,
+  isProductiveFactory,
+  type BuildingRole,
+  type SiteKind,
   type FactoryTypeDef,
   type FactoryTypeId,
 } from './catalog.js';

@@ -111,6 +111,7 @@ function bestReadyRecipe(
   );
   const candidates = Object.values(RECIPES)
     .filter((recipe) => recipe.stage === stage && recipe.inputs.length > 0)
+    .filter((recipe) => !('researchId' in recipe && recipe.researchId))
     .filter((recipe) => ITEMS[recipe.outputItemId].sellable)
     .filter((recipe) => techStage(crafted) >= recipe.minTechStage)
     .filter((recipe) => isRecipeUnlocked(recipe, unlocked))

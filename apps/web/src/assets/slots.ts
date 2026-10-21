@@ -33,6 +33,9 @@ export const ASSET_SLOTS = {
     'pack-module': '/assets/item-alloy-plate.png',
     'precision-module': '/assets/item-alloy-plate.png',
     'control-unit': '/assets/item-alloy-plate.png',
+    'tool-kit': '/assets/item-basic-part.png',
+    'wire-spool': '/assets/item-alloy-plate.png',
+    'sealant-coat': '/assets/item-resin.png',
   },
   buildings: {
     workshop: '/assets/bld-workshop.png',

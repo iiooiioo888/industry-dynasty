@@ -1,7 +1,7 @@
 import { SIM_MS_PER_TICK } from '../world/clock.js';
 import type { Parcel, ParcelId } from '../types/map.js';
 import type { FactoryTypeDef, FactoryTypeId } from './catalog.js';
-import { FACTORY_TYPES } from './catalog.js';
+import { FACTORY_TYPES, STOREFRONT_MIN_DENSITY } from './catalog.js';
 import type { ConstructingSite, ParcelSite } from './site.js';
 import type { Player } from '../world/state.js';
 
@@ -44,6 +44,12 @@ export function validateStartBuild(
   }
   if (player.cash < factoryType.buildCost) {
     return { ok: false, reason: '現金不足以支付建造費用' };
+  }
+  if (factoryType.id === 'storefront' && parcel.populationDensity < STOREFRONT_MIN_DENSITY) {
+    return {
+      ok: false,
+      reason: `門市要人口密度至少 ${STOREFRONT_MIN_DENSITY}（這裡 ${parcel.populationDensity}）`,
+    };
   }
   return { ok: true };
 }

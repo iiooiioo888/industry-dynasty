@@ -1,6 +1,7 @@
 import {
   FACTORY_TYPE_LIST,
   FACTORY_TYPES,
+  STOREFRONT_MIN_DENSITY,
   constructionRemainingTicks,
   findParcel,
   getSite,
@@ -9,7 +10,6 @@ import {
   type ParcelId,
   type WorldState,
 } from '@industry-dynasty/sim';
-import { MachineCompare } from './MachineCompare';
 import './BuildPanel.css';
 
 export interface BuildPanelProps {
@@ -68,25 +68,23 @@ export function BuildPanel({
     <div className="plan-build">
       <h3>建造</h3>
       <p className="panel-hint">
-        若在此銷售：每週約 {demand.weeklyVolume} 件，單價 ${demand.unitPrice.toLocaleString()}。
-        開工後進度吃模擬時間，暫停就停工。加工機械在排產時選，不改產品。
+        週 {demand.weeklyVolume} · ${demand.unitPrice.toLocaleString()}
       </p>
-      <MachineCompare />
       <ul className="factory-list">
         {FACTORY_TYPE_LIST.map((def) => {
-          const affordable = player.cash >= def.buildCost;
+          const denseEnough =
+            def.id !== 'storefront' || parcel.populationDensity >= STOREFRONT_MIN_DENSITY;
+          const affordable = player.cash >= def.buildCost && denseEnough;
           return (
             <li key={def.id}>
               <div className="factory-card">
                 <strong>{def.nameZh}</strong>
-                <span className="factory-en">{def.nameEn}</span>
                 <p>
-                  費用 ${def.buildCost.toLocaleString()} · {def.buildTimeTicks} 刻 · 占地{' '}
-                  {def.footprint.width}×{def.footprint.height}
+                  ${def.buildCost.toLocaleString()} · {def.buildTimeTicks} 刻
                 </p>
                 <p className="factory-meta">
                   {def.role === 'production'
-                    ? `基礎物流 ${def.baseLogisticsEfficiency.toFixed(2)}× · 每鄰 +${(def.adjacencyEfficiencyBonus * 100).toFixed(0)}%`
+                    ? `物流 ${def.baseLogisticsEfficiency.toFixed(2)}×`
                     : `$${def.dailyUpkeep}/日`}
                 </p>
                 <button
@@ -94,7 +92,7 @@ export function BuildPanel({
                   disabled={!affordable}
                   onClick={() => onStartBuild(parcel.id, def.id)}
                 >
-                  開始建造
+                  {denseEnough ? '開始建造' : `人口密度需 ${STOREFRONT_MIN_DENSITY}`}
                 </button>
               </div>
             </li>

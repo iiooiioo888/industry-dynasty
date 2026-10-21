@@ -3,11 +3,15 @@ export type FactoryTypeId = 'workshop' | 'assembly-plant' | 'storefront' | 'lab'
 
 export type BuildingRole = 'production' | 'retail' | 'research';
 
+/** 廠房地圖用。`works` 才能排產。 */
+export type SiteKind = 'works' | 'lab' | 'store';
+
 export interface FactoryTypeDef {
   readonly id: FactoryTypeId;
   readonly nameZh: string;
   readonly nameEn: string;
   readonly role: BuildingRole;
+  readonly kind: SiteKind;
   readonly footprint: { readonly width: number; readonly height: number };
   readonly buildCost: number;
   readonly buildTimeTicks: number;
@@ -19,12 +23,16 @@ export interface FactoryTypeDef {
   readonly dailyUpkeep: number;
 }
 
+/** 門市只蓋在人口夠密的自有地，避免空城也能開店。 */
+export const STOREFRONT_MIN_DENSITY = 55;
+
 export const FACTORY_TYPES: Record<FactoryTypeId, FactoryTypeDef> = {
   workshop: {
     id: 'workshop',
     nameZh: '小型工坊',
     nameEn: 'Workshop',
     role: 'production',
+    kind: 'works',
     footprint: { width: 1, height: 1 },
     buildCost: 3_000,
     buildTimeTicks: 3,
@@ -37,6 +45,7 @@ export const FACTORY_TYPES: Record<FactoryTypeId, FactoryTypeDef> = {
     nameZh: '組裝廠',
     nameEn: 'Assembly Plant',
     role: 'production',
+    kind: 'works',
     footprint: { width: 1, height: 1 },
     buildCost: 7_200,
     buildTimeTicks: 5,
@@ -49,6 +58,7 @@ export const FACTORY_TYPES: Record<FactoryTypeId, FactoryTypeDef> = {
     nameZh: '門市',
     nameEn: 'Storefront',
     role: 'retail',
+    kind: 'store',
     footprint: { width: 1, height: 1 },
     buildCost: 4_500,
     buildTimeTicks: 3,
@@ -61,6 +71,7 @@ export const FACTORY_TYPES: Record<FactoryTypeId, FactoryTypeDef> = {
     nameZh: '研發室',
     nameEn: 'Research Lab',
     role: 'research',
+    kind: 'lab',
     footprint: { width: 1, height: 1 },
     buildCost: 6_000,
     buildTimeTicks: 4,
@@ -69,5 +80,9 @@ export const FACTORY_TYPES: Record<FactoryTypeId, FactoryTypeDef> = {
     dailyUpkeep: 30,
   },
 };
+
+export function isProductiveFactory(factoryTypeId: FactoryTypeId): boolean {
+  return FACTORY_TYPES[factoryTypeId].role === 'production';
+}
 
 export const FACTORY_TYPE_LIST: readonly FactoryTypeDef[] = Object.values(FACTORY_TYPES);

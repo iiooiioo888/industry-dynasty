@@ -1,13 +1,16 @@
 import {
   DEFAULT_WORLD_CONFIG,
+  STAGES,
+  enterFloorBlock,
   marketShareOf,
   readCommerce,
-  type MarketId,
-  STAGES,
   ticksUntilDayClose,
+  type ConsumerItemId,
   type FactoryTypeId,
   type ItemId,
   type MachineGradeId,
+  type MapLayer,
+  type MarketId,
   type ParcelId,
   type RecipeId,
   type StaffRole,
@@ -23,6 +26,7 @@ import { GameMap } from './components/GameMap';
 import { InventoryPanel } from './components/InventoryPanel';
 import { LedgerPanel } from './components/LedgerPanel';
 import { MarketPanel } from './components/MarketPanel';
+import { OperationsPanel } from './components/OperationsPanel';
 import { ParcelPlanCard } from './components/ParcelPlanCard';
 import { PnLPanel } from './components/PnLPanel';
 import { PlayerOverview } from './components/PlayerOverview';
@@ -39,6 +43,7 @@ import { OpsPanel } from './components/OpsPanel';
 import { ProductionPanel } from './components/ProductionPanel';
 import { LandSaleSection } from './components/LandSaleSection';
 import { SalesPanel } from './components/SalesPanel';
+import { SupplyBoard } from './components/SupplyBoard';
 import { useWorldState } from './game/useWorldState';
 import './App.css';
 
@@ -62,22 +67,25 @@ export function App() {
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
   const [page, setPage] = useState<PageId>('map');
+  const [mapView, setMapView] = useState<MapLayer>('world');
   const clockLabel = state.clock.paused ? '暫停' : `${state.clock.speed}×`;
   const sharePct = Math.round(marketShareOf(readCommerce(state)) * 100);
   const cash = state.players[state.localPlayerId]?.cash ?? 0;
-  // 關卡資訊與結算（見 `game/stage-progress.ts`）
   const stage = currentStage(state);
   const stageProgress = useMemo(() => computeStageProgress(state), [state]);
-  // 戰役進度（跨局保留）與關卡選擇
   const [campaign, setCampaign] = useState(() => loadProgress());
   const [stageSelectOpen, setStageSelectOpen] = useState(false);
-  // 開場簡報：每一關第一次進入時顯示，玩家按「開始」才關掉。
-  // 用「關卡 id + 天數」當 key —— 重玩同一關時會再顯示一次，這是刻意的。
   const [dismissedBriefing, setDismissedBriefing] = useState<string | null>(null);
   const briefingKey = stage ? `${stage.id}:${state.gameDay}` : null;
   const briefingOpen = stage !== null && state.gameDay === 0 && dismissedBriefing !== briefingKey;
+  const floorBlock = selectedParcelId ? enterFloorBlock(state, selectedParcelId) : '先點一棟完工的建物';
 
-  // 通關就把這一關記進戰役進度（含最佳成績），並自動解鎖下一關
+  useEffect(() => {
+    if (mapView === 'floor' && floorBlock) {
+      setMapView('world');
+    }
+  }, [mapView, floorBlock]);
+
   useEffect(() => {
     if (state.scenario.status !== 'won') {
       return;
@@ -157,6 +165,77 @@ export function App() {
             <GameMap
               state={state}
               selectedParcelId={selectedParcelId}
+              mapView={mapView}
+              onShowWorld={() => setMapView('world')}
+              onShowFloor={() => {
+                if (selectedParcelId && enterFloorBlock(state, selectedParcelId) === null) {
+                  setMapView('floor');
+                }
+              }}
+              floorCommands={{
+                onLeave: () => setMapView('world'),
+                onStartProduction: (recipeId, machineGradeId) => {
+                  if (selectedParcelId) {
+                    dispatch({
+                      type: 'START_PRODUCTION',
+                      parcelId: selectedParcelId,
+                      recipeId,
+                      machineGradeId,
+                    });
+                  }
+                },
+                onInstallMachine: (machineGradeId) => {
+                  if (selectedParcelId) {
+                    dispatch({ type: 'INSTALL_MACHINE', parcelId: selectedParcelId, machineGradeId });
+                  }
+                },
+                onStopProduction: () => {
+                  if (selectedParcelId) {
+                    dispatch({ type: 'STOP_PRODUCTION', parcelId: selectedParcelId });
+                  }
+                },
+                onHire: (candidateId) => dispatch({ type: 'HIRE_STAFF', candidateId }),
+                onDismiss: (staffId) => dispatch({ type: 'DISMISS_STAFF', staffId }),
+                onAssign: (staffId, parcelId) => dispatch({ type: 'ASSIGN_STAFF', staffId, parcelId }),
+                onUnlock: (projectId) => dispatch({ type: 'UNLOCK_RESEARCH', projectId }),
+                onSetShelfPrice: (itemId, unitPrice) => {
+                  if (selectedParcelId) {
+                    dispatch({ type: 'SET_SHELF_PRICE', parcelId: selectedParcelId, itemId, unitPrice });
+                  }
+                },
+                onBuyAd: (spend) => dispatch({ type: 'BUY_ADVERT', spend }),
+                onSellToPort: (offerId, quantity) => {
+                  if (selectedParcelId) {
+                    dispatch({
+                      type: 'SELL_TO_NPC',
+                      offerId,
+                      quantity,
+                      shipFromParcelId: selectedParcelId,
+                    });
+                  }
+                },
+                onFillOrder: (orderId, quantity) => {
+                  if (selectedParcelId) {
+                    dispatch({
+                      type: 'FILL_CITY_ORDER',
+                      orderId,
+                      quantity,
+                      shipFromParcelId: selectedParcelId,
+                    });
+                  }
+                },
+                onDispatchSupply: (itemId, quantity, fromParcelId) => {
+                  if (selectedParcelId) {
+                    dispatch({
+                      type: 'DISPATCH_SUPPLY',
+                      toParcelId: selectedParcelId,
+                      itemId,
+                      quantity,
+                      fromParcelId,
+                    });
+                  }
+                },
+              }}
               onSelectParcel={setSelectedParcelId}
               onTogglePause={() => dispatch({ type: 'SET_CLOCK', paused: !state.clock.paused })}
               onSetSpeed={(speed) => dispatch({ type: 'SET_CLOCK', paused: false, speed })}
@@ -179,11 +258,23 @@ export function App() {
                 dispatch({ type: 'INSTALL_MACHINE', parcelId, machineGradeId })
               }
               onStopProduction={(parcelId) => dispatch({ type: 'STOP_PRODUCTION', parcelId })}
+              onSetShelfPrice={(parcelId, itemId: ConsumerItemId, unitPrice) =>
+                dispatch({ type: 'SET_SHELF_PRICE', parcelId, itemId, unitPrice })
+              }
+              onEnterFloor={() => setMapView('floor')}
             />
           </main>
         </div>
       ) : (
         <div className="page-sheet">
+          {page === 'produce' ? (
+            <SupplyBoard
+              state={state}
+              selectedParcelId={selectedParcelId}
+              onSelect={setSelectedParcelId}
+              onRestock={(parcelId) => dispatch({ type: 'RESTOCK_SITE', parcelId })}
+            />
+          ) : null}
           {page === 'produce' ? (
             <ProductionPanel
               state={state}
@@ -203,7 +294,13 @@ export function App() {
             />
           ) : null}
           {page === 'market' ? (
-            <MarketPanel state={state} selectedParcelId={selectedParcelId} />
+            <MarketPanel
+              state={state}
+              selectedParcelId={selectedParcelId}
+              onFillOrder={(orderId, quantity, parcelId) =>
+                dispatch({ type: 'FILL_CITY_ORDER', orderId, quantity, shipFromParcelId: parcelId })
+              }
+            />
           ) : null}
           {page === 'sales' ? (
             <SalesPanel
@@ -230,15 +327,28 @@ export function App() {
             />
           ) : null}
           {page === 'ops' ? (
-            <OpsPanel
-              state={state}
-              onHire={(role: StaffRole, count) => dispatch({ type: 'HIRE_STAFF', role, count })}
-              onFire={(role: StaffRole, count) => dispatch({ type: 'FIRE_STAFF', role, count })}
-              onResearch={(parcelId, researchId) =>
-                dispatch({ type: 'START_RESEARCH', parcelId, researchId })
-              }
-              onCampaign={(cityId) => dispatch({ type: 'BUY_CAMPAIGN', cityId })}
-            />
+            <>
+              <OpsPanel
+                state={state}
+                onHire={(role: StaffRole, count) => dispatch({ type: 'HIRE_STAFF', role, count })}
+                onFire={(role: StaffRole, count) => dispatch({ type: 'FIRE_STAFF', role, count })}
+                onResearch={(parcelId, researchId) =>
+                  dispatch({ type: 'START_RESEARCH', parcelId, researchId })
+                }
+                onCampaign={(cityId) => dispatch({ type: 'BUY_CAMPAIGN', cityId })}
+              />
+              <OperationsPanel
+                state={state}
+                onHire={(candidateId) => dispatch({ type: 'HIRE_STAFF', candidateId })}
+                onDismiss={(staffId) => dispatch({ type: 'DISMISS_STAFF', staffId })}
+                onAssign={(staffId, parcelId) => dispatch({ type: 'ASSIGN_STAFF', staffId, parcelId })}
+                onUnlock={(projectId) => dispatch({ type: 'UNLOCK_RESEARCH', projectId })}
+                onSetPrice={(parcelId, itemId, unitPrice) =>
+                  dispatch({ type: 'SET_SHELF_PRICE', parcelId, itemId, unitPrice })
+                }
+                onBuyAd={(spend) => dispatch({ type: 'BUY_ADVERT', spend })}
+              />
+            </>
           ) : null}
           {page === 'bank' ? (
             <BankPanel
@@ -254,6 +364,9 @@ export function App() {
               }
               onSellCommodity={(commodityId, lots) =>
                 dispatch({ type: 'SELL_COMMODITY', commodityId, lots })
+              }
+              onWithdrawCommodity={(commodityId, lots) =>
+                dispatch({ type: 'WITHDRAW_COMMODITY', commodityId, lots })
               }
             />
           ) : null}

@@ -1,11 +1,13 @@
 import {
   FACTORY_TYPES,
   readCommerce,
+  readResearch,
   MACHINE_GRADES,
   RECIPE_LIST,
   RECIPES,
   chainMarginCue,
   createProductionLine,
+  enterFloorBlock,
   findOpenLotForParcel,
   findParcel,
   getProductionLine,
@@ -17,17 +19,18 @@ import {
   quoteParcelPlan,
   recipeBlockReason,
   validateBid,
+  type ConsumerItemId,
   type FactoryTypeId,
   type MachineGradeId,
   type Parcel,
   type ParcelId,
-  type ParcelResourceKind,
   type RecipeId,
   type WorldState,
 } from '@industry-dynasty/sim';
 import { useState } from 'react';
 import { BuildPanel } from './BuildPanel';
 import { MachineCompare } from './MachineCompare';
+import { ShelfDesk } from './OperationsPanel';
 import './ParcelPlanCard.css';
 
 const MAX_PINS = 3;
@@ -49,6 +52,8 @@ export interface ParcelPlanCardProps {
   ) => void;
   onInstallMachine: (parcelId: ParcelId, machineGradeId: MachineGradeId) => void;
   onStopProduction: (parcelId: ParcelId) => void;
+  onSetShelfPrice: (parcelId: ParcelId, itemId: ConsumerItemId, unitPrice: number) => void;
+  onEnterFloor: () => void;
 }
 
 type ParcelPlanBuildProps = {
@@ -57,19 +62,6 @@ type ParcelPlanBuildProps = {
 
 function formatProfit(value: number): string {
   return value.toLocaleString('zh-Hant', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
-}
-
-function resourceNextStep(kind: ParcelResourceKind): string | null {
-  switch (kind) {
-    case 'copper-shale':
-      return '下一步：挖出的銅礦可以直接賣給港區。煉成銅錠要煤炭，而且要先入庫原料解鎖技術。合金板要另建組裝廠，這座工坊做不到。';
-    case 'coal-seam':
-      return '下一步：煤炭可以直接出售，也是冶煉燃料。鐵錠、銅錠、矽片仍不能直接賣；合金板要組裝廠。';
-    case 'quartz-sand':
-      return '下一步：石英砂粒可以直接賣給港區。燒成矽片要煤炭與技術。合金板要另建組裝廠，這座工坊做不到。';
-    default:
-      return null;
-  }
 }
 
 function parcelById(state: WorldState, id: string): Parcel | undefined {
@@ -88,6 +80,8 @@ export function ParcelPlanCard({
   onStartProduction,
   onInstallMachine,
   onStopProduction,
+  onSetShelfPrice,
+  onEnterFloor,
 }: ParcelPlanCardProps) {
   const player = state.players[state.localPlayerId];
   const selected = selectedParcelId ? findParcel(state, selectedParcelId) : undefined;
@@ -112,6 +106,7 @@ export function ParcelPlanCard({
   const price = lot ? (lot.highBidderId === player?.id ? lot.highBid : minNextBid(lot)) : 0;
   const canBuy = Boolean(player && buyable && player.cash >= price);
   const pinned = selected ? pinnedIds.includes(selected.id.value) : false;
+  const canEnterFloor = selected ? enterFloorBlock(state, selected.id) === null : false;
 
   function purchase(parcel: Parcel) {
     const open = findOpenLotForParcel(state, parcel.id);
@@ -131,11 +126,10 @@ export function ParcelPlanCard({
         <h2>規劃</h2>
       </header>
       {!selected ? (
-        <p className="sys-muted">點地圖上的地。這張卡會並列到港、樞紐、人口、運費與土地稅。</p>
+        <p className="sys-muted">點一格地</p>
       ) : selected.role !== 'land' ? (
         <p className="sys-muted">
-          {selected.role === 'road' ? '道路' : (selected.nearestCityName ?? '城市')}
-          不出售。改選旁邊的地來比較。
+          不出售
         </p>
       ) : (
         <>
@@ -144,8 +138,13 @@ export function ParcelPlanCard({
               ({selected.x},{selected.y}) · {selected.resource.nameZh}
             </p>
             <button type="button" className="secondary" onClick={() => onTogglePin(selected.id)}>
-              {pinned ? '取消釘選' : '釘選比較'}
+              {pinned ? '取消釘選' : '釘選'}
             </button>
+            {canEnterFloor ? (
+              <button type="button" className="sys-btn" onClick={onEnterFloor}>
+                進入廠房
+              </button>
+            ) : null}
           </div>
           {columns.length > 0 ? (
             <table className="plan-table">
@@ -198,10 +197,6 @@ export function ParcelPlanCard({
               </tbody>
             </table>
           ) : null}
-          <p className="panel-hint">運費以基礎零件估算。釘選 2–3 格，先比再買。</p>
-          {resourceNextStep(selected.resource.kind) ? (
-            <p className="panel-hint">{resourceNextStep(selected.resource.kind)}</p>
-          ) : null}
           {buyable && lot && player ? (
             <AuctionBidBox
               key={`${selected.id.value}-${minNextBid(lot)}`}
@@ -249,6 +244,15 @@ export function ParcelPlanCard({
               onInstall={onInstallMachine}
               onStop={onStopProduction}
             />
+          ) : null}
+          {factoryReady && site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].kind === 'lab' ? (
+            <p className="panel-hint">到經營頁指派研發員</p>
+          ) : null}
+          {factoryReady && selected && site?.phase === 'complete' && FACTORY_TYPES[site.factoryTypeId].kind === 'store' ? (
+            <div className="plan-schedule">
+              <h3>門市定價</h3>
+              <ShelfDesk state={state} parcelId={selected.id} onSetPrice={onSetShelfPrice} />
+            </div>
           ) : null}
         </>
       )}
@@ -312,7 +316,7 @@ function AuctionBidBox({
         </button>
       </div>
       <p className="panel-hint">
-        底價 ${lotMin.toLocaleString('zh-TW')}。沒有達到底價的結算不會關礦。
+        底價 ${lotMin.toLocaleString('zh-TW')}
       </p>
       {error ? (
         <p className="plan-alert" role="alert">
@@ -362,7 +366,7 @@ function FactorySchedule({
 }: {
   state: WorldState;
   parcel: Parcel;
-  factoryTypeId: 'workshop' | 'assembly-plant' | 'storefront' | 'lab';
+  factoryTypeId: FactoryTypeId;
   line: ReturnType<typeof getProductionLine>;
   cash: number;
   onStart: (parcelId: ParcelId, recipeId: RecipeId, machineGradeId?: MachineGradeId) => void;
@@ -405,11 +409,9 @@ function FactorySchedule({
             cash={cash + (line.machinePaid ?? 0)}
             onSelect={(grade) => onInstall(parcel.id, grade)}
           />
-        ) : (
-          <p className="panel-hint">開採不裝加工機。產品沿用礦石，速度不因爐具改變。</p>
-        )}
+        ) : null}
         <button type="button" className="sys-btn secondary full" onClick={() => onStop(parcel.id)}>
-          停止這條產線
+          停止
         </button>
       </div>
     );
@@ -428,7 +430,7 @@ function FactorySchedule({
       resourceKind: parcel.resource.kind,
       factoryTypeId,
       crafted,
-      unlockedResearch: readCommerce(state).unlocked,
+      unlockedResearch: [...readCommerce(state).unlocked, ...readResearch(state).unlocked],
     });
   })
     .map((recipe) => {
@@ -477,7 +479,7 @@ function FactorySchedule({
         onSelect={setMachine}
       />
       {options.length === 0 ? (
-        <p className="sys-muted">這座廠現在沒有可開工的配方。技術鏈收在右側「可解鎖」。</p>
+        <p className="sys-muted">無可開工配方</p>
       ) : (
         <ul className="plan-recipes">
           {options.map((option) => {

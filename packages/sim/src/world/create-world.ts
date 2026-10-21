@@ -1,4 +1,7 @@
 import { emptyPlayerBank } from '../bank/logic.js';
+import { eventForDay } from '../company/events.js';
+import { emptyResearch } from '../company/research.js';
+import { createRivalBook } from '../company/rivals.js';
 import { createOpeningContracts, emptyCommerce, seedRivals } from '../commerce/logic.js';
 import { buildNpcDeals } from '../npc/deals.js';
 import { initialSimClock } from './clock.js';
@@ -52,7 +55,7 @@ export function createInitialWorld(config: Partial<WorldConfig> = {}): WorldStat
 
   const map = buildMap(merged);
   const commerce = emptyCommerce();
-  const rivals = seedRivals(map.cities);
+  const outletRivals = seedRivals(map.cities);
   const contracts = createOpeningContracts(map.cities, 0, 0);
 
   return {
@@ -76,8 +79,14 @@ export function createInitialWorld(config: Partial<WorldConfig> = {}): WorldStat
     scenario: createScenarioState(scenarioForStage(merged.stageId)),
     clock: initialSimClock(),
     shipments: [],
-    commerce: { ...commerce, rivals, contracts },
+    commerce: { ...commerce, rivals: outletRivals, contracts },
     npcDeals: buildNpcDeals(map.cities, 0),
+    staff: [],
+    research: emptyResearch(),
+    shelfPrices: [],
+    brand: 0,
+    rivals: createRivalBook(map.cities),
+    todayEvent: eventForDay(0),
   };
 }
 

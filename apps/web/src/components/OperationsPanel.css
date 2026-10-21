@@ -1,0 +1,67 @@
+.ops-panel h3 {
+  margin: 0.85rem 0 0.35rem;
+  font-size: 0.82rem;
+}
+
+.ops-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.ops-list li {
+  border: 1px solid var(--sys-border, #3d4654);
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+}
+
+.ops-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.ops-row input,
+.ops-row select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.right-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.2rem;
+  flex-shrink: 0;
+  padding: 0.2rem;
+  border-radius: 12px;
+  border: 1px solid var(--sys-border);
+  background: rgba(8, 12, 18, 0.55);
+}
+
+.right-tabs button {
+  padding: 0.4rem 0.15rem;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--sys-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.right-tabs button[aria-selected='true'] {
+  background: linear-gradient(180deg, rgba(143, 208, 255, 0.18), rgba(143, 208, 255, 0.06));
+  border-color: rgba(143, 208, 255, 0.4);
+  color: var(--sys-text);
+}
+
+.day-event {
+  flex: 1 0 100%;
+  margin: 0;
+  color: var(--sys-muted);
+  font-size: 0.65rem;
+}

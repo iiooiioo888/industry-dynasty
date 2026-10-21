@@ -109,10 +109,7 @@ export function ParcelFocusCard({ state, selectedParcelId, onSelectParcel }: Par
 
   return (
     <div className="parcel-focus">
-      <p className="parcel-focus-note">全圖可左右滑動。這裡只補充這一格的方位，不取代地圖。</p>
-      {state.clock.paused ? (
-        <p className="parcel-focus-note">時間已暫停，工人停在原地，標籤是暫停當下的狀態。</p>
-      ) : null}
+      {state.clock.paused ? <p className="parcel-focus-note">已暫停</p> : null}
       {selected ? (
         <article className="parcel-focus-card" aria-label={`地塊 ${selected.x},${selected.y} 方位`}>
           <header className="parcel-focus-head">

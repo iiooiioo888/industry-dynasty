@@ -1,6 +1,8 @@
 .overview-panel .cash-line {
-  margin: 0.25rem 0;
-  font-size: 1.1rem;
+  margin: 0.25rem 0 0.4rem;
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--sys-warn);
 }
 
 .overview-panel .meta-line {

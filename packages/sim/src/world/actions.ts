@@ -7,10 +7,11 @@ import type {
   StockSymbol,
 } from '../bank/types.js';
 import type { StaffRole } from '../commerce/types.js';
-import type { ItemId } from '../production/items.js';
+import type { ConsumerItemId } from '../company/retail.js';
 import type { ClockSpeed } from './clock.js';
 import type { FactoryTypeId } from '../buildings/catalog.js';
 import type { MachineGradeId } from '../production/machines.js';
+import type { ItemId } from '../production/items.js';
 import type { RecipeId } from '../production/recipes.js';
 import type { ParcelId } from '../types/map.js';
 
@@ -70,9 +71,26 @@ export type WorldAction =
    */
   | { type: 'BID_CONTRACT'; contractId: string; unitPrice: number }
   | { type: 'HIRE_STAFF'; role: StaffRole; count: number }
+  | { type: 'HIRE_STAFF'; candidateId: string }
   | { type: 'FIRE_STAFF'; role: StaffRole; count: number }
   | { type: 'START_RESEARCH'; parcelId: ParcelId; researchId?: string }
   | { type: 'BUY_CAMPAIGN'; cityId: string }
   | { type: 'ADVANCE_DAY' }
   | { type: 'SET_CLOCK'; paused?: boolean; speed?: ClockSpeed }
-  | { type: 'ADVANCE_SIM_TIME'; deltaMs: number };
+  | { type: 'ADVANCE_SIM_TIME'; deltaMs: number }
+  | { type: 'DISMISS_STAFF'; staffId: string }
+  | { type: 'ASSIGN_STAFF'; staffId: string; parcelId: ParcelId | null }
+  | { type: 'UNLOCK_RESEARCH'; projectId: string }
+  | { type: 'SET_SHELF_PRICE'; parcelId: ParcelId; itemId: ConsumerItemId; unitPrice: number }
+  | { type: 'BUY_ADVERT'; spend: number }
+  | { type: 'WITHDRAW_COMMODITY'; commodityId: CommodityId; lots: number }
+  | { type: 'FILL_CITY_ORDER'; orderId: string; quantity: number; shipFromParcelId: ParcelId }
+  | {
+      type: 'DISPATCH_SUPPLY';
+      toParcelId: ParcelId;
+      itemId: ItemId;
+      quantity: number;
+      /** 省略時從公司庫出發。指定時從另一座完工建物的料倉出發。 */
+      fromParcelId?: ParcelId | null;
+    }
+  | { type: 'RESTOCK_SITE'; parcelId: ParcelId };

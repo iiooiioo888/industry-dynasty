@@ -41,22 +41,22 @@ function salesDisabledReason(
   const playerId = state.localPlayerId;
   const holdings = getPlayerHoldings(state, playerId);
   if (holdings.length === 0) {
-    return `尚未擁有土地，無法出貨至港區 (${MARKET_HUB.x},${MARKET_HUB.y})。`;
+    return '還沒有地';
   }
   const offer = state.npcBuyOffers.find((o) => o.id === offerId);
   if (!offer) {
-    return '請選擇收購項目。';
+    return '選一項';
   }
   const stock = getPlayerInventory(state, playerId);
   if (getItemQty(stock, offer.itemId) < qty || qty <= 0) {
-    return `庫存不足（目前 ${getItemQty(stock, offer.itemId)}，欲售 ${qty}）。`;
+    return `庫存 ${getItemQty(stock, offer.itemId)}`;
   }
   if (!shipParcel) {
-    return '請從下拉選擇出貨點。';
+    return '選出貨點';
   }
   const quote = quoteSale(offer, shipParcel);
   if (quote.netPerUnit <= 0) {
-    return `運輸 $${quote.transportPerUnit}/單 高於港價 $${quote.hubUnitPrice}；請購買更靠近市場的土地，或改賣高價品。`;
+    return `運費 $${quote.transportPerUnit} 高於港價`;
   }
   return null;
 }
@@ -166,9 +166,7 @@ function PortSale({
 
   return (
     <div>
-      <p className="sys-muted sales-guide">
-        出貨佔用模擬時間。地圖會畫路線，到港才入帳。出貨點必須從下拉選擇。
-      </p>
+      <p className="sys-muted sales-guide">到港才入帳。出貨點從下拉選。</p>
       <div className="market-hub-cue">
         <img
           src={ASSET_SLOTS.ui.marketHub}
@@ -195,7 +193,7 @@ function PortSale({
             (e.target as HTMLImageElement).style.display = 'none';
           }}
         />
-        <span className="npc-fallback">港區收購商</span>
+        <span className="npc-fallback">收購</span>
       </div>
       <label className="sales-field">
         <span>收購項目</span>
@@ -262,9 +260,7 @@ function PortSale({
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="sys-muted">到貨才入帳。出貨點要從下拉明選，不會自動改成最近港區。</p>
-      )}
+      ) : null}
       <button
         type="button"
         className="sys-btn full"

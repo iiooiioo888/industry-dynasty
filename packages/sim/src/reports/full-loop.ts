@@ -299,7 +299,7 @@ function reserveQtyFor(
   const unlocked = state.commerce?.unlocked ?? [];
   const crafted = state.craftedTotals[playerId];
   for (const recipe of Object.values(RECIPES)) {
-    if (recipe.inputs.length === 0) continue;
+    if (recipe.inputs.length === 0 || ('researchId' in recipe && recipe.researchId)) continue;
     if (!(recipe.stage === 'process' ? depth >= 1 : depth >= 2)) continue;
     if (!ITEMS[recipe.outputItemId].sellable) continue;
     if (!isRecipeUnlocked(recipe, unlocked)) continue;

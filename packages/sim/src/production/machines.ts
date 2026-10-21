@@ -43,8 +43,7 @@ export const MACHINE_GRADES = {
     gatedCycleMultiplier: 1.22,
     gatedThroughputMultiplier: 0.9,
     depthDragScale: 0.65,
-    advantageZh:
-      '不收裝機費，維護最低，長路程也不會再被門檻懲罰。週期較長、產量略低，深加工溢價留得少。',
+    advantageZh: '免裝機費，維護最低',
   },
   'balance-press': {
     id: 'balance-press',
@@ -59,7 +58,7 @@ export const MACHINE_GRADES = {
     gatedCycleMultiplier: 1,
     gatedThroughputMultiplier: 1,
     depthDragScale: 1,
-    advantageZh: '週期與產量居中。短路程時加工溢價留得住；沒有額外的路程門檻。',
+    advantageZh: '速度居中',
   },
   'neighbor-kiln': {
     id: 'neighbor-kiln',
@@ -74,8 +73,7 @@ export const MACHINE_GRADES = {
     gatedCycleMultiplier: 1.34,
     gatedThroughputMultiplier: 0.78,
     depthDragScale: 1.35,
-    advantageZh:
-      '工人 4 步以內才縮短週期並提高產量，深加工尤其明顯。超過 4 步改為又慢又少，維護仍照收。',
+    advantageZh: '近距離更快',
   },
 } as const satisfies Record<MachineGradeId, MachineGradeDef>;
 
